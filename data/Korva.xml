@@ -1,0 +1,21 @@
+<node>
+  <interface name='org.jensge.Korva.Controller1'>
+    <method name='GetDevices'>
+      <arg direction='out' name='Devices' type='aa{sv}' />
+    </method>
+    <method name='GetDeviceInfo'>
+      <arg direction='in' name='UID' type='s' />
+      <arg direction='out' name='DeviceInfo' type='a{sv}' />
+    </method>
+    <method name='Push'>
+      <arg direction='in' name='Source' type='a{sv}' />
+      <arg direction='in' name='UID' type='s' />
+    </method>
+    <signal name='DeviceAvailable'>
+      <arg name='Device' type='a{sv}' />
+    </signal>
+    <signal name='DeviceUnavailable'>
+      <arg name='UID' type='s' />
+    </signal>
+  </interface>
+</node>

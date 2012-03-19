@@ -1,0 +1,14 @@
+!.gitignore
+.*
+server/korva-dbus-interface.*
+*.o
+config.*
+Makefile
+Makefile.in
+aclocal.m4
+*~
+build-aux
+autom4te.cache
+configure
+INSTALL
+stamp-h1
