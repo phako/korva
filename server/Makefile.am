@@ -3,8 +3,14 @@ bin_PROGRAMS=korva
 GENERATED_SOURCES=korva-dbus-interface.c korva-dbus-interface.h
 
 korva_SOURCES=\
+	$(GENERATED_SOURCES) \
 	korva.c \
-	$(GENERATED_SOURCES)
+	korva-server.c \
+	korva-server.h \
+	korva-device.c \
+	korva-device.h \
+	korva-device-lister.c \
+	korva-device-lister.h
 
 korva_CFLAGS=$(GIO_CFLAGS)
 
