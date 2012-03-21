@@ -28,6 +28,8 @@
 #include "korva-device-lister.h"
 #include "korva-dbus-interface.h"
 
+#include "upnp/korva-upnp-device-lister.h"
+
 struct _KorvaBackend {
     KorvaDeviceLister *lister;
 };
@@ -185,6 +187,7 @@ korva_server_on_bus_aquired  (GDBusConnection *connection,
                               const gchar     *name,
                               gpointer         user_data)
 {
+    KorvaBackend *backend;
     GError *error = NULL;
     KorvaController1 *controller;
     
@@ -218,6 +221,19 @@ korva_server_on_bus_aquired  (GDBusConnection *connection,
 
         g_main_loop_quit (self->priv->loop);
     }
+
+    backend = g_new0 (KorvaBackend, 1);
+    backend->lister = korva_upnp_device_lister_new ();
+    self->priv->backends = g_list_append (self->priv->backends, backend);
+    g_signal_connect (backend->lister,
+                      "device-available",
+                      G_CALLBACK (korva_server_on_device_available),
+                      self);
+
+    g_signal_connect (backend->lister,
+                      "device-unavailable",
+                      G_CALLBACK (korva_server_on_device_unavailable),
+                      self);
 }
 
 static void
