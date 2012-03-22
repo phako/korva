@@ -18,20 +18,22 @@
     along with Korva.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "korva-server.h"
-#include "korva-icon-cache.h"
+#ifndef __KORVA_ICON_CACHE_H__
+#define __KORVA_ICON_CACHE_H__
 
-int main(int argc, char *argv[])
-{
-    g_debug ("Starting korva...");
-    g_type_init ();
-    korva_icon_cache_init ();
+#include <glib.h>
 
-    KorvaServer *server = korva_server_new ();
+G_BEGIN_DECLS
 
-    korva_server_run (server);
+void
+korva_icon_cache_init ();
 
-    g_object_unref (server);
+char *
+korva_icon_cache_lookup (const char *uid);
 
-    return 0;
-}
+char *
+korva_icon_cache_create_path (const char *uid);
+
+G_END_DECLS
+
+#endif /* __KORVA_ICON_CACHE_H__ */
