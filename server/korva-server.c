@@ -24,6 +24,7 @@
 #   include <glib-unix.h>
 #endif
 
+#include "korva-error.h"
 #include "korva-server.h"
 #include "korva-device-lister.h"
 #include "korva-dbus-interface.h"
@@ -307,13 +308,51 @@ korva_server_on_handle_get_devices (KorvaController1      *iface,
     return TRUE;
 }
 
+typedef struct {
+    const char *uid;
+    KorvaDevice *device;
+} FindDeviceData;
+
+static void
+find_device_func (gpointer data, gpointer user_data)
+{
+    FindDeviceData *device_data = (FindDeviceData *) user_data;
+    KorvaBackend *backend = (KorvaBackend *) data;
+
+    if (device_data->device != NULL) {
+        return;
+    }
+
+    device_data->device = korva_device_lister_get_device_info (backend->lister,
+                                                               device_data->uid);
+}
+
 static gboolean
 korva_server_on_handle_get_device_info (KorvaController1      *iface,
                                         GDBusMethodInvocation *invocation,
                                         const char            *uid,
                                         gpointer               user_data)
 {
-    korva_controller1_complete_get_device_info (iface, invocation, NULL);
+    KorvaServer *self = KORVA_SERVER (user_data);
+    FindDeviceData data;
+
+    data.uid = uid;
+    data.device = NULL;
+
+    g_list_foreach (self->priv->backends, find_device_func, &data);
+
+    if (data.device != NULL) {
+        GVariant *result;
+
+        result = korva_device_serialize (data.device);
+        korva_controller1_complete_get_device_info (iface, invocation, result);
+    } else {
+        g_dbus_method_invocation_return_error (invocation,
+                                               KORVA_CONTROLLER1_ERROR,
+                                               KORVA_CONTROLLER1_ERROR_NO_SUCH_DEVICE,
+                                               "Device '%s' does not exist",
+                                               uid);
+    }
 
     return TRUE;
 }

@@ -12,7 +12,9 @@ korva_SOURCES=\
 	korva-device.c \
 	korva-device.h \
 	korva-device-lister.c \
-	korva-device-lister.h
+	korva-device-lister.h \
+	korva-error.h \
+	korva-error.c
 
 korva_CFLAGS=$(GIO_CFLAGS)
 
