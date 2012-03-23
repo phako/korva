@@ -39,6 +39,12 @@ korva_device_lister_get_type (void);
 typedef struct _KorvaDeviceLister KorvaDeviceLister;
 typedef struct _KorvaDeviceListerInterface KorvaDeviceListerInterface;
 
+/**
+ * KorvaDeviceLister:
+ *
+ * An interface to be implmented by classes that take care of device
+ * discovery.
+ */
 struct _KorvaDeviceListerInterface {
     GTypeInterface parent;
 
@@ -55,6 +61,7 @@ G_END_DECLS
 
 GList*
 korva_device_lister_get_devices (KorvaDeviceLister *self);
+
 KorvaDevice *
 korva_device_lister_get_device_info (KorvaDeviceLister *self,
                                      const char        *uid);

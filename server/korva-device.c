@@ -56,6 +56,14 @@ korva_device_get_device_type (KorvaDevice *self)
     return KORVA_DEVICE_GET_INTERFACE (self)->get_device_type (self);
 }
 
+/**
+ * korva_device_serialize:
+ *
+ * Serialize a device into a #G_VARIANT_TYPE_VARDICT #GVariant for D-Bus use.
+ * @self: device to serialize
+ * Returns: a newly allocated #GVariant containing the meta-data for this
+ * device
+ */
 GVariant *
 korva_device_serialize (KorvaDevice *self)
 {

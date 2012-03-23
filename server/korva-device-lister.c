@@ -25,6 +25,13 @@ G_DEFINE_INTERFACE (KorvaDeviceLister, korva_device_lister, G_TYPE_OBJECT)
 static void
 korva_device_lister_default_init (KorvaDeviceListerInterface *g_iface)
 {
+    /**
+     * KorvaDeviceLister::device-available
+     * @device: The new device
+     *
+     * ::device-available is emitted when the lister found a new device on the
+     * network
+     */
     g_signal_new ("device-available",
                   G_TYPE_FROM_INTERFACE (g_iface),
                   G_SIGNAL_RUN_LAST,
@@ -36,6 +43,13 @@ korva_device_lister_default_init (KorvaDeviceListerInterface *g_iface)
                   1,
                   KORVA_TYPE_DEVICE);
 
+    /**
+     * KorvaDeviceLister::device-unavailable
+     * @uid: Unique identifier of the device
+     *
+     * ::device-unavailable is emitted when a device has disappeared from the
+     * network
+     */
     g_signal_new ("device-unavailable",
                   G_TYPE_FROM_INTERFACE (g_iface),
                   G_SIGNAL_RUN_LAST,
@@ -48,12 +62,29 @@ korva_device_lister_default_init (KorvaDeviceListerInterface *g_iface)
                   G_TYPE_STRING);
 }
 
+/**
+ * korva_device_lister_get_devices:
+ *
+ * Get a list of the devices currently known to the device lister.
+ *
+ * @self: a #KorvaDeviceLister
+ *
+ * Returns: (transfer container) (element-type KorvaDevice) (allow-none): A list of devices or %NULL if none is available
+ */
 GList*
 korva_device_lister_get_devices (KorvaDeviceLister *self)
 {
     return KORVA_DEVICE_LISTER_GET_INTERFACE (self)->get_devices (self);
 }
 
+/**
+ * korva_device_lister_get_device_info:
+ *
+ * @self: a #KorvaDeviceLister
+ * @uid: Identifier of the device to look-up
+ * Returns: (transfer none) (allow-none): The device matching the uid or %NULL
+ * if not found.
+ */
 KorvaDevice *
 korva_device_lister_get_device_info (KorvaDeviceLister *self,
                                      const char        *uid)
@@ -61,6 +92,14 @@ korva_device_lister_get_device_info (KorvaDeviceLister *self,
     return KORVA_DEVICE_LISTER_GET_INTERFACE (self)->get_device_info (self, uid);
 }
 
+/**
+ * korva_device_lister_get_device_count:
+ *
+ * Get the number of devices currently known to this lister.
+ * @self: a #KorvaDeviceLister
+ *
+ * Returns: Number of devices available.
+ */
 gint
 korva_device_lister_get_device_count (KorvaDeviceLister *self)
 {
