@@ -31,6 +31,7 @@
 struct _KorvaUPnPDeviceListerPrivate {
     GUPnPContextManager *context_manager;
     GHashTable          *devices;
+    GHashTable          *pending_devices;
 };
 
 static void
@@ -100,6 +101,11 @@ korva_upnp_device_lister_init (KorvaUPnPDeviceLister *self)
                                                  g_str_equal,
                                                  g_free,
                                                  g_object_unref);
+
+    self->priv->pending_devices = g_hash_table_new_full (g_str_hash,
+                                                         g_str_equal,
+                                                         g_free,
+                                                         g_object_unref);
     
     cm = gupnp_context_manager_create (0);
     self->priv->context_manager = cm;
@@ -126,6 +132,11 @@ korva_upnp_device_lister_dispose (GObject *object)
     if (self->priv->devices != NULL) {
         g_hash_table_destroy (self->priv->devices);
         self->priv->devices = NULL;
+    }
+
+    if (self->priv->pending_devices != NULL) {
+        g_hash_table_destroy (self->priv->pending_devices);
+        self->priv->pending_devices = NULL;
     }
 }
 
@@ -227,6 +238,10 @@ korva_upnp_device_lister_on_device_ready (GObject      *source,
     KorvaUPnPDevice *device = KORVA_UPNP_DEVICE (source);
     KorvaUPnPDeviceLister *self = KORVA_UPNP_DEVICE_LISTER (user_data);
 
+    g_object_ref (source);
+    g_hash_table_remove (self->priv->pending_devices,
+                         korva_device_get_uid (KORVA_DEVICE (device)));
+
     ok = g_async_initable_init_finish (G_ASYNC_INITABLE (source),
                                        res,
                                        &error);
@@ -249,13 +264,35 @@ korva_upnp_device_lister_on_renderer_available (GUPnPControlPoint *cp,
                                                 GUPnPDeviceProxy  *proxy,
                                                 gpointer           user_data)
 {
-    g_async_initable_new_async (KORVA_TYPE_UPNP_DEVICE,
-                                G_PRIORITY_DEFAULT,
-                                NULL,
-                                korva_upnp_device_lister_on_device_ready,
-                                user_data,
-                                "proxy", g_object_ref (proxy),
-                                NULL);
+    KorvaUPnPDeviceLister *self = KORVA_UPNP_DEVICE_LISTER (user_data);
+    KorvaUPnPDevice *device;
+    const char *uid;
+
+    uid = gupnp_device_info_get_udn (GUPNP_DEVICE_INFO (proxy));
+
+    g_debug ("A new device appeared: %s", uid);
+
+    /* check if we already have such a device */
+    device = g_hash_table_lookup (self->priv->devices, uid);
+    if (device == NULL) {
+        device = g_hash_table_lookup (self->priv->pending_devices, uid);
+    }
+
+    if (device == NULL) {
+        device = g_object_new (KORVA_TYPE_UPNP_DEVICE,
+                               "proxy", g_object_ref (proxy),
+                               NULL);
+        g_hash_table_insert (self->priv->pending_devices,
+                             g_strdup (uid),
+                             device);
+        g_async_initable_init_async (G_ASYNC_INITABLE (device),
+                                     G_PRIORITY_DEFAULT,
+                                     NULL,
+                                     korva_upnp_device_lister_on_device_ready,
+                                     user_data);
+    } else {
+        g_debug ("Device '%s' already known, ignoring…", uid);
+    }
 }
 
 static void
