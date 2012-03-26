@@ -273,6 +273,7 @@ korva_upnp_device_lister_on_renderer_available (GUPnPControlPoint *cp,
                                      korva_upnp_device_lister_on_device_ready,
                                      user_data);
     } else {
+        korva_upnp_device_add_proxy (device, proxy);
         g_debug ("Device '%s' already known, ignoring…", uid);
     }
 }
@@ -284,12 +285,29 @@ korva_upnp_device_lister_on_renderer_unavailable (GUPnPControlPoint *cp,
 {
     KorvaUPnPDeviceLister *self = KORVA_UPNP_DEVICE_LISTER (user_data);
     const char *uid;
+    KorvaDevice *device;
 
     uid = gupnp_device_info_get_udn (GUPNP_DEVICE_INFO (proxy));
 
+    if (uid == NULL) {
+        g_warning ("Device is invalid. NULL UDN");
+
+        return;
+    }
+
     g_debug ("Device %s disappeared", uid);
 
-    if (uid != NULL && g_hash_table_remove (self->priv->devices, uid)) {
+    device = g_hash_table_lookup (self->priv->devices, uid);
+
+    if (device == NULL) {
+        g_debug ("Unkown device %s. Ignoring.", uid);
+
+        return;
+    }
+
+    /* only emit signal when we have no means to reach the device anymore */
+    if (korva_upnp_device_remove_proxy (KORVA_UPNP_DEVICE (device), proxy)) {
+        g_hash_table_remove (self->priv->devices, uid);
         g_signal_emit_by_name (self, "device-unavailable", uid);
     }
 }

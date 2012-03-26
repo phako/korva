@@ -65,5 +65,11 @@ struct _KorvaUPnPDevice {
     KorvaUPnPDevicePrivate *priv;
 };
 
+void
+korva_upnp_device_add_proxy (KorvaUPnPDevice *self, GUPnPDeviceProxy *proxy);
+
+gboolean
+korva_upnp_device_remove_proxy (KorvaUPnPDevice *self, GUPnPDeviceProxy *proxy);
+
 G_END_DECLS
 #endif /* __KORVA_UPNP_DEVICE_H__ */

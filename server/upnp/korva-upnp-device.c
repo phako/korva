@@ -121,6 +121,7 @@ struct _KorvaUPnPDevicePrivate {
     GUPnPServiceIntrospection *introspection;
     char                      *protocol_info;
     SoupSession               *session;
+    GList                     *other_proxies;
 };
 
 enum Properties {
@@ -159,6 +160,11 @@ korva_upnp_device_dispose (GObject *obj)
     if (self->priv->session != NULL) {
         g_object_unref (self->priv->session);
         self->priv->session = NULL;
+    }
+    
+    if (self->priv->other_proxies != NULL) {
+        g_list_free_full (self->priv->other_proxies, g_object_unref);
+        self->priv->other_proxies = NULL;
     }
     
     G_OBJECT_CLASS (korva_upnp_device_parent_class)->dispose (obj);
@@ -602,4 +608,62 @@ korva_upnp_device_on_icon_ready (SoupMessage *message, gpointer user_data)
     }
 
     korva_upnp_device_introspection_finish (self, NULL);
+}
+
+void
+korva_upnp_device_add_proxy (KorvaUPnPDevice *self, GUPnPDeviceProxy *proxy)
+{
+    self->priv->other_proxies = g_list_prepend (self->priv->other_proxies,
+                                                g_object_ref (proxy));
+}
+
+gboolean
+korva_upnp_device_remove_proxy (KorvaUPnPDevice *self, GUPnPDeviceProxy *proxy)
+{
+    GList *it, *keys = NULL;
+
+    it = g_list_find (self->priv->other_proxies, proxy);
+    if (it != NULL) {
+        self->priv->other_proxies = g_list_remove_link (self->priv->other_proxies,
+                                                        it);
+        g_object_unref (G_OBJECT (it->data));
+
+        return FALSE;
+    }
+
+    if (self->priv->proxy != proxy) {
+        g_warning ("Trying to remove unassociated proxy from device");
+
+        return FALSE;
+    }
+
+    /* That's the only proxy associated with this.
+     * We can destroy the device. */
+    if (self->priv->other_proxies == NULL) {
+        return TRUE;
+    }
+
+    /* Just use the first other proxy to communicate with the device */
+    g_object_unref (self->priv->proxy);
+    self->priv->proxy = GUPNP_DEVICE_PROXY (self->priv->other_proxies->data);
+    self->priv->other_proxies = g_list_remove_link (self->priv->other_proxies,
+                                                    self->priv->other_proxies);
+
+    /* and update the service proxies */
+    it = keys = g_hash_table_get_keys (self->priv->services);
+    while (it != NULL) {
+        GUPnPServiceInfo *info;
+
+        info = gupnp_device_info_get_service (self->priv->info,
+                                              (const char*) it->data);
+        g_hash_table_replace (self->priv->services,
+                              it->data,
+                              GUPNP_SERVICE_PROXY (info));
+
+        it = it->next;
+    }
+
+    g_list_free (keys);
+
+    return FALSE;
 }
