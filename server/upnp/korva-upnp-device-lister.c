@@ -62,11 +62,6 @@ korva_upnp_device_lister_on_context_available (GUPnPContextManager *cm,
                                                GUPnPContext        *context,
                                                gpointer             user_data);
 
-static void
-korva_upnp_device_lister_on_context_unavailable (GUPnPContextManager *cm,
-                                                 GUPnPContext        *context,
-                                                 gpointer             user_data);
-
 /* ControlPoint callbacks */
 static void
 korva_upnp_device_lister_on_renderer_available (GUPnPControlPoint *cp,
@@ -112,10 +107,6 @@ korva_upnp_device_lister_init (KorvaUPnPDeviceLister *self)
     g_signal_connect (cm,
                       "context-available",
                       G_CALLBACK (korva_upnp_device_lister_on_context_available),
-                      self);
-    g_signal_connect (cm,
-                      "context-unavailable",
-                      G_CALLBACK (korva_upnp_device_lister_on_context_unavailable),
                       self);
 }
 
@@ -217,15 +208,6 @@ korva_upnp_device_lister_on_context_available (GUPnPContextManager *cm,
     gssdp_resource_browser_set_active (GSSDP_RESOURCE_BROWSER (cp),
                                        TRUE);
     g_object_unref (cp);
-}
-
-static void
-korva_upnp_device_lister_on_context_unavailable (GUPnPContextManager *cm,
-                                                 GUPnPContext        *context,
-                                                 gpointer             user_data)
-{
-    g_debug ("Network context unavailable: %s",
-             gssdp_client_get_host_ip (GSSDP_CLIENT (context)));
 }
 
 static void
