@@ -133,7 +133,8 @@ korva_server_dispose (GObject *object)
     KorvaServer *self = KORVA_SERVER (object);
 
     if (self->priv->backends != NULL) {
-        g_list_foreach (self->priv->backends, (GFunc) korva_backend_free, NULL);
+        g_list_free_full (self->priv->backends,
+                          (GDestroyNotify) korva_backend_free);
         self->priv->backends = NULL;
     }
 
