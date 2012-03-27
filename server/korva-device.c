@@ -69,3 +69,46 @@ korva_device_serialize (KorvaDevice *self)
 {
     return KORVA_DEVICE_GET_INTERFACE (self)->serialize (self);
 }
+
+/**
+ * korva_device_push_async:
+ *
+ * Initiate media push to the device.
+ * @self: device to push to
+ * @source: an "a{sv}" variant, containing at least the mandatory key "URI"
+ * @callback: #GAsyncReady call-back to call after the push operation succeeds
+ * @user_data: user data
+ */
+void
+korva_device_push_async (KorvaDevice         *self,
+                         GVariant            *source,
+                         GAsyncReadyCallback  callback,
+                         gpointer             user_data)
+{
+    KORVA_DEVICE_GET_INTERFACE (self)->push_async (self,
+                                                   source,
+                                                   callback,
+                                                   user_data);
+}
+
+/**
+ * korva_device_push_finish:
+ *
+ * Finalize media push to the device.
+ * To be called in the call-back passed to #korva_device_push_async.
+ * @self: device pushed to
+ * @result: the #GAsyncResult passed in the callback
+ * @error: A location to store an error to or %NULL
+ * @user_data: user_data
+ * @returns: %TRUE on success.
+ */
+gboolean
+korva_device_push_finish (KorvaDevice   *self,
+                          GAsyncResult  *result,
+                          GError       **error)
+{
+    return KORVA_DEVICE_GET_INTERFACE (self)->push_finish (self,
+                                                           result,
+                                                           error);
+}
+

@@ -75,6 +75,8 @@ korva_server_on_handle_get_device_info (KorvaController1      *iface,
 static gboolean
 korva_server_on_handle_push (KorvaController1      *iface,
                              GDBusMethodInvocation *invocation,
+                             GVariant              *source,
+                             const char            *uid,
                              gpointer               user_data);
 
 /* Backend signal handlers */
@@ -328,13 +330,9 @@ find_device_func (gpointer data, gpointer user_data)
                                                                device_data->uid);
 }
 
-static gboolean
-korva_server_on_handle_get_device_info (KorvaController1      *iface,
-                                        GDBusMethodInvocation *invocation,
-                                        const char            *uid,
-                                        gpointer               user_data)
+static KorvaDevice *
+korva_server_get_device (KorvaServer *self, const char *uid)
 {
-    KorvaServer *self = KORVA_SERVER (user_data);
     FindDeviceData data;
 
     data.uid = uid;
@@ -342,10 +340,24 @@ korva_server_on_handle_get_device_info (KorvaController1      *iface,
 
     g_list_foreach (self->priv->backends, find_device_func, &data);
 
-    if (data.device != NULL) {
+    return data.device;
+}
+
+static gboolean
+korva_server_on_handle_get_device_info (KorvaController1      *iface,
+                                        GDBusMethodInvocation *invocation,
+                                        const char            *uid,
+                                        gpointer               user_data)
+{
+    KorvaServer *self = KORVA_SERVER (user_data);
+    KorvaDevice *device;
+
+    device = korva_server_get_device (self, uid);
+
+    if (device != NULL) {
         GVariant *result;
 
-        result = korva_device_serialize (data.device);
+        result = korva_device_serialize (device);
         korva_controller1_complete_get_device_info (iface, invocation, result);
     } else {
         g_dbus_method_invocation_return_error (invocation,
@@ -358,12 +370,71 @@ korva_server_on_handle_get_device_info (KorvaController1      *iface,
     return TRUE;
 }
 
+typedef struct {
+    KorvaController1 *iface;
+    GDBusMethodInvocation *invocation;
+} PushAsyncData;
+
+static void
+korva_server_on_push_async_ready (GObject      *obj,
+                                  GAsyncResult *res,
+                                  gpointer      user_data)
+{
+    KorvaDevice *device = KORVA_DEVICE (obj);
+    PushAsyncData *data = (PushAsyncData *) user_data;
+    GError *error = NULL;
+
+    if (!korva_device_push_finish (device, res, &error)) {
+        g_dbus_method_invocation_return_gerror (data->invocation,
+                                                error);
+
+        goto out;
+    }
+
+    korva_controller1_complete_push (data->iface, data->invocation);
+
+out:
+    g_free (data);
+}
+
 static gboolean
 korva_server_on_handle_push (KorvaController1      *iface,
                              GDBusMethodInvocation *invocation,
+                             GVariant              *source,
+                             const char            *uid,
                              gpointer               user_data)
 {
-    korva_controller1_complete_push (iface, invocation);
+    KorvaServer *self = KORVA_SERVER (user_data);
+    KorvaDevice *device;
+    PushAsyncData *data;
+
+    device = korva_server_get_device (self, uid);
+
+    if (!g_variant_is_of_type (source, G_VARIANT_TYPE_VARDICT)) {
+        g_dbus_method_invocation_return_error (invocation,
+                                               KORVA_CONTROLLER1_ERROR,
+                                               KORVA_CONTROLLER1_ERROR_INVALID_ARGS,
+                                               "'source' parameter needs to be 'a{sv}'",
+                                               uid);
+
+        return TRUE;
+    }
+
+    if (device == NULL) {
+        g_dbus_method_invocation_return_error (invocation,
+                                               KORVA_CONTROLLER1_ERROR,
+                                               KORVA_CONTROLLER1_ERROR_NO_SUCH_DEVICE,
+                                               "Device '%s' does not exist",
+                                               uid);
+
+        return TRUE;
+    }
+
+    data = g_new0 (PushAsyncData, 1);
+    data->iface = iface;
+    data->invocation = invocation;
+
+    korva_device_push_async (device, source, korva_server_on_push_async_ready, data);
 
     return TRUE;
 }

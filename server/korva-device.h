@@ -22,6 +22,8 @@
 #define __KORVA_DEVICE_H__
 
 #include <glib-object.h>
+#include <gio/gio.h>
+
 #define KORVA_TYPE_DEVICE        (korva_device_get_type ())
 #define KORVA_DEVICE(obj)        (G_TYPE_CHECK_INSTANCE_CAST ((obj), KORVA_TYPE_DEVICE, KorvaDevice))
 #define KORVA_IS_DEVICE(obj)     (G_TYPE_CHECK_INSTANCE_TYPE ((obj), KORVA_TYPE_DEVICE))
@@ -53,6 +55,13 @@ struct _KorvaDeviceInterface {
     KorvaDeviceType      (* get_device_type) (KorvaDevice *self);
 
     GVariant            *(* serialize)  (KorvaDevice *self);
+    void                 (* push_async) (KorvaDevice         *self,
+                                         GVariant            *source,
+                                         GAsyncReadyCallback  callback,
+                                         gpointer             user_data);
+    gboolean             (* push_finish) (KorvaDevice   *self,
+                                          GAsyncResult  *result,
+                                          GError       **error);
 };
 
 const char *
@@ -71,6 +80,17 @@ korva_device_get_device_type (KorvaDevice *self);
 
 GVariant *
 korva_device_serialize (KorvaDevice *self);
+
+void
+korva_device_push_async (KorvaDevice         *self,
+                         GVariant            *source,
+                         GAsyncReadyCallback  callback,
+                         gpointer             user_data);
+
+gboolean
+korva_device_push_finish (KorvaDevice   *self,
+                          GAsyncResult  *result,
+                          GError       **error);
 
 G_END_DECLS
 #endif /* __KORVA_DEVICE_H__ */
