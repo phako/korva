@@ -2,8 +2,6 @@ SUBDIRS=upnp
 
 bin_PROGRAMS=korva
 
-GENERATED_SOURCES=korva-dbus-interface.c korva-dbus-interface.h
-
 korva_SOURCES=\
 	$(GENERATED_SOURCES) \
 	korva.c \
@@ -18,14 +16,6 @@ korva_SOURCES=\
 	korva-icon-cache.c \
 	korva-icon-cache.h
 
-korva_CFLAGS=$(GIO_CFLAGS)
-
-korva_LDADD=$(GIO_LIBS) upnp/libkorva-upnp-backend.a $(GUPNP_LIBS)
-
-korva-dbus-interface.c korva-dbus-interface.h: $(top_srcdir)/data/Korva.xml
-	$(AM_V_GEN)$(GDBUS_CODEGEN) --generate-c-code korva-dbus-interface \
-								--c-namespace Korva \
-								--interface-prefix org.jensge.Korva \
-								$<
-
-EXTRA_DIST=$(GENERATED_SOURCES)
+korva_CFLAGS=$(GIO_CFLAGS) -I $(srcdir)/../dbus
+korva_LDFLAGS=-L$(builddir)/upnp/ -L$(builddir)/../dbus
+korva_LDADD=$(GIO_LIBS) $(builddir)/upnp/libkorva-upnp-backend.a $(top_builddir)/dbus/libkorva-dbus.a $(GUPNP_LIBS)

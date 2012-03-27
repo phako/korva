@@ -16,12 +16,12 @@ AM_SILENT_RULES([yes])
 AC_PROG_CC
 AC_PROG_RANLIB
 AM_PROG_CC_C_O
-AC_PATH_PROG([GDBUS_CODEGEN], [gdbus-codegen])
 
 PKG_CHECK_MODULES([GIO], [gio-2.0 >= 2.30 gio-unix-2.0 >= 2.30])
 PKG_CHECK_MODULES([GUPNP], [gupnp-1.0 >= 0.18.0 gupnp-av-1.0 >= 0.10.1])
 AC_CONFIG_FILES([
 Makefile
+dbus/Makefile
 server/Makefile
 server/upnp/Makefile
 ])
