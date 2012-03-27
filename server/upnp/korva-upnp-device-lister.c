@@ -22,6 +22,7 @@
 
 #include "korva-upnp-device-lister.h"
 #include "korva-upnp-device.h"
+#include "korva-upnp-file-server.h"
 
 #include "korva-device-lister.h"
 
@@ -32,6 +33,7 @@ struct _KorvaUPnPDeviceListerPrivate {
     GUPnPContextManager *context_manager;
     GHashTable          *devices;
     GHashTable          *pending_devices;
+    KorvaUPnPFileServer *server;
 };
 
 static void
@@ -101,6 +103,7 @@ korva_upnp_device_lister_init (KorvaUPnPDeviceLister *self)
                                                          g_str_equal,
                                                          g_free,
                                                          g_object_unref);
+    self->priv->server = korva_upnp_file_server_get_default ();
     
     cm = gupnp_context_manager_create (0);
     self->priv->context_manager = cm;
@@ -128,6 +131,11 @@ korva_upnp_device_lister_dispose (GObject *object)
     if (self->priv->pending_devices != NULL) {
         g_hash_table_destroy (self->priv->pending_devices);
         self->priv->pending_devices = NULL;
+    }
+
+    if (self->priv->server != NULL) {
+        g_object_unref (self->priv->server);
+        self->priv->server = NULL;
     }
 }
 

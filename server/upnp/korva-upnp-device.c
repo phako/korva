@@ -20,8 +20,11 @@
 
 #include <libsoup/soup.h>
 
-#include "korva-icon-cache.h"
+#include <korva-error.h>
+#include <korva-icon-cache.h>
+
 #include "korva-upnp-device.h"
+#include "korva-upnp-file-server.h"
 
 #define AV_TRANSPORT "urn:schemas-upnp-org:service:AVTransport"
 #define CONNECTION_MANAGER "urn:schemas-upnp-org:service:ConnectionManager"
@@ -262,6 +265,8 @@ korva_upnp_device_korva_device_init (KorvaDeviceInterface *iface)
     iface->get_protocol = korva_upnp_device_get_protocol;
     iface->get_device_type = korva_upnp_device_get_device_type;
     iface->serialize = korva_upnp_device_serialize;
+    iface->push_async = korva_upnp_device_push_async;
+    iface->push_finish = korva_upnp_device_push_finish;
 }
 
 static const char *
@@ -666,4 +671,159 @@ korva_upnp_device_remove_proxy (KorvaUPnPDevice *self, GUPnPDeviceProxy *proxy)
     g_list_free (keys);
 
     return FALSE;
+}
+
+typedef struct {
+    GSimpleAsyncResult *result;
+    KorvaUPnPDevice    *device;
+} HostPathData;
+
+static void
+korva_upnp_device_on_set_av_transport_uri (GUPnPServiceProxy       *proxy,
+                                           GUPnPServiceProxyAction *action,
+                                           gpointer                 user_data)
+{
+    GError *error = NULL;
+    HostPathData *data = (HostPathData *) user_data;
+    GSimpleAsyncResult *result = data->result;
+    g_free (data);
+
+    gupnp_service_proxy_end_action (proxy, action, &error, NULL);
+    if (error != NULL) {
+        g_simple_async_result_take_error (result, error);
+    }
+
+    g_simple_async_result_complete_in_idle (result);
+    g_object_unref (result);
+}
+
+static void
+korva_upnp_device_on_host_file_async (GObject      *source,
+                                      GAsyncResult *res,
+                                      gpointer      user_data)
+{
+    GError *error = NULL;
+    char *uri = NULL;
+    HostPathData *data = (HostPathData *) user_data;
+    GUPnPServiceProxy *proxy;
+
+    uri = korva_upnp_file_server_host_file_finish (KORVA_UPNP_FILE_SERVER (source),
+                                                   res,
+                                                   &error);
+    if (uri == NULL) {
+        g_simple_async_result_take_error (data->result, error);
+
+        goto out;
+    }
+
+    proxy = g_hash_table_lookup (data->device->priv->services, AV_TRANSPORT);
+    gupnp_service_proxy_begin_action (proxy,
+                                      "SetAVTransportURI",
+                                      korva_upnp_device_on_set_av_transport_uri,
+                                      user_data,
+                                      "InstanceID", G_TYPE_STRING, "0",
+                                      "CurrentURI", G_TYPE_STRING, uri,
+                                      "CurrentURIMetaData", G_TYPE_STRING, "",
+                                      NULL);
+
+    return;
+out:
+    g_simple_async_result_complete_in_idle (data->result);
+    g_object_unref (data->result);
+    g_free (data);
+}
+
+void
+korva_upnp_device_push_async (KorvaDevice         *device,
+                              GVariant            *source,
+                              GAsyncReadyCallback  callback,
+                              gpointer             user_data)
+{
+    KorvaUPnPDevice *self;
+    GSimpleAsyncResult *result;
+    GVariantIter *iter;
+    gchar *key;
+    GVariant *value;
+    GHashTable *params;
+    GError *error = NULL;
+    KorvaUPnPFileServer *server;
+    GFile *file = NULL;
+    const char *iface;
+    GUPnPContext *context;
+    GVariant *uri;
+    HostPathData *host_path_data;
+
+    self = KORVA_UPNP_DEVICE (device);
+    result = g_simple_async_result_new (G_OBJECT (device),
+                                        callback,
+                                        user_data,
+                                        (gpointer) korva_upnp_device_push_async);
+
+    params = g_hash_table_new_full (g_str_hash,
+                                    g_str_equal,
+                                    g_free,
+                                    (GDestroyNotify) g_variant_unref);
+
+    iter = g_variant_iter_new (source);
+    while (g_variant_iter_next (iter, "{sv}", &key, &value)) {
+        g_hash_table_insert (params, key, value);
+    }
+
+    uri = g_hash_table_lookup (params, "URI");
+    if (uri == NULL) {
+
+        error = g_error_new (KORVA_CONTROLLER1_ERROR,
+                             KORVA_CONTROLLER1_ERROR_INVALID_ARGS,
+                             "'Push' to device %s is missing mandatory URI key",
+                             korva_device_get_uid (device));
+
+        g_simple_async_result_take_error (result, error);
+
+        goto out;
+    }
+
+    context = gupnp_device_info_get_context (self->priv->info);
+    iface = gssdp_client_get_host_ip (GSSDP_CLIENT (context));
+    server = korva_upnp_file_server_get_default ();
+    file = g_file_new_for_uri (g_variant_get_string (uri, NULL));
+    host_path_data = g_new0 (HostPathData, 1);
+    host_path_data->result = result;
+    host_path_data->device = self;
+    korva_upnp_file_server_host_file_async (server,
+                                            file,
+                                            params,
+                                            iface,
+                                            korva_upnp_device_on_host_file_async,
+                                            host_path_data);
+    g_object_unref (server);
+
+    return;
+out:
+    g_hash_table_destroy (params);
+    if (file != NULL) {
+        g_object_unref (file);
+    }
+    g_simple_async_result_complete_in_idle (result);
+}
+
+gboolean
+korva_upnp_device_push_finish (KorvaDevice   *device,
+                               GAsyncResult  *res,
+                               GError       **error)
+{
+    GSimpleAsyncResult *result;
+    gboolean success = TRUE;
+
+    if (!g_simple_async_result_is_valid (res,
+                                         G_OBJECT (device),
+                                         korva_upnp_device_push_async)) {
+        return FALSE;
+    }
+
+    result = (GSimpleAsyncResult *) res;
+    if (g_simple_async_result_propagate_error (result, error)) {
+        success = FALSE;
+    }
+
+    return success;
 }
