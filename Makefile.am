@@ -1,1 +1,1 @@
-SUBDIRS=dbus server client
+SUBDIRS=dbus server client data

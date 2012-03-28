@@ -25,5 +25,6 @@ dbus/Makefile
 server/Makefile
 server/upnp/Makefile
 client/Makefile
+data/Makefile
 ])
 AC_OUTPUT
