@@ -1,0 +1,7 @@
+#ifndef __KORVA_DBUS_TYPEDEFS_H__
+#define __KORVA_DBUS_TYPEDEFS_H__
+typedef struct _GDBusObject GDBusObject;
+typedef struct _GDBusInterface GDBusInterface;
+typedef struct _GDBusInterfaceSkeleton GDBusInterfaceSkeleton;
+typedef struct _GDBusObjectSkeleton GDBusObjectSkeleton;
+#endif

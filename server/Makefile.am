@@ -15,6 +15,6 @@ korva_SOURCES=\
 	korva-icon-cache.c \
 	korva-icon-cache.h
 
-korva_CFLAGS=$(GIO_CFLAGS) -I $(srcdir)/../dbus
+korva_CFLAGS=$(GIO_CFLAGS) -I $(srcdir)/../dbus -DGIO_COMPILATION
 korva_LDFLAGS=-L$(builddir)/upnp/ -L$(builddir)/../dbus
 korva_LDADD=$(GIO_LIBS) $(builddir)/upnp/libkorva-upnp-backend.a $(top_builddir)/dbus/libkorva-dbus.a $(GUPNP_LIBS)

@@ -33,6 +33,8 @@
 
 #include "upnp/korva-upnp-device-lister.h"
 
+#define G_VARIANT_TYPE_VARDICT              ((const GVariantType *) "a{sv}")
+
 struct _KorvaBackend {
     KorvaDeviceLister *lister;
 };
@@ -137,7 +139,7 @@ korva_server_init (KorvaServer *self)
                                               g_free,
                                               g_free);
 
-#ifdef G_OS_UNIX
+#if 0
     g_unix_signal_add (SIGINT, korva_server_signal_handler, self);
 #endif
 }

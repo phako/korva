@@ -24,8 +24,8 @@ CFLAGS="${CFLAGS} -Wpointer-arith -Wwrite-strings -Winline -Wformat-nonliteral"
 CFLAGS="${CFLAGS} -Wcast-align -Wformat-security -Wswitch-enum"
 CFLAGS="${CFLAGS} -Wswitch-default"
 
-PKG_CHECK_MODULES([GIO], [gio-2.0 >= 2.30 gio-unix-2.0 >= 2.30])
-PKG_CHECK_MODULES([GUPNP], [gupnp-1.0 >= 0.18.0 gupnp-av-1.0 >= 0.10.1])
+PKG_CHECK_MODULES([GIO], [gio-2.0 >= 2.28 libffi])
+PKG_CHECK_MODULES([GUPNP], [gupnp-1.0 >= 0.18.0 gupnp-av-1.0 >= 0.10.0])
 
 AC_ARG_ENABLE([debug],
               AS_HELP_STRING([--enable-debug],[Enable debug build]),[],
