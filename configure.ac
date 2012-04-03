@@ -14,8 +14,11 @@ AM_MAINTAINER_MODE([enable])
 AM_SILENT_RULES([yes])
 
 AC_PROG_CC
-AC_PROG_RANLIB
 AM_PROG_CC_C_O
+AC_PROG_CXX
+
+LT_PREREQ([2.2])
+LT_INIT([dlopen disable-static])
 
 CFLAGS="${CFLAGS} -Wall -Wextra -Wno-unused-parameter"
 CFLAGS="${CFLAGS} -Wno-missing-field-initializers -Wmissing-declarations"
@@ -26,6 +29,7 @@ CFLAGS="${CFLAGS} -Wswitch-default"
 
 PKG_CHECK_MODULES([GIO], [gio-2.0 >= 2.28 libffi])
 PKG_CHECK_MODULES([GUPNP], [gupnp-1.0 >= 0.15.0])
+PKG_CHECK_MODULES([SHAREUI], [share-ui-plugin mdatauri QtCore QtGui meegotouch])
 
 AC_ARG_ENABLE([debug],
               AS_HELP_STRING([--enable-debug],[Enable debug build]),[],
@@ -44,5 +48,6 @@ server/upnp/Makefile
 client/Makefile
 data/Makefile
 libgupnp-av/Makefile
+provider/Makefile
 ])
 AC_OUTPUT

@@ -1,2 +1,3 @@
 usr/lib/korva/korva
 usr/share/dbus-1/services/org.jensge.Korva.service
+usr/lib/share-ui/plugins/libpushupshare.so

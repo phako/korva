@@ -1,13 +1,17 @@
 <node>
   <interface name='org.jensge.Korva.Controller1'>
     <method name='GetDevices'>
+        <annotation name="com.trolltech.QtDBus.QtTypeName.Out0"
+            value="QVariantMapList"/>
       <arg direction='out' name='Devices' type='aa{sv}' />
     </method>
     <method name='GetDeviceInfo'>
       <arg direction='in' name='UID' type='s' />
+      <annotation name="com.trolltech.QtDBus.QtTypeName.Out0" value="QVariantMap"/>
       <arg direction='out' name='DeviceInfo' type='a{sv}' />
     </method>
     <method name='Push'>
+      <annotation name="com.trolltech.QtDBus.QtTypeName.In0" value="QVariantMap"/>
       <arg direction='in' name='Source' type='a{sv}' />
       <arg direction='in' name='UID' type='s' />
       <arg direction='out' name='Tag' type='s' />
@@ -16,6 +20,7 @@
       <arg direction='in' name='Tag' type='s' />
     </method>
     <signal name='DeviceAvailable'>
+      <annotation name="com.trolltech.QtDBus.QtTypeName.In0" value="QVariantMap"/>
       <arg name='Device' type='a{sv}' />
     </signal>
     <signal name='DeviceUnavailable'>
