@@ -17,4 +17,9 @@ korva_SOURCES=\
 
 korva_CFLAGS=$(GIO_CFLAGS) -I $(srcdir)/../dbus -DGIO_COMPILATION
 korva_LDFLAGS=-L$(builddir)/upnp/ -L$(builddir)/../dbus
-korva_LDADD=$(GIO_LIBS) $(builddir)/upnp/libkorva-upnp-backend.a $(top_builddir)/dbus/libkorva-dbus.a $(GUPNP_LIBS)
+korva_LDADD=$(GIO_LIBS) \
+	$(GUPNP_LIBS) \
+	$(builddir)/upnp/libkorva-upnp-backend.a \
+	$(top_builddir)/libgupnp-av/libgupnp-av-1.0.a \
+	$(top_builddir)/dbus/libkorva-dbus.a \
+	$(GUPNP_LIBS)

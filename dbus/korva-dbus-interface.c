@@ -2301,7 +2301,9 @@ korva_controller1_skeleton_dbus_interface_get_properties (GDBusInterfaceSkeleton
           value = _korva_controller1_skeleton_handle_get_property (g_dbus_interface_skeleton_get_connection (G_DBUS_INTERFACE_SKELETON (skeleton)), NULL, g_dbus_interface_skeleton_get_object_path (G_DBUS_INTERFACE_SKELETON (skeleton)), "org.jensge.Korva.Controller1", info->name, NULL, skeleton);
           if (value != NULL)
             {
-              g_variant_take_ref (value);
+              if (g_variant_is_floating (value)) {
+                  g_variant_ref_sink (value);
+              }
               g_variant_builder_add (&builder, "{sv}", info->name, value);
               g_variant_unref (value);
             }

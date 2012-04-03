@@ -22,7 +22,7 @@
 
 #include <glib.h>
 
-#ifdef G_OS_UNIX
+#if 0
 #   include <glib-unix.h>
 #endif
 
@@ -107,6 +107,7 @@ struct _KorvaServerPrivate {
     GHashTable       *tags;
 };
 
+#if 0
 static gboolean
 korva_server_signal_handler (gpointer user_data)
 {
@@ -116,6 +117,7 @@ korva_server_signal_handler (gpointer user_data)
 
     return FALSE;
 }
+#endif
 
 static void
 korva_server_init (KorvaServer *self)

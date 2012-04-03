@@ -28,8 +28,8 @@
 
 #include "korva-device-lister.h"
 
-#define MEDIA_SERVER "urn:schemas-upnp-org:device:MediaServer:1"
-#define MEDIA_RENDERER "urn:schemas-upnp-org:device:MediaRenderer:1"
+#define MEDIA_SERVER "ssdp:all" /*urn:schemas-upnp-org:device:MediaServer:1" */
+#define MEDIA_RENDERER "ssdp:all" /*urn:schemas-upnp-org:device:MediaRenderer:1"*/
 
 struct _KorvaUPnPDeviceListerPrivate {
     GUPnPContextManager *context_manager;
@@ -107,7 +107,7 @@ korva_upnp_device_lister_init (KorvaUPnPDeviceLister *self)
                                                          g_object_unref);
     self->priv->server = korva_upnp_file_server_get_default ();
     
-    cm = gupnp_context_manager_create (0);
+    cm = gupnp_context_manager_new (NULL, 0);
     self->priv->context_manager = cm;
     g_signal_connect (cm,
                       "context-available",
