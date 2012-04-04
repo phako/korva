@@ -419,7 +419,8 @@ korva_upnp_file_server_host_file_async (KorvaUPnPFileServer *self,
                                         (gpointer) korva_upnp_file_server_host_file_async);
 
     info = g_file_query_info (file,
-                              G_FILE_ATTRIBUTE_STANDARD_CONTENT_TYPE,
+                              G_FILE_ATTRIBUTE_STANDARD_CONTENT_TYPE","
+                              G_FILE_ATTRIBUTE_STANDARD_SIZE,
                               0,
                               NULL,
                               &error);
