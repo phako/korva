@@ -435,6 +435,7 @@ korva_upnp_file_server_host_file_async (KorvaUPnPFileServer *self,
         g_free (tmp);
         g_error_free (error);
         g_simple_async_result_take_error (result, inner_error);
+        g_hash_table_destroy (params);
 
         goto out;
     }
