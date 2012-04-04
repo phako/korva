@@ -17,8 +17,25 @@ AC_PROG_CC
 AC_PROG_RANLIB
 AM_PROG_CC_C_O
 
+CFLAGS="${CFLAGS} -Wall -Wextra -Wno-unused-parameter"
+CFLAGS="${CFLAGS} -Wno-missing-field-initializers -Wmissing-declarations"
+CFLAGS="${CFLAGS} -Wshadow -Wredundant-decls -Wmissing-noreturn"
+CFLAGS="${CFLAGS} -Wpointer-arith -Wwrite-strings -Winline -Wformat-nonliteral"
+CFLAGS="${CFLAGS} -Wcast-align -Wformat-security -Wswitch-enum"
+CFLAGS="${CFLAGS} -Wswitch-default"
+
 PKG_CHECK_MODULES([GIO], [gio-2.0 >= 2.30 gio-unix-2.0 >= 2.30])
 PKG_CHECK_MODULES([GUPNP], [gupnp-1.0 >= 0.18.0 gupnp-av-1.0 >= 0.10.1])
+
+AC_ARG_ENABLE([debug],
+              AS_HELP_STRING([--enable-debug],[Enable debug build]),[],
+              [enable_debug=no])
+if test "x$enable_debug" = "xyes"; then
+    CFLAGS="${CFLAGS} -O0 -g -Werror"
+else
+    CFLAGS="${CFLAGS} -O2"
+fi
+
 AC_CONFIG_FILES([
 Makefile
 dbus/Makefile
