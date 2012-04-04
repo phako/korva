@@ -1,7 +1,8 @@
 !.gitignore
 .*
-server/korva-dbus-interface.*
+dbus/korva-dbus-interface.*
 *.o
+*.a
 config.*
 Makefile
 Makefile.in
@@ -12,3 +13,10 @@ autom4te.cache
 configure
 INSTALL
 stamp-h1
+*.orig
+*REMOTE*
+*LOCAL*
+valgrind.log.*
+data/org.jensge.Korva.service
+server/korva
+client/korva-control
