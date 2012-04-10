@@ -13,7 +13,6 @@
       <arg direction='out' name='Tag' type='s' />
     </method>
     <method name='Unshare'>
-      <arg direction='in' name='UID' type='s' />
       <arg direction='in' name='Tag' type='s' />
     </method>
     <signal name='DeviceAvailable'>

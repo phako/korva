@@ -114,3 +114,19 @@ korva_device_push_finish (KorvaDevice   *self,
                                                            error);
 }
 
+void
+korva_device_unshare_async (KorvaDevice         *self,
+                            const char          *tag,
+                            GAsyncReadyCallback  callback,
+                            gpointer             user_data)
+{
+    KORVA_DEVICE_GET_INTERFACE (self)->unshare_async (self, tag, callback, user_data);
+}
+
+gboolean
+korva_device_unshare_finish (KorvaDevice   *self,
+                             GAsyncResult  *result,
+                             GError       **error)
+{
+    return KORVA_DEVICE_GET_INTERFACE (self)->unshare_finish (self, result, error);
+}

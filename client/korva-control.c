@@ -25,15 +25,17 @@
 
 #include <korva-dbus-interface.h>
 
-static gboolean list;
-static char *file;
-static char *device;
+static gboolean list = FALSE;
+static char *file = NULL;
+static char *device = NULL;
+static char *tag = NULL;
 
 static GOptionEntry entries[] =
 {
     { "list", 'l', 0, G_OPTION_ARG_NONE, &list, "Show available devices", NULL },
     { "push", 'p', 0, G_OPTION_ARG_FILENAME, &file, "Path to FILE to push", "FILE" },
-    { "device", 'd', 0, G_OPTION_ARG_STRING, &device, "UID of device to push to", "UID" },
+    { "device", 'd', 0, G_OPTION_ARG_STRING, &device, "UID of a device", "UID" },
+    { "unshare", 'u', 0, G_OPTION_ARG_STRING, &tag, "TAG of a previously done push operation", "TAG" },
     { NULL }
 };
 
@@ -95,7 +97,8 @@ int main(int argc, char *argv[])
         exit (1);
     }
 
-    if (list == FALSE && (file == NULL || device == NULL)) {
+    if (!((list == TRUE && device == NULL && file == NULL && tag == NULL) ||
+        (list == FALSE && (device != NULL && (file != NULL || tag != NULL))))) {
         g_print ("%s", g_option_context_get_help (context, FALSE, NULL));
 
         exit (0);
@@ -116,29 +119,41 @@ int main(int argc, char *argv[])
     if (list) {
         korva_control_list_devices (controller);
     } else {
-        GFile *source;
-        GVariantBuilder *builder;
-        char *tag;
+        if (tag != NULL) {
+            korva_controller1_call_unshare_sync (controller, tag, NULL, &error);
 
-        source = g_file_new_for_commandline_arg (file);
-        builder = g_variant_builder_new (G_VARIANT_TYPE_ARRAY);
-        g_variant_builder_add (builder, "{sv}", "URI", g_variant_new_string (g_file_get_uri (source)));
+            if (error != NULL) {
+                g_print ("Failed to Unshare tag %s: %s\n",
+                         tag,
+                         error->message);
 
-        korva_controller1_call_push_sync (controller,
-                                          g_variant_builder_end (builder),
-                                          device,
-                                          &tag,
-                                          NULL,
-                                          &error);
-        if (error != NULL) {
-            g_print ("Failed to Push %s to %s: %s\n",
-                     file,
-                     device,
-                     error->message);
-
-            g_error_free (error);
+                g_error_free (error);
+            }
         } else {
-            g_print ("Pushed %s to %s. The ID is %s\n", file, device, tag);
+            GFile *source;
+            GVariantBuilder *builder;
+            char *out_tag;
+
+            source = g_file_new_for_commandline_arg (file);
+            builder = g_variant_builder_new (G_VARIANT_TYPE_ARRAY);
+            g_variant_builder_add (builder, "{sv}", "URI", g_variant_new_string (g_file_get_uri (source)));
+
+            korva_controller1_call_push_sync (controller,
+                                              g_variant_builder_end (builder),
+                                              device,
+                                              &out_tag,
+                                              NULL,
+                                              &error);
+            if (error != NULL) {
+                g_print ("Failed to Push %s to %s: %s\n",
+                         file,
+                         device,
+                         error->message);
+
+                g_error_free (error);
+            } else {
+                g_print ("Pushed %s to %s. The ID is %s\n", file, device, out_tag);
+            }
         }
     }
 

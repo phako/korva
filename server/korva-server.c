@@ -81,6 +81,11 @@ korva_server_on_handle_push (KorvaController1      *iface,
                              const char            *uid,
                              gpointer               user_data);
 
+static gboolean
+korva_server_on_handle_unshare (KorvaController1      *iface,
+                                GDBusMethodInvocation *invocation,
+                                const char            *tag,
+                                gpointer               user_data);
 /* Backend signal handlers */
 static void
 korva_server_on_device_available (KorvaDeviceLister *source,
@@ -97,6 +102,7 @@ struct _KorvaServerPrivate {
     KorvaController1 *dbus_controller;
     GList            *backends;
     guint             bus_id;
+    GHashTable       *tags;
 };
 
 static gboolean
@@ -126,6 +132,11 @@ korva_server_init (KorvaServer *self)
                                          g_object_ref (self),
                                          g_object_unref);
 
+    self->priv->tags = g_hash_table_new_full (g_str_hash,
+                                              (GEqualFunc) g_str_equal,
+                                              g_free,
+                                              g_free);
+
 #ifdef G_OS_UNIX
     g_unix_signal_add (SIGINT, korva_server_signal_handler, self);
 #endif
@@ -153,6 +164,13 @@ korva_server_dispose (GObject *object)
 static void
 korva_server_finalize (GObject *object)
 {
+    KorvaServer *self = KORVA_SERVER (object);
+
+    if (self->priv->tags != NULL) {
+        g_hash_table_destroy (self->priv->tags);
+        self->priv->tags = NULL;
+    }
+
     G_OBJECT_CLASS (korva_server_parent_class)->finalize (object);
 }
 
@@ -215,6 +233,11 @@ korva_server_on_bus_aquired  (GDBusConnection *connection,
     g_signal_connect (G_OBJECT (controller),
                       "handle-push",
                       G_CALLBACK (korva_server_on_handle_push),
+                      user_data);
+
+    g_signal_connect (G_OBJECT (controller),
+                      "handle-unshare",
+                      G_CALLBACK (korva_server_on_handle_unshare),
                       user_data);
     
     g_dbus_interface_skeleton_export (G_DBUS_INTERFACE_SKELETON(controller),
@@ -376,7 +399,7 @@ korva_server_on_handle_get_device_info (KorvaController1      *iface,
 }
 
 typedef struct {
-    KorvaController1 *iface;
+    KorvaServer *self;
     GDBusMethodInvocation *invocation;
 } PushAsyncData;
 
@@ -398,7 +421,11 @@ korva_server_on_push_async_ready (GObject      *obj,
         goto out;
     }
 
-    korva_controller1_complete_push (data->iface, data->invocation, tag);
+    g_hash_table_insert (data->self->priv->tags,
+                         g_strdup (tag),
+                         g_strdup (korva_device_get_uid (device)));
+
+    korva_controller1_complete_push (data->self->priv->dbus_controller, data->invocation, tag);
     g_free (tag);
 
 out:
@@ -439,13 +466,80 @@ korva_server_on_handle_push (KorvaController1      *iface,
     }
 
     data = g_new0 (PushAsyncData, 1);
-    data->iface = iface;
+    data->self = self;
     data->invocation = invocation;
 
     korva_device_push_async (device, source, korva_server_on_push_async_ready, data);
 
     return TRUE;
 }
+
+static void
+korva_server_on_unshare_async_ready (GObject      *obj,
+                                     GAsyncResult *res,
+                                     gpointer      user_data)
+{
+    KorvaDevice *device = KORVA_DEVICE (obj);
+    PushAsyncData *data = (PushAsyncData *) user_data;
+    GError *error = NULL;
+
+    if (!korva_device_unshare_finish (device, res, &error)) {
+        g_dbus_method_invocation_return_gerror (data->invocation,
+                                                error);
+
+        goto out;
+    }
+
+    korva_controller1_complete_unshare (data->self->priv->dbus_controller, data->invocation);
+
+out:
+    g_free (data);
+}
+
+static gboolean
+korva_server_on_handle_unshare (KorvaController1      *iface,
+                                GDBusMethodInvocation *invocation,
+                                const char            *tag,
+                                gpointer               user_data)
+{
+    KorvaServer *self = KORVA_SERVER (user_data);
+    KorvaDevice *device;
+    PushAsyncData *data;
+    const char *uid;
+
+    uid = g_hash_table_lookup (self->priv->tags, tag);
+    if (uid == NULL) {
+        g_dbus_method_invocation_return_error (invocation,
+                                               KORVA_CONTROLLER1_ERROR,
+                                               KORVA_CONTROLLER1_ERROR_NO_SUCH_TRANSFER,
+                                               "Push operation '%s' does not exist",
+                                               tag);
+
+        return TRUE;
+    }
+
+    device = korva_server_get_device (self, uid);
+    g_hash_table_remove (self->priv->tags, tag);
+
+    if (device == NULL) {
+        g_dbus_method_invocation_return_error (invocation,
+                                               KORVA_CONTROLLER1_ERROR,
+                                               KORVA_CONTROLLER1_ERROR_NO_SUCH_DEVICE,
+                                               "Device '%s' does not exist",
+                                               uid);
+
+        return TRUE;
+    }
+
+    data = g_new0 (PushAsyncData, 1);
+    data->self = self;
+    data->invocation = invocation;
+
+    korva_device_unshare_async (device, tag, korva_server_on_unshare_async_ready, data);
+
+    return TRUE;
+}
+
 
 static void
 korva_server_on_device_available (KorvaDeviceLister *source,

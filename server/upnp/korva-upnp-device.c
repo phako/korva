@@ -127,9 +127,19 @@ korva_upnp_device_get_protocol (KorvaDevice *device);
 static KorvaDeviceType
 korva_upnp_device_get_device_type (KorvaDevice *device);
 
-
 static GVariant *
 korva_upnp_device_serialize (KorvaDevice *device);
+
+static void
+korva_upnp_device_unshare_async (KorvaDevice         *self,
+                                 const char          *tag,
+                                 GAsyncReadyCallback  callback,
+                                 gpointer             user_data);
+
+static gboolean
+korva_upnp_device_unshare_finish (KorvaDevice   *self,
+                                  GAsyncResult  *result,
+                                  GError       **error);
 
 struct _KorvaUPnPDevicePrivate {
     union {
@@ -298,6 +308,8 @@ korva_upnp_device_korva_device_init (KorvaDeviceInterface *iface)
     iface->serialize = korva_upnp_device_serialize;
     iface->push_async = korva_upnp_device_push_async;
     iface->push_finish = korva_upnp_device_push_finish;
+    iface->unshare_async = korva_upnp_device_unshare_async;
+    iface->unshare_finish = korva_upnp_device_unshare_finish;
 }
 
 static const char *
@@ -1048,4 +1060,43 @@ korva_upnp_device_push_finish (KorvaDevice   *device,
     tag = g_strdup (g_simple_async_result_get_op_res_gpointer (result));
 
     return tag;
+}
+
+static void
+korva_upnp_device_unshare_async (KorvaDevice         *device,
+                                 const char          *tag,
+                                 GAsyncReadyCallback  callback,
+                                 gpointer             user_data)
+{
+    GSimpleAsyncResult *result;
+
+    result = g_simple_async_result_new (G_OBJECT (device),
+                                        callback,
+                                        user_data,
+                                        (gpointer) korva_upnp_device_unshare_async);
+
+    /* TODO: Remove file reference from server */
+
+    g_simple_async_result_complete_in_idle (result);
+}
+
+static gboolean
+korva_upnp_device_unshare_finish (KorvaDevice   *device,
+                                  GAsyncResult  *res,
+                                  GError       **error)
+{
+    GSimpleAsyncResult *result;
+
+    if (!g_simple_async_result_is_valid (res,
+                                         G_OBJECT (device),
+                                         korva_upnp_device_unshare_async)) {
+        return FALSE;
+    }
+
+    result = (GSimpleAsyncResult *) res;
+    if (g_simple_async_result_propagate_error (result, error)) {
+        return FALSE;
+    }
+
+    return TRUE;
 }

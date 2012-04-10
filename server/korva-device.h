@@ -62,6 +62,13 @@ struct _KorvaDeviceInterface {
     char                *(* push_finish) (KorvaDevice   *self,
                                           GAsyncResult  *result,
                                           GError       **error);
+    void                 (* unshare_async) (KorvaDevice         *self,
+                                            const char          *tag,
+                                            GAsyncReadyCallback  callback,
+                                            gpointer             user_data);
+    gboolean             (* unshare_finish) (KorvaDevice   *self,
+                                             GAsyncResult  *result,
+                                             GError       **error);
 };
 
 const char *
@@ -91,6 +98,17 @@ char *
 korva_device_push_finish (KorvaDevice   *self,
                           GAsyncResult  *result,
                           GError       **error);
+
+void
+korva_device_unshare_async (KorvaDevice         *self,
+                            const char          *tag,
+                            GAsyncReadyCallback  callback,
+                            gpointer             user_data);
+
+gboolean
+korva_device_unshare_finish (KorvaDevice   *self,
+                             GAsyncResult  *result,
+                             GError       **error);
 
 G_END_DECLS
 #endif /* __KORVA_DEVICE_H__ */

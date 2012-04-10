@@ -25,11 +25,12 @@
 
 static const GDBusErrorEntry korva_controller1_error_entries[] =
 {
-    { KORVA_CONTROLLER1_ERROR_FILE_NOT_FOUND, "org.jensge.Korva.Error.FileNotFound" },
-    { KORVA_CONTROLLER1_ERROR_NOT_COMPATIBLE, "org.jensge.Korva.Error.NotCompatible" },
-    { KORVA_CONTROLLER1_ERROR_NO_SUCH_DEVICE, "org.jensge.Korva.Error.NoSuchDevice" },
-    { KORVA_CONTROLLER1_ERROR_TIMEOUT,        "org.jensge.Korva.Error.Timeout" },
-    { KORVA_CONTROLLER1_ERROR_INVALID_ARGS,   "org.jensge.Korva.Error.InvalidArgs" },
+    { KORVA_CONTROLLER1_ERROR_FILE_NOT_FOUND,   "org.jensge.Korva.Error.FileNotFound" },
+    { KORVA_CONTROLLER1_ERROR_NOT_COMPATIBLE,   "org.jensge.Korva.Error.NotCompatible" },
+    { KORVA_CONTROLLER1_ERROR_NO_SUCH_DEVICE,   "org.jensge.Korva.Error.NoSuchDevice" },
+    { KORVA_CONTROLLER1_ERROR_TIMEOUT,          "org.jensge.Korva.Error.Timeout" },
+    { KORVA_CONTROLLER1_ERROR_INVALID_ARGS,     "org.jensge.Korva.Error.InvalidArgs" },
+    { KORVA_CONTROLLER1_ERROR_NO_SUCH_TRANSFER, "org.jensge.Korva.Error.NoSuchTransfer" },
 };
 
 GQuark
