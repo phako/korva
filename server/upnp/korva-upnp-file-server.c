@@ -267,6 +267,7 @@ korva_upnp_file_server_handle_request (SoupServer *server,
             goto out;
         } else {
             soup_message_set_status (msg, SOUP_STATUS_PARTIAL_CONTENT);
+            soup_message_headers_set_content_range (msg->response_headers, start, end, data->size);
         }
         serve_data->start = start;
         serve_data->end = end;
