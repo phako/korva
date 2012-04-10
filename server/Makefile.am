@@ -1,6 +1,6 @@
 SUBDIRS=upnp
 
-bin_PROGRAMS=korva
+libexec_PROGRAMS=korva
 
 korva_SOURCES=\
 	korva.c \
