@@ -65,6 +65,7 @@ korva_upnp_file_server_host_file_async (KorvaUPnPFileServer *self,
 char *
 korva_upnp_file_server_host_file_finish (KorvaUPnPFileServer  *self,
                                          GAsyncResult         *result,
+                                         GHashTable          **params,
                                          GError              **error);
 
 G_END_DECLS

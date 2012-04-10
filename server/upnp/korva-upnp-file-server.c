@@ -48,20 +48,27 @@ host_data_new (GHashTable *meta_data, GFileInfo *info, const char *address)
     self->info = g_object_ref (info);
     value = g_hash_table_lookup (meta_data, "Size");
     if (value != NULL) {
-        g_debug ("Setting size from meta-data");
         self->size = (goffset) g_variant_get_uint64 (value);
     } else {
-        g_debug ("Setting size from file-info");
         self->size = g_file_info_get_size (info);
+        g_hash_table_insert (meta_data, g_strdup ("Size"), g_variant_new_uint64 (self->size));
     }
-
-    g_debug ("Size is: %li", self->size);
 
     value = g_hash_table_lookup (meta_data, "ContentType");
     if (value != NULL) {
         self->content_type = g_variant_get_string (value, NULL);
     } else {
         self->content_type = g_file_info_get_content_type (info);
+        g_hash_table_insert (meta_data,
+                             g_strdup ("ContentType"),
+                             g_variant_new_string (self->content_type));
+    }
+
+    value = g_hash_table_lookup (meta_data, "Title");
+    if (value == NULL) {
+        g_hash_table_insert (meta_data,
+                             g_strdup ("Title"),
+                             g_variant_new_string (g_file_info_get_display_name (info)));
     }
 
     return self;
@@ -398,6 +405,11 @@ korva_upnp_file_server_get_default (void)
     return g_object_new (KORVA_TYPE_UPNP_FILE_SERVER, NULL);
 }
 
+typedef struct {
+    GHashTable *params;
+    char *uri;
+} HostFileResult;
+
 void
 korva_upnp_file_server_host_file_async (KorvaUPnPFileServer *self,
                                         GFile *file,
@@ -408,10 +420,10 @@ korva_upnp_file_server_host_file_async (KorvaUPnPFileServer *self,
 {
     HostData *data;
     GSimpleAsyncResult *result;
-    char *uri;
     guint port;
     GFileInfo *info;
     GError *error;
+    HostFileResult *result_data;
 
     result = g_simple_async_result_new (G_OBJECT (self),
                                         callback,
@@ -420,7 +432,8 @@ korva_upnp_file_server_host_file_async (KorvaUPnPFileServer *self,
 
     info = g_file_query_info (file,
                               G_FILE_ATTRIBUTE_STANDARD_CONTENT_TYPE","
-                              G_FILE_ATTRIBUTE_STANDARD_SIZE,
+                              G_FILE_ATTRIBUTE_STANDARD_SIZE","
+                              G_FILE_ATTRIBUTE_STANDARD_DISPLAY_NAME,
                               0,
                               NULL,
                               &error);
@@ -457,10 +470,13 @@ korva_upnp_file_server_host_file_async (KorvaUPnPFileServer *self,
     g_object_unref (info);
 
     port = soup_server_get_port (self->priv->http_server);
-    uri = host_data_get_uri (data, iface, port);
-    
-    g_simple_async_result_set_op_res_gpointer (result, uri, g_free);
-    
+
+    result_data = g_new0 (HostFileResult, 1);
+    result_data->params = data->meta_data;
+    result_data->uri = host_data_get_uri (data, iface, port);
+
+    g_simple_async_result_set_op_res_gpointer (result, result_data, g_free);
+
 out:
     g_simple_async_result_complete_in_idle (result);
     g_object_unref (result);
@@ -469,9 +485,11 @@ out:
 char *
 korva_upnp_file_server_host_file_finish (KorvaUPnPFileServer  *self,
                                          GAsyncResult         *res,
+                                         GHashTable          **params,
                                          GError              **error)
 {
     GSimpleAsyncResult *result;
+    HostFileResult *result_data;
 
     if (!g_simple_async_result_is_valid (res,
                                          G_OBJECT (self),
@@ -484,5 +502,8 @@ korva_upnp_file_server_host_file_finish (KorvaUPnPFileServer  *self,
         return NULL;
     }
 
-    return g_simple_async_result_get_op_res_gpointer (result);
+    result_data = (HostFileResult *) g_simple_async_result_get_op_res_gpointer (result);
+    *params = result_data->params;
+
+    return result_data->uri;
 }

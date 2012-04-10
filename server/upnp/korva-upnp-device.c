@@ -19,6 +19,7 @@
 */
 
 #include <libsoup/soup.h>
+#include <libgupnp-av/gupnp-av.h>
 
 #include <korva-error.h>
 #include <korva-icon-cache.h>
@@ -676,6 +677,9 @@ korva_upnp_device_remove_proxy (KorvaUPnPDevice *self, GUPnPDeviceProxy *proxy)
 typedef struct {
     GSimpleAsyncResult *result;
     KorvaUPnPDevice    *device;
+    GHashTable         *params;
+    char               *uri;
+    char               *meta_data;
 } HostPathData;
 
 static void
@@ -703,18 +707,56 @@ korva_upnp_device_on_host_file_async (GObject      *source,
                                       gpointer      user_data)
 {
     GError *error = NULL;
-    char *uri = NULL;
+    GHashTable *params;
     HostPathData *data = (HostPathData *) user_data;
     GUPnPServiceProxy *proxy;
+    GUPnPDIDLLiteWriter *writer;
+    GUPnPDIDLLiteObject *object;
+    GUPnPDIDLLiteResource *resource;
+    GUPnPProtocolInfo *protocol_info;
+    const char *title, *content_type, *dlna_profile = NULL;
+    GVariant *value;
+    guint64 size;
 
-    uri = korva_upnp_file_server_host_file_finish (KORVA_UPNP_FILE_SERVER (source),
-                                                   res,
-                                                   &error);
-    if (uri == NULL) {
+    data->uri = korva_upnp_file_server_host_file_finish (KORVA_UPNP_FILE_SERVER (source),
+                                                         res,
+                                                         &params,
+                                                         &error);
+    if (params == NULL) {
         g_simple_async_result_take_error (data->result, error);
 
         goto out;
     }
+
+    value = g_hash_table_lookup (params, "Title");
+    title = g_variant_get_string (value, NULL);
+    value = g_hash_table_lookup (params, "ContentType");
+    content_type = g_variant_get_string (value, NULL);
+    value = g_hash_table_lookup (params, "Size");
+    size = g_variant_get_uint64 (value);
+    value = g_hash_table_lookup (params, "DLNAProfile");
+    if (value != NULL) {
+        dlna_profile = g_variant_get_string (value, NULL);
+    }
+
+    writer = gupnp_didl_lite_writer_new ("en");
+    object = GUPNP_DIDL_LITE_OBJECT (gupnp_didl_lite_writer_add_item (writer));
+    gupnp_didl_lite_object_set_title (object, title);
+    gupnp_didl_lite_object_set_id (object, "1");
+    gupnp_didl_lite_object_set_parent_id (object, "-1");
+    resource = gupnp_didl_lite_object_add_resource (object);
+    gupnp_didl_lite_resource_set_uri (resource, data->uri);
+    gupnp_didl_lite_resource_set_size64 (resource, size);
+    protocol_info = gupnp_protocol_info_new_from_string ("http-get:*:*:DLNA.ORG_CI=0;DLNA.ORG_OP=01", NULL);
+    gupnp_protocol_info_set_mime_type (protocol_info, content_type);
+    if (dlna_profile != NULL) {
+        gupnp_protocol_info_set_dlna_profile (protocol_info, dlna_profile);
+    }
+    gupnp_didl_lite_resource_set_protocol_info (resource, protocol_info);
+
+    data->meta_data = gupnp_didl_lite_writer_get_string (writer);
+    g_object_unref (object);
+    g_object_unref (writer);
 
     proxy = g_hash_table_lookup (data->device->priv->services, AV_TRANSPORT);
     gupnp_service_proxy_begin_action (proxy,
@@ -722,12 +764,13 @@ korva_upnp_device_on_host_file_async (GObject      *source,
                                       korva_upnp_device_on_set_av_transport_uri,
                                       user_data,
                                       "InstanceID", G_TYPE_STRING, "0",
-                                      "CurrentURI", G_TYPE_STRING, uri,
-                                      "CurrentURIMetaData", G_TYPE_STRING, "",
+                                      "CurrentURI", G_TYPE_STRING, data->uri,
+                                      "CurrentURIMetaData", G_TYPE_STRING, data->meta_data,
                                       NULL);
 
     return;
 out:
+    g_free (data->uri);
     g_simple_async_result_complete_in_idle (data->result);
     g_object_unref (data->result);
     g_free (data);
@@ -789,6 +832,7 @@ korva_upnp_device_push_async (KorvaDevice         *device,
     host_path_data = g_new0 (HostPathData, 1);
     host_path_data->result = result;
     host_path_data->device = self;
+    host_path_data->params = params;
     korva_upnp_file_server_host_file_async (server,
                                             file,
                                             params,
