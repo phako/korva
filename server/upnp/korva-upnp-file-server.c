@@ -18,6 +18,8 @@
     along with Korva.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#define G_LOG_DOMAIN "Korva-UPnP-File-Server"
+
 #include <stdlib.h>
 
 #include <gio/gio.h>

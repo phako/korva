@@ -18,6 +18,8 @@
     along with Korva.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#define G_LOG_DOMAIN "Korva-Server"
+
 #include "korva-server.h"
 #include "korva-icon-cache.h"
 

@@ -18,6 +18,8 @@
     along with Korva.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#define G_LOG_DOMAIN "Korva-Server"
+
 #include <glib.h>
 
 #ifdef G_OS_UNIX

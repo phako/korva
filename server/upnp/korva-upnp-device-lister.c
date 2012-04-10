@@ -18,6 +18,8 @@
     along with Korva.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#define G_LOG_DOMAIN "Korva-UPnP-Device-Lister"
+
 #include <libgupnp/gupnp.h>
 
 #include "korva-upnp-device-lister.h"

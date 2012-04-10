@@ -18,6 +18,8 @@
     along with Korva.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#define G_LOG_DOMAIN "Korva-UPnP-Device"
+
 #include <libsoup/soup.h>
 #include <libgupnp-av/gupnp-av.h>
 

@@ -18,6 +18,8 @@
     along with Korva.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#define G_LOG_DOMAIN "Korva-Device"
+
 #include "korva-device.h"
 
 G_DEFINE_INTERFACE (KorvaDevice, korva_device, G_TYPE_OBJECT)
