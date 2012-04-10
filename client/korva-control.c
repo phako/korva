@@ -108,7 +108,7 @@ int main(int argc, char *argv[])
                                                            NULL,
                                                            &error);
     if (error != NULL) {
-        g_print ("Could not get connection to D-Bus peer: %s", error->message);
+        g_print ("Could not get connection to D-Bus peer: %s\n", error->message);
 
         exit (1);
     }
@@ -129,7 +129,7 @@ int main(int argc, char *argv[])
                                           NULL,
                                           &error);
         if (error != NULL) {
-            g_print ("Failed to Push %s to %s: %s",
+            g_print ("Failed to Push %s to %s: %s\n",
                      file,
                      device,
                      error->message);
