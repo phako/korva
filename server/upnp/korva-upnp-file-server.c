@@ -185,6 +185,11 @@ korva_upnp_file_server_on_finished (SoupMessage *msg,
     g_slice_free (ServeData, data);
 }
 
+static void print_header (const char *name, const char *value, gpointer user_data)
+{
+    g_debug ("    %s: %s", name, value);
+}
+
 static void
 korva_upnp_file_server_handle_request (SoupServer *server,
                                        SoupMessage *msg,
@@ -195,17 +200,24 @@ korva_upnp_file_server_handle_request (SoupServer *server,
 {
     KorvaUPnPFileServer *self = KORVA_UPNP_FILE_SERVER (user_data);
     GMatchInfo *info;
-    char *id;
+    char *id, *file_path;
     GFile *file;
     HostData *data;
     ServeData *serve_data;
     SoupRange *ranges = NULL;
     int length;
-    char *file_path;
     GError *error = NULL;
 
-    g_debug ("Got request for uri: %s", path);
+    if (msg->method != SOUP_METHOD_HEAD &&
+        msg->method != SOUP_METHOD_GET) {
+        soup_message_set_status (msg, SOUP_STATUS_METHOD_NOT_ALLOWED);
+    }
+
+    g_debug ("Got %s request for uri: %s", msg->method, path);
+    soup_message_headers_foreach (msg->request_headers, print_header, NULL);
+
     soup_server_pause_message (server, msg);
+    soup_message_set_status (msg, SOUP_STATUS_OK);
 
     if (!g_regex_match (self->priv->path_regex,
                         path,
@@ -239,25 +251,7 @@ korva_upnp_file_server_handle_request (SoupServer *server,
     /* TODO: Check IP of requesting client with list of IPs attached to host
      * data
      */
-    soup_message_headers_set_encoding (msg->response_headers, SOUP_ENCODING_CONTENT_LENGTH);
-    file_path = g_file_get_path (file);
     serve_data = g_slice_new0 (ServeData);
-    serve_data->file = g_mapped_file_new (file_path, FALSE, &error);
-    serve_data->server = server;
-    g_free (file_path);
-    if (error != NULL) {
-        g_warning ("Failed to MMAP file %s: %s",
-                   path,
-                   error->message);
-
-        g_error_free (error);
-        g_slice_free (ServeData, serve_data);
-
-        soup_message_set_status (msg, SOUP_STATUS_INTERNAL_SERVER_ERROR);
-
-        goto out;
-    }
-
     if (soup_message_headers_get_ranges (msg->request_headers, data->size, &ranges, &length)) {
         goffset start, end;
         start = ranges[0].start;
@@ -278,12 +272,41 @@ korva_upnp_file_server_handle_request (SoupServer *server,
         soup_message_set_status (msg, SOUP_STATUS_OK);
     }
 
-    soup_message_body_set_accumulate (msg->response_body, FALSE);
     soup_message_headers_set_content_length (msg->response_headers,
                                              serve_data->end - serve_data->start + 1);
     soup_message_headers_set_content_type (msg->response_headers,
                                            data->content_type,
                                            NULL);
+
+    if (g_ascii_strcasecmp (msg->method, "HEAD") == 0) {
+        g_debug ("Handled HEAD request of %s: %d", path, msg->status_code);
+        soup_message_headers_append (msg->response_headers, "Connection", "close");
+        soup_message_headers_foreach (msg->response_headers, print_header, NULL);
+        g_slice_free (ServeData, serve_data);
+
+        goto out;
+    }
+
+    soup_message_headers_set_encoding (msg->response_headers, SOUP_ENCODING_CONTENT_LENGTH);
+    soup_message_body_set_accumulate (msg->response_body, FALSE);
+
+    file_path = g_file_get_path (file);
+    serve_data->file = g_mapped_file_new (file_path, FALSE, &error);
+    serve_data->server = server;
+    g_free (file_path);
+    if (error != NULL) {
+        g_warning ("Failed to MMAP file %s: %s",
+                   path,
+                   error->message);
+
+        g_error_free (error);
+        g_slice_free (ServeData, serve_data);
+
+        soup_message_set_status (msg, SOUP_STATUS_INTERNAL_SERVER_ERROR);
+
+        goto out;
+    }
+
     g_signal_connect (msg,
                       "wrote-chunk",
                       G_CALLBACK (korva_upnp_file_server_on_wrote_chunk),
