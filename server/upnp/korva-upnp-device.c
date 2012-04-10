@@ -63,6 +63,12 @@ static void
 korva_upnp_device_introspection_finish (KorvaUPnPDevice *self,
                                         GError          *error);
 
+static void
+korva_upnp_device_on_last_change (GUPnPServiceProxy *proxy,
+                                  const char        *variable,
+                                  GValue            *value,
+                                  gpointer           user_data);
+
 #define korva_upnp_device_introspection_success(self) \
         korva_upnp_device_introspection_finish ((self), NULL)
 
@@ -76,6 +82,19 @@ korva_upnp_device_get_icon (KorvaUPnPDevice *self);
 
 static void
 korva_upnp_device_on_icon_ready (SoupMessage *message, gpointer user_data);
+
+static void
+korva_upnp_device_on_set_av_transport_uri (GUPnPServiceProxy       *proxy,
+                                           GUPnPServiceProxyAction *action,
+                                           gpointer                 user_data);
+static void
+korva_upnp_device_on_play (GUPnPServiceProxy       *proxy,
+                           GUPnPServiceProxyAction *action,
+                           gpointer                 user_data);
+static void
+korva_upnp_device_on_stop (GUPnPServiceProxy       *proxy,
+                           GUPnPServiceProxyAction *action,
+                           gpointer                 user_data);
 
 /* GAsyncInitable */
 static void
@@ -126,6 +145,8 @@ struct _KorvaUPnPDevicePrivate {
     char                      *protocol_info;
     SoupSession               *session;
     GList                     *other_proxies;
+    GUPnPLastChangeParser     *last_change_parser;
+    char                      *state;
 };
 
 enum Properties {
@@ -144,6 +165,8 @@ korva_upnp_device_init (KorvaUPnPDevice *self)
                                                   NULL,
                                                   g_object_unref);
     self->priv->session = soup_session_async_new ();
+    self->priv->last_change_parser = gupnp_last_change_parser_new ();
+    self->priv->state = g_strdup ("UNKNOWN");
 }
 
 static void
@@ -170,7 +193,12 @@ korva_upnp_device_dispose (GObject *obj)
         g_list_free_full (self->priv->other_proxies, g_object_unref);
         self->priv->other_proxies = NULL;
     }
-    
+
+    if (self->priv->last_change_parser != NULL) {
+        g_object_unref (self->priv->last_change_parser);
+        self->priv->last_change_parser = NULL;
+    }
+
     G_OBJECT_CLASS (korva_upnp_device_parent_class)->dispose (obj);
 }
 
@@ -440,6 +468,12 @@ korva_upnp_device_introspect_renderer (KorvaUPnPDevice *self)
     g_hash_table_insert (self->priv->services,
                          (char *)AV_TRANSPORT,
                          GUPNP_SERVICE_PROXY (service));
+    gupnp_service_proxy_add_notify (GUPNP_SERVICE_PROXY (service),
+                                    "LastChange", G_TYPE_STRING,
+                                    korva_upnp_device_on_last_change,
+                                    self);
+    gupnp_service_proxy_set_subscribed (GUPNP_SERVICE_PROXY (service), TRUE);
+
 
     service = gupnp_device_info_get_service (info, CONNECTION_MANAGER);
     if (service == NULL) {
@@ -616,6 +650,45 @@ korva_upnp_device_on_icon_ready (SoupMessage *message, gpointer user_data)
     korva_upnp_device_introspection_finish (self, NULL);
 }
 
+static void
+korva_upnp_device_on_last_change (GUPnPServiceProxy *proxy,
+                                  const char        *variable,
+                                  GValue            *value,
+                                  gpointer           user_data)
+{
+    KorvaUPnPDevice *self = KORVA_UPNP_DEVICE (user_data);
+    char *status = NULL;
+    gboolean result = FALSE;
+    GError *error = NULL;
+
+    result = gupnp_last_change_parser_parse_last_change (self->priv->last_change_parser,
+                                                         0,
+                                                         g_value_get_string (value),
+                                                         &error,
+                                                         "TransportState", G_TYPE_STRING, &status,
+                                                         NULL);
+    if (!result) {
+        g_warning ("Failed to parse LastState: %s", error->message);
+        g_error_free (error);
+
+        return;
+    }
+
+    if (status != NULL) {
+        if (self->priv->state != NULL) {
+            if (g_ascii_strcasecmp (self->priv->state, status) == 0) {
+                g_free (status);
+
+                return;
+            }
+            g_free (self->priv->state);
+        }
+        self->priv->state = status;
+        g_debug ("Device %s has new state '%s'", self->priv->udn, self->priv->state);
+    }
+}
+
+
 void
 korva_upnp_device_add_proxy (KorvaUPnPDevice *self, GUPnPDeviceProxy *proxy)
 {
@@ -683,20 +756,113 @@ typedef struct {
 } HostPathData;
 
 static void
-korva_upnp_device_on_set_av_transport_uri (GUPnPServiceProxy       *proxy,
-                                           GUPnPServiceProxyAction *action,
-                                           gpointer                 user_data)
+host_path_data_free (HostPathData *data)
+{
+    if (data->uri != NULL) {
+        g_free (data->uri);
+    }
+
+    if (data->meta_data != NULL) {
+        g_free (data->meta_data);
+    }
+
+    g_free (data);
+}
+
+static void
+korva_upnp_device_on_play (GUPnPServiceProxy       *proxy,
+                           GUPnPServiceProxyAction *action,
+                           gpointer                 user_data)
 {
     GError *error = NULL;
     HostPathData *data = (HostPathData *) user_data;
     GSimpleAsyncResult *result = data->result;
-    g_free (data);
 
     gupnp_service_proxy_end_action (proxy, action, &error, NULL);
     if (error != NULL) {
         g_simple_async_result_take_error (result, error);
     }
 
+    host_path_data_free (data);
+    g_simple_async_result_complete_in_idle (result);
+    g_object_unref (result);
+}
+
+static void
+korva_upnp_device_on_stop (GUPnPServiceProxy       *proxy,
+                           GUPnPServiceProxyAction *action,
+                           gpointer                 user_data)
+{
+    GError *error = NULL;
+    HostPathData *data = (HostPathData *) user_data;
+    GSimpleAsyncResult *result = data->result;
+
+    gupnp_service_proxy_end_action (proxy, action, &error, NULL);
+    if (error != NULL) {
+        g_simple_async_result_take_error (result, error);
+    } else {
+        gupnp_service_proxy_begin_action (proxy,
+                                          "SetAVTransportURI",
+                                          korva_upnp_device_on_set_av_transport_uri,
+                                          user_data,
+                                          "InstanceID", G_TYPE_STRING, "0",
+                                          "CurrentURI", G_TYPE_STRING, data->uri,
+                                          "CurrentURIMetaData", G_TYPE_STRING, data->meta_data,
+                                          NULL);
+
+        return;
+    }
+
+    host_path_data_free (data);
+    g_simple_async_result_complete_in_idle (result);
+    g_object_unref (result);
+}
+
+static void
+korva_upnp_device_on_set_av_transport_uri (GUPnPServiceProxy       *proxy,
+                                           GUPnPServiceProxyAction *action,
+                                           gpointer                 user_data)
+{
+    GError *error = NULL;
+    HostPathData *data = (HostPathData *) user_data;
+    KorvaUPnPDevice *self = data->device;
+    GSimpleAsyncResult *result = data->result;
+
+    gupnp_service_proxy_end_action (proxy, action, &error, NULL);
+    if (error != NULL) {
+        /* Transport locked */
+        if (error->code == 705) {
+            g_debug ("Transport was locked, trying to stop the device");
+            gupnp_service_proxy_begin_action (proxy,
+                                              "Stop",
+                                              korva_upnp_device_on_stop,
+                                              user_data,
+                                              "InstanceID", G_TYPE_STRING, "0",
+                                              NULL);
+            g_error_free (error);
+
+            return;
+        }
+
+        g_simple_async_result_take_error (result, error);
+
+        goto out;
+    }
+
+    if (g_ascii_strcasecmp (self->priv->state, "STOPPED") == 0 ||
+        g_ascii_strcasecmp (self->priv->state, "NO_MEDIA_PRESENT") == 0) {
+        gupnp_service_proxy_begin_action (proxy,
+                                          "Play",
+                                          korva_upnp_device_on_play,
+                                          user_data,
+                                          "InstanceID", G_TYPE_STRING, "0",
+                                          "Speed", G_TYPE_STRING, "1",
+                                          NULL);
+    }
+
+    return;
+out:
+    host_path_data_free (data);
     g_simple_async_result_complete_in_idle (result);
     g_object_unref (result);
 }
@@ -770,10 +936,9 @@ korva_upnp_device_on_host_file_async (GObject      *source,
 
     return;
 out:
-    g_free (data->uri);
     g_simple_async_result_complete_in_idle (data->result);
     g_object_unref (data->result);
-    g_free (data);
+    host_path_data_free (data);
 }
 
 void
