@@ -18,6 +18,8 @@
     along with Korva.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <stdlib.h>
+
 #include <gio/gio.h>
 #include <libsoup/soup.h>
 
@@ -206,6 +208,7 @@ korva_upnp_file_server_handle_request (SoupServer *server,
     ServeData *serve_data;
     SoupRange *ranges = NULL;
     int length;
+    const char *content_features;
     GError *error = NULL;
 
     if (msg->method != SOUP_METHOD_HEAD &&
@@ -277,6 +280,13 @@ korva_upnp_file_server_handle_request (SoupServer *server,
     soup_message_headers_set_content_type (msg->response_headers,
                                            data->content_type,
                                            NULL);
+
+    content_features = soup_message_headers_get_one (msg->request_headers,
+                                                      "getContentFeatures.dlna.org");
+    if (content_features != NULL && atol (content_features) == 1) {
+        soup_message_headers_append (msg->response_headers,
+                                     "contentFeatures.dlna.org", "*");
+    }
 
     if (g_ascii_strcasecmp (msg->method, "HEAD") == 0) {
         g_debug ("Handled HEAD request of %s: %d", path, msg->status_code);
