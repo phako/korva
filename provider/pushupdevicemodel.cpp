@@ -83,9 +83,11 @@ void PushUpDeviceModel::onInitialRequestFinished(QDBusPendingCallWatcher *watche
     }
 
     QList<QVariantMap> result = reply.argumentAt<0>();
-    beginInsertRows(QModelIndex(), 0, result.size() - 1);
-    m_devices.append(result);
-    endInsertRows();
+    if (result.length() > 1 || result.at(0).size() > 0) {
+        beginInsertRows(QModelIndex(), 0, result.size() - 1);
+        m_devices.append(result);
+        endInsertRows();
+    }
 
     watcher->deleteLater();
 }
