@@ -146,11 +146,14 @@ korva_server_dispose (GObject *object)
         g_object_unref (self->priv->dbus_controller);
         self->priv->dbus_controller = NULL;
     }
+
+    G_OBJECT_CLASS (korva_server_parent_class)->dispose (object);
 }
 
 static void
 korva_server_finalize (GObject *object)
 {
+    G_OBJECT_CLASS (korva_server_parent_class)->finalize (object);
 }
 
 static void
