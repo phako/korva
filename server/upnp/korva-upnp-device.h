@@ -77,7 +77,7 @@ korva_upnp_device_push_async (KorvaDevice         *self,
                               GAsyncReadyCallback  callback,
                               gpointer             user_data);
 
-gboolean
+char *
 korva_upnp_device_push_finish (KorvaDevice   *self,
                                GAsyncResult  *result,
                                GError       **error);

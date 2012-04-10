@@ -3,7 +3,6 @@ SUBDIRS=upnp
 bin_PROGRAMS=korva
 
 korva_SOURCES=\
-	$(GENERATED_SOURCES) \
 	korva.c \
 	korva-server.c \
 	korva-server.h \

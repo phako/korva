@@ -388,15 +388,18 @@ korva_server_on_push_async_ready (GObject      *obj,
     KorvaDevice *device = KORVA_DEVICE (obj);
     PushAsyncData *data = (PushAsyncData *) user_data;
     GError *error = NULL;
+    char *tag;
 
-    if (!korva_device_push_finish (device, res, &error)) {
+    tag = korva_device_push_finish (device, res, &error);
+    if (tag == NULL) {
         g_dbus_method_invocation_return_gerror (data->invocation,
                                                 error);
 
         goto out;
     }
 
-    korva_controller1_complete_push (data->iface, data->invocation);
+    korva_controller1_complete_push (data->iface, data->invocation, tag);
+    g_free (tag);
 
 out:
     g_free (data);

@@ -59,7 +59,7 @@ struct _KorvaDeviceInterface {
                                          GVariant            *source,
                                          GAsyncReadyCallback  callback,
                                          gpointer             user_data);
-    gboolean             (* push_finish) (KorvaDevice   *self,
+    char                *(* push_finish) (KorvaDevice   *self,
                                           GAsyncResult  *result,
                                           GError       **error);
 };
@@ -87,7 +87,7 @@ korva_device_push_async (KorvaDevice         *self,
                          GAsyncReadyCallback  callback,
                          gpointer             user_data);
 
-gboolean
+char *
 korva_device_push_finish (KorvaDevice   *self,
                           GAsyncResult  *result,
                           GError       **error);

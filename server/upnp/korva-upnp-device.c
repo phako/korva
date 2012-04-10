@@ -962,6 +962,7 @@ korva_upnp_device_push_async (KorvaDevice         *device,
     GUPnPContext *context;
     GVariant *uri;
     HostPathData *host_path_data;
+    char *raw_tag;
 
     self = KORVA_UPNP_DEVICE (device);
     result = g_simple_async_result_new (G_OBJECT (device),
@@ -996,10 +997,18 @@ korva_upnp_device_push_async (KorvaDevice         *device,
     iface = gssdp_client_get_host_ip (GSSDP_CLIENT (context));
     server = korva_upnp_file_server_get_default ();
     file = g_file_new_for_uri (g_variant_get_string (uri, NULL));
+    raw_tag = g_strconcat (g_variant_get_string (uri, NULL), "\t", self->priv->udn, NULL);
+
     host_path_data = g_new0 (HostPathData, 1);
     host_path_data->result = result;
     host_path_data->device = self;
     host_path_data->params = params;
+
+    g_simple_async_result_set_op_res_gpointer (result,
+                                               g_compute_checksum_for_string (G_CHECKSUM_MD5, raw_tag, -1),
+                                               g_free);
+    g_free (raw_tag);
+
     korva_upnp_file_server_host_file_async (server,
                                             file,
                                             params,
@@ -1017,24 +1026,26 @@ out:
     g_simple_async_result_complete_in_idle (result);
 }
 
-gboolean
+char *
 korva_upnp_device_push_finish (KorvaDevice   *device,
                                GAsyncResult  *res,
                                GError       **error)
 {
     GSimpleAsyncResult *result;
-    gboolean success = TRUE;
+    char *tag;
 
     if (!g_simple_async_result_is_valid (res,
                                          G_OBJECT (device),
                                          korva_upnp_device_push_async)) {
-        return FALSE;
+        return NULL;
     }
 
     result = (GSimpleAsyncResult *) res;
     if (g_simple_async_result_propagate_error (result, error)) {
-        success = FALSE;
+        return NULL;
     }
 
-    return success;
+    tag = g_strdup (g_simple_async_result_get_op_res_gpointer (result));
+
+    return tag;
 }

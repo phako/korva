@@ -118,6 +118,7 @@ int main(int argc, char *argv[])
     } else {
         GFile *source;
         GVariantBuilder *builder;
+        char *tag;
 
         source = g_file_new_for_commandline_arg (file);
         builder = g_variant_builder_new (G_VARIANT_TYPE_ARRAY);
@@ -126,6 +127,7 @@ int main(int argc, char *argv[])
         korva_controller1_call_push_sync (controller,
                                           g_variant_builder_end (builder),
                                           device,
+                                          &tag,
                                           NULL,
                                           &error);
         if (error != NULL) {
@@ -135,6 +137,8 @@ int main(int argc, char *argv[])
                      error->message);
 
             g_error_free (error);
+        } else {
+            g_print ("Pushed %s to %s. The ID is %s\n", file, device, tag);
         }
     }
 

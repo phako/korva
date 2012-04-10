@@ -102,9 +102,9 @@ korva_device_push_async (KorvaDevice         *self,
  * @result: the #GAsyncResult passed in the callback
  * @error: A location to store an error to or %NULL
  * @user_data: user_data
- * @returns: %TRUE on success.
+ * @returns: A tag identifying this transfer nor %NULL on error
  */
-gboolean
+char *
 korva_device_push_finish (KorvaDevice   *self,
                           GAsyncResult  *result,
                           GError       **error)
