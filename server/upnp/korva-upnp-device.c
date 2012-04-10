@@ -863,6 +863,11 @@ korva_upnp_device_on_set_av_transport_uri (GUPnPServiceProxy       *proxy,
         goto out;
     }
 
+    /* This was called from Unshare. We're done now */
+    if (g_strcmp0 (data->uri, "") == 0) {
+        goto out;
+    }
+
     if (g_ascii_strcasecmp (self->priv->state, "STOPPED") == 0 ||
         g_ascii_strcasecmp (self->priv->state, "NO_MEDIA_PRESENT") == 0) {
         gupnp_service_proxy_begin_action (proxy,
@@ -1069,15 +1074,28 @@ korva_upnp_device_unshare_async (KorvaDevice         *device,
                                  gpointer             user_data)
 {
     GSimpleAsyncResult *result;
+    HostPathData *data;
+    KorvaUPnPDevice *self = KORVA_UPNP_DEVICE (device);
+    GUPnPServiceProxy *proxy;
 
     result = g_simple_async_result_new (G_OBJECT (device),
                                         callback,
                                         user_data,
                                         (gpointer) korva_upnp_device_unshare_async);
 
-    /* TODO: Remove file reference from server */
+    data = g_new0(HostPathData, 1);
+    data->result = result;
+    data->uri = g_strdup ("");
+    data->meta_data = g_strdup ("");
+    data->device = self;
 
-    g_simple_async_result_complete_in_idle (result);
+    proxy = g_hash_table_lookup (data->device->priv->services, AV_TRANSPORT);
+    gupnp_service_proxy_begin_action (proxy,
+                                      "Stop",
+                                      korva_upnp_device_on_stop,
+                                      data,
+                                      "InstanceID", G_TYPE_STRING, "0",
+                                      NULL);
 }
 
 static gboolean
