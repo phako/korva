@@ -877,9 +877,10 @@ korva_upnp_device_on_set_av_transport_uri (GUPnPServiceProxy       *proxy,
                                           "InstanceID", G_TYPE_STRING, "0",
                                           "Speed", G_TYPE_STRING, "1",
                                           NULL);
+
+        return;
     }
 
-    return;
 out:
     host_path_data_free (data);
     g_simple_async_result_complete_in_idle (result);
