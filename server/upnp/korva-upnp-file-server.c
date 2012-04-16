@@ -308,10 +308,13 @@ korva_upnp_file_server_handle_request (SoupServer *server,
         }
     }
 
+    soup_message_headers_append (msg->response_headers, "Connection", "close");
+
+    g_debug ("Response headers:");
+    soup_message_headers_foreach (msg->response_headers, print_header, NULL);
+
     if (g_ascii_strcasecmp (msg->method, "HEAD") == 0) {
         g_debug ("Handled HEAD request of %s: %d", path, msg->status_code);
-        soup_message_headers_append (msg->response_headers, "Connection", "close");
-        soup_message_headers_foreach (msg->response_headers, print_header, NULL);
         g_slice_free (ServeData, serve_data);
 
         goto out;
