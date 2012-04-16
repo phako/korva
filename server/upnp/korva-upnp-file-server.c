@@ -24,6 +24,7 @@
 
 #include <gio/gio.h>
 #include <libsoup/soup.h>
+#include <libgupnp-av/gupnp-av.h>
 
 #include <korva-error.h>
 
@@ -39,6 +40,7 @@ typedef struct {
     GList      *ifaces;
     goffset     size;
     const char *content_type;
+    char       *protocol_info;
     KorvaUPnPFileServer *self;
     GSimpleAsyncResult *result;
 } HostData;
@@ -91,6 +93,30 @@ host_data_get_uri (HostData *self, const char *iface, guint port)
     return result;
 }
 
+static const char *
+host_data_get_protocol_info (HostData *self)
+{
+    if (self->protocol_info == NULL) {
+        GVariant *value;
+        const char *dlna_profile;
+        GUPnPProtocolInfo *info;
+
+        info = gupnp_protocol_info_new_from_string ("http-get:*:*:DLNA.ORG_CI=0;DLNA.ORG_OP=01", NULL);
+        gupnp_protocol_info_set_mime_type (info, self->content_type);
+
+        value = g_hash_table_lookup (self->meta_data, "DLNAProfile");
+        if (value != NULL) {
+            dlna_profile = g_variant_get_string (value, NULL);
+            gupnp_protocol_info_set_dlna_profile (info, dlna_profile);
+        }
+
+        self->protocol_info = gupnp_protocol_info_to_string (info);
+        g_object_unref (info);
+    }
+
+    return self->protocol_info;
+}
+
 static void
 host_data_free (HostData *self)
 {
@@ -101,6 +127,10 @@ host_data_free (HostData *self)
     g_hash_table_destroy (self->meta_data);
     g_object_unref (self->file);
     g_list_free_full (self->ifaces, g_free);
+
+    if (self->protocol_info != NULL) {
+        g_free (self->protocol_info);
+    }
 
     g_slice_free (HostData, self);
 }
@@ -265,8 +295,17 @@ korva_upnp_file_server_handle_request (SoupServer *server,
     content_features = soup_message_headers_get_one (msg->request_headers,
                                                       "getContentFeatures.dlna.org");
     if (content_features != NULL && atol (content_features) == 1) {
-        soup_message_headers_append (msg->response_headers,
-                                     "contentFeatures.dlna.org", "*");
+        GVariant *value;
+
+        value = g_hash_table_lookup (data->meta_data, "DLNAProfile");
+        if (value == NULL) {
+            soup_message_headers_append (msg->response_headers,
+                                         "contentFeatures.dlna.org", "*");
+        } else {
+            soup_message_headers_append (msg->response_headers,
+                                         "contentFeatures.dlna.org",
+                                         host_data_get_protocol_info (data));
+        }
     }
 
     if (g_ascii_strcasecmp (msg->method, "HEAD") == 0) {
