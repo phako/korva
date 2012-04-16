@@ -24,56 +24,36 @@
 
 #include <gio/gio.h>
 #include <libsoup/soup.h>
+#include <libgupnp-av/gupnp-av.h>
 
 #include <korva-error.h>
 
 #include "korva-upnp-file-server.h"
+#include "korva-upnp-metadata-query.h"
 
 G_DEFINE_TYPE (KorvaUPnPFileServer, korva_upnp_file_server, G_TYPE_OBJECT);
+
 
 typedef struct {
     GFile      *file;
     GHashTable *meta_data;
     GList      *ifaces;
     goffset     size;
-    GFileInfo  *info;
     const char *content_type;
+    char       *protocol_info;
+    KorvaUPnPFileServer *self;
+    GSimpleAsyncResult *result;
 } HostData;
 
 static HostData *
-host_data_new (GHashTable *meta_data, GFileInfo *info, const char *address)
+host_data_new (GFile *file, GHashTable *meta_data, const char *address)
 {
     HostData *self;
-    GVariant *value;
     
     self = g_slice_new0 (HostData);
     self->meta_data = meta_data;
     self->ifaces = g_list_prepend (self->ifaces, g_strdup (address));
-    self->info = g_object_ref (info);
-    value = g_hash_table_lookup (meta_data, "Size");
-    if (value != NULL) {
-        self->size = (goffset) g_variant_get_uint64 (value);
-    } else {
-        self->size = g_file_info_get_size (info);
-        g_hash_table_insert (meta_data, g_strdup ("Size"), g_variant_new_uint64 (self->size));
-    }
-
-    value = g_hash_table_lookup (meta_data, "ContentType");
-    if (value != NULL) {
-        self->content_type = g_variant_get_string (value, NULL);
-    } else {
-        self->content_type = g_file_info_get_content_type (info);
-        g_hash_table_insert (meta_data,
-                             g_strdup ("ContentType"),
-                             g_variant_new_string (self->content_type));
-    }
-
-    value = g_hash_table_lookup (meta_data, "Title");
-    if (value == NULL) {
-        g_hash_table_insert (meta_data,
-                             g_strdup ("Title"),
-                             g_variant_new_string (g_file_info_get_display_name (info)));
-    }
+    self->file = g_object_ref (file);
 
     return self;
 }
@@ -113,6 +93,30 @@ host_data_get_uri (HostData *self, const char *iface, guint port)
     return result;
 }
 
+static const char *
+host_data_get_protocol_info (HostData *self)
+{
+    if (self->protocol_info == NULL) {
+        GVariant *value;
+        const char *dlna_profile;
+        GUPnPProtocolInfo *info;
+
+        info = gupnp_protocol_info_new_from_string ("http-get:*:*:DLNA.ORG_CI=0;DLNA.ORG_OP=01", NULL);
+        gupnp_protocol_info_set_mime_type (info, self->content_type);
+
+        value = g_hash_table_lookup (self->meta_data, "DLNAProfile");
+        if (value != NULL) {
+            dlna_profile = g_variant_get_string (value, NULL);
+            gupnp_protocol_info_set_dlna_profile (info, dlna_profile);
+        }
+
+        self->protocol_info = gupnp_protocol_info_to_string (info);
+        g_object_unref (info);
+    }
+
+    return self->protocol_info;
+}
+
 static void
 host_data_free (HostData *self)
 {
@@ -123,7 +127,10 @@ host_data_free (HostData *self)
     g_hash_table_destroy (self->meta_data);
     g_object_unref (self->file);
     g_list_free_full (self->ifaces, g_free);
-    g_object_unref (self->info);
+
+    if (self->protocol_info != NULL) {
+        g_free (self->protocol_info);
+    }
 
     g_slice_free (HostData, self);
 }
@@ -288,14 +295,26 @@ korva_upnp_file_server_handle_request (SoupServer *server,
     content_features = soup_message_headers_get_one (msg->request_headers,
                                                       "getContentFeatures.dlna.org");
     if (content_features != NULL && atol (content_features) == 1) {
-        soup_message_headers_append (msg->response_headers,
-                                     "contentFeatures.dlna.org", "*");
+        GVariant *value;
+
+        value = g_hash_table_lookup (data->meta_data, "DLNAProfile");
+        if (value == NULL) {
+            soup_message_headers_append (msg->response_headers,
+                                         "contentFeatures.dlna.org", "*");
+        } else {
+            soup_message_headers_append (msg->response_headers,
+                                         "contentFeatures.dlna.org",
+                                         host_data_get_protocol_info (data));
+        }
     }
+
+    soup_message_headers_append (msg->response_headers, "Connection", "close");
+
+    g_debug ("Response headers:");
+    soup_message_headers_foreach (msg->response_headers, print_header, NULL);
 
     if (g_ascii_strcasecmp (msg->method, "HEAD") == 0) {
         g_debug ("Handled HEAD request of %s: %d", path, msg->status_code);
-        soup_message_headers_append (msg->response_headers, "Connection", "close");
-        soup_message_headers_foreach (msg->response_headers, print_header, NULL);
         g_slice_free (ServeData, serve_data);
 
         goto out;
@@ -450,6 +469,55 @@ typedef struct {
     char *uri;
 } HostFileResult;
 
+static void
+korva_upnp_file_server_on_metadata_query_run_done (GObject *sender,
+                                                   GAsyncResult *res,
+                                                   gpointer      user_data)
+{
+    HostData *data = (HostData *) user_data;
+    GSimpleAsyncResult *result = data->result;
+    HostFileResult *result_data;
+    guint port;
+    GError *error = NULL;
+    GVariant *value;
+
+    if (!korva_upnp_metadata_query_run_finish (KORVA_UPNP_METADATA_QUERY (sender),
+                                               res,
+                                               &error)) {
+        g_simple_async_result_take_error (data->result, error);
+        host_data_free (data);
+
+        goto out;
+    }
+
+    g_hash_table_insert (data->self->priv->host_data, data->file, data);
+    g_hash_table_insert (data->self->priv->id_map,
+                         host_data_get_id (data),
+                         g_object_ref (data->file));
+
+    value = g_hash_table_lookup (data->meta_data, "Size");
+    data->size = g_variant_get_uint64 (value);
+
+    value = g_hash_table_lookup (data->meta_data, "ContentType");
+    data->content_type = g_variant_get_string (value, NULL);
+
+    port = soup_server_get_port (data->self->priv->http_server);
+
+    result_data = g_new0 (HostFileResult, 1);
+    result_data->params = data->meta_data;
+    result_data->uri = host_data_get_uri (data, (char *) data->ifaces->data, port);
+
+    g_simple_async_result_set_op_res_gpointer (result, result_data, g_free);
+
+    data->result = NULL;
+    data->self = NULL;
+
+out:
+    g_simple_async_result_complete_in_idle (result);
+    g_object_unref (result);
+    g_object_unref (sender);
+}
+
 void
 korva_upnp_file_server_host_file_async (KorvaUPnPFileServer *self,
                                         GFile *file,
@@ -461,53 +529,30 @@ korva_upnp_file_server_host_file_async (KorvaUPnPFileServer *self,
     HostData *data;
     GSimpleAsyncResult *result;
     guint port;
-    GFileInfo *info;
-    GError *error;
     HostFileResult *result_data;
+    KorvaUPnPMetadataQuery *query;
 
     result = g_simple_async_result_new (G_OBJECT (self),
                                         callback,
                                         user_data,
                                         (gpointer) korva_upnp_file_server_host_file_async);
 
-    info = g_file_query_info (file,
-                              G_FILE_ATTRIBUTE_STANDARD_CONTENT_TYPE","
-                              G_FILE_ATTRIBUTE_STANDARD_SIZE","
-                              G_FILE_ATTRIBUTE_STANDARD_DISPLAY_NAME,
-                              0,
-                              NULL,
-                              &error);
-    if (info == NULL) {
-        char *tmp;
-        GError *inner_error;
-
-        inner_error = g_error_new (KORVA_CONTROLLER1_ERROR,
-                                   KORVA_CONTROLLER1_ERROR_FILE_NOT_FOUND,
-                                   "Error accessing '%s': %s",
-                                   (tmp = g_file_get_uri (file)),
-                                    error->message);
-        g_free (tmp);
-        g_error_free (error);
-        g_simple_async_result_take_error (result, inner_error);
-        g_hash_table_destroy (params);
-
-        goto out;
-    }
-
     data = g_hash_table_lookup (self->priv->host_data, file);
     if (data == NULL) {
-        data = host_data_new (params, info, iface);
-        data->file = g_object_ref (file);
+        data = host_data_new (file, params, iface);
+        data->self = self;
+        data->result = result;
 
-        g_hash_table_insert (self->priv->host_data, file, data);
-        g_hash_table_insert (self->priv->id_map,
-                             host_data_get_id (data),
-                             g_object_ref (file));
-    } else {
-        host_data_add_interface (data, iface);
+        query = korva_upnp_metadata_query_new (file, params);
+        korva_upnp_metadata_query_run_async (query,
+                                             korva_upnp_file_server_on_metadata_query_run_done,
+                                             NULL,
+                                             data);
+
+        return;
     }
 
-    g_object_unref (info);
+    host_data_add_interface (data, iface);
 
     port = soup_server_get_port (self->priv->http_server);
 
@@ -517,7 +562,6 @@ korva_upnp_file_server_host_file_async (KorvaUPnPFileServer *self,
 
     g_simple_async_result_set_op_res_gpointer (result, result_data, g_free);
 
-out:
     g_simple_async_result_complete_in_idle (result);
     g_object_unref (result);
 }
