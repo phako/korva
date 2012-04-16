@@ -18,7 +18,21 @@
     along with Korva.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <tracker-sparql.h>
+
 #include "korva-upnp-metadata-query.h"
+
+#define ITEM_QUERY \
+        "SELECT " \
+        "    ?r " \
+        "    rdf:type(?r) " \
+        "    tracker:coalesce(nmm:dlnaMime(?r), nie:mimeType(?r)) " \
+        "    nmm:dlnaProfile(?r) " \
+        "    nfo:fileSize(?r) " \
+        "    nie:title(?r) " \
+        "    nfo:width(?r) " \
+        "    nfo:height(?r) " \
+        "{ ?r nie:url '%s' } "
 
 enum
 {
@@ -28,19 +42,31 @@ enum
 };
 
 struct _KorvaUPnPMetadataQueryPrivate {
-	GFile              *file;
-	GSimpleAsyncResult *result;
-	GCancellable       *cancellable;
-    GHashTable         *params;
+	GFile               *file;
+	GSimpleAsyncResult  *result;
+	GCancellable        *cancellable;
+    GHashTable          *params;
+    TrackerSparqlCursor *cursor;
+    TrackerSparqlConnection *connection;
 };
 
 G_DEFINE_TYPE (KorvaUPnPMetadataQuery, korva_upnp_metadata_query, G_TYPE_OBJECT);
 
 /* Forward declarations */
 static void
-korva_upnp_metadata_query_on_file_query_info_async (GObject		 *source,
+korva_upnp_metadata_query_on_sparql_connection_get (GObject      *source,
                                                     GAsyncResult *res,
                                                     gpointer      user_data);
+
+static void
+korva_upnp_metadata_query_on_query_async (GObject *source,
+                                           GAsyncResult *res,
+                                           gpointer user_data);
+
+static void
+korva_upnp_metadata_query_on_cursor_next (GObject *source,
+                                          GAsyncResult *res,
+                                          gpointer user_data);
 
 static void
 korva_upnp_metadata_query_init (KorvaUPnPMetadataQuery *self)
@@ -48,6 +74,24 @@ korva_upnp_metadata_query_init (KorvaUPnPMetadataQuery *self)
 	self->priv = G_TYPE_INSTANCE_GET_PRIVATE (self,
 	                                          KORVA_TYPE_UPNP_METADATA_QUERY,
 	                                          KorvaUPnPMetadataQueryPrivate);
+}
+
+static void
+korva_upnp_metadata_query_dispose (GObject *object)
+{
+    KorvaUPnPMetadataQuery *self = KORVA_UPNP_METADATA_QUERY (object);
+
+    if (self->priv->cursor != NULL) {
+        g_object_unref (self->priv->cursor);
+        self->priv->cursor = NULL;
+    }
+
+    if (self->priv->connection != NULL) {
+       g_object_unref (self->priv->connection);
+       self->priv->connection = NULL;
+    }
+
+    G_OBJECT_CLASS (korva_upnp_metadata_query_parent_class)->dispose (object);
 }
 
 static void
@@ -117,6 +161,7 @@ korva_upnp_metadata_query_class_init (KorvaUPnPMetadataQueryClass *klass)
 	g_type_class_add_private (klass, sizeof (KorvaUPnPMetadataQueryPrivate));    
     
     object_class->finalize = korva_upnp_metadata_query_finalize;
+    object_class->dispose = korva_upnp_metadata_query_dispose;
     object_class->set_property = korva_upnp_metadata_query_set_property;
     object_class->get_property = korva_upnp_metadata_query_get_property;
 
@@ -166,15 +211,9 @@ korva_upnp_metadata_query_run_async (KorvaUPnPMetadataQuery *self, GAsyncReadyCa
                                                     (gpointer) korva_upnp_metadata_query_run_async);
 	self->priv->cancellable = cancellable;
 
-	g_file_query_info_async (self->priv->file,
-	                         G_FILE_ATTRIBUTE_STANDARD_CONTENT_TYPE","
-                             G_FILE_ATTRIBUTE_STANDARD_SIZE","
-                             G_FILE_ATTRIBUTE_STANDARD_DISPLAY_NAME,
-	                         G_FILE_QUERY_INFO_NONE,
-	                         G_PRIORITY_DEFAULT_IDLE,
-	                         self->priv->cancellable,
-	                         korva_upnp_metadata_query_on_file_query_info_async,
-	                         self);
+    tracker_sparql_connection_get_async (cancellable,
+                                         korva_upnp_metadata_query_on_sparql_connection_get,
+                                         self);
 }
 
 gboolean
@@ -197,46 +236,170 @@ korva_upnp_metadata_query_run_finish (KorvaUPnPMetadataQuery *self, GAsyncResult
 }
 
 static void
-korva_upnp_metadata_query_on_file_query_info_async (GObject		 *source,
+korva_upnp_metadata_query_on_sparql_connection_get (GObject      *source,
                                                     GAsyncResult *res,
                                                     gpointer      user_data)
 {
-	KorvaUPnPMetadataQuery *self = KORVA_UPNP_METADATA_QUERY (user_data);
+    KorvaUPnPMetadataQuery *self = KORVA_UPNP_METADATA_QUERY (user_data);
     GError                 *error = NULL;
-    GVariant               *value;
-    GFileInfo              *info;
+    char *query, *uri;
 
-    info = g_file_query_info_finish (self->priv->file, res, &error);
-	if (info == NULL) {
+    self->priv->connection = tracker_sparql_connection_get_finish (res, &error);
+    if (self->priv->connection == NULL) {
         g_simple_async_result_take_error (self->priv->result, error);
-    } else {
-        value = g_hash_table_lookup (self->priv->params, "Size");
-        if (value == NULL) {
-            goffset size;
+        g_simple_async_result_complete_in_idle (self->priv->result);
+        g_object_unref (self->priv->result);
 
-            size = g_file_info_get_size (info);
-            g_hash_table_insert (self->priv->params,
-                                 g_strdup ("Size"),
-                                 g_variant_new_uint64 (size));
-        }
-
-        value = g_hash_table_lookup (self->priv->params, "ContentType");
-        if (value == NULL) {
-            const char *content_type = g_file_info_get_content_type (info);
-            g_hash_table_insert (self->priv->params,
-                                 g_strdup ("ContentType"),
-                                 g_variant_new_string (content_type));
-        }
-
-        value = g_hash_table_lookup (self->priv->params, "Title");
-        if (value == NULL) {
-            g_hash_table_insert (self->priv->params,
-                                 g_strdup ("Title"),
-                                 g_variant_new_string (g_file_info_get_display_name (info)));
-        }
+        return;
     }
-    
+
+    uri = g_file_get_uri (self->priv->file);
+    query = g_strdup_printf (ITEM_QUERY, uri);
+    g_free (uri);
+    tracker_sparql_connection_query_async (self->priv->connection,
+                                           query,
+                                           self->priv->cancellable,
+                                           korva_upnp_metadata_query_on_query_async,
+                                           self);
+    g_free (query);
+}
+
+static void
+korva_upnp_metadata_query_on_query_async (GObject *source,
+                                          GAsyncResult *res,
+                                          gpointer user_data)
+{
+    KorvaUPnPMetadataQuery *self = KORVA_UPNP_METADATA_QUERY (user_data);
+    GError                 *error = NULL;
+    TrackerSparqlCursor *cursor;
+
+    cursor = tracker_sparql_connection_query_finish (self->priv->connection,
+                                                     res,
+                                                     &error);
+
+    if (cursor == NULL) {
+        g_simple_async_result_take_error (self->priv->result, error);
+        g_simple_async_result_complete_in_idle (self->priv->result);
+        g_object_unref (self->priv->result);
+
+        return;
+    }
+
+    self->priv->cursor = cursor;
+
+    tracker_sparql_cursor_next_async (cursor,
+                                      self->priv->cancellable,
+                                      korva_upnp_metadata_query_on_cursor_next,
+                                      self);
+}
+
+static void
+korva_upnp_metadata_query_on_cursor_next (GObject *source,
+                                          GAsyncResult *res,
+                                          gpointer user_data)
+{
+    KorvaUPnPMetadataQuery *self = KORVA_UPNP_METADATA_QUERY (user_data);
+    GError                 *error = NULL;
+    gboolean next;
+    const char *upnp_class, *value, *content_type, *dlna_profile;
+    gint64 size;
+
+    next = tracker_sparql_cursor_next_finish (self->priv->cursor,
+                                              res,
+                                              &error);
+    if (error != NULL) {
+        g_simple_async_result_take_error (self->priv->result, error);
+
+        goto out;
+    }
+
+    if (!next) {
+        goto out;
+    }
+
+    value = tracker_sparql_cursor_get_string (self->priv->cursor, 0, NULL);
+    g_hash_table_insert (self->priv->params,
+                         g_strdup ("Tracker:Id"),
+                         g_variant_new_string (value));
+
+    value = tracker_sparql_cursor_get_string (self->priv->cursor, 1, NULL);
+    if (g_strstr_len (value, -1, "nmm#Video") != NULL) {
+        upnp_class = "object.item.videoItem";
+    } else if (g_strstr_len (value, -1, "nmm#MusicPiece") != NULL) {
+        upnp_class = "object.item.audioItem.musicTrack";
+    } else if (g_strstr_len (value, -1, "nmm#Photo") != NULL) {
+        upnp_class = "object.item.imageItem.photo";
+    }
+
+    g_hash_table_insert (self->priv->params,
+                         g_strdup ("UPnPClass"),
+                         g_variant_new_string (upnp_class));
+
+    content_type = tracker_sparql_cursor_get_string (self->priv->cursor, 2, NULL);
+    g_hash_table_insert (self->priv->params,
+                         g_strdup ("ContentType"),
+                         g_variant_new_string (content_type));
+
+    if (tracker_sparql_cursor_is_bound (self->priv->cursor, 3)) {
+        value = tracker_sparql_cursor_get_string (self->priv->cursor, 3, NULL);
+        g_hash_table_insert (self->priv->params,
+                             g_strdup ("DLNAProfile"),
+                             g_variant_new_string (value));
+    } else {
+        /* Simple DLNA profile guessing */
+        if (g_strcmp0 (upnp_class, "object.item.videoItem") == 0) {
+            char *uri;
+
+            uri = g_file_get_uri (self->priv->file);
+            if (g_strstr_len (uri, -1, "/DCIM/") != NULL &&
+                g_strcmp0 (content_type, "video/mp4") == 0) {
+                dlna_profile = "MPEG4_P2_MP4_SP_L6_AAC";
+            }
+            g_free (uri);
+        } else if (g_strcmp0 (upnp_class, "object.item.imageItem.photo") == 0) {
+            if (g_strcmp0 (content_type, "image/png") == 0) {
+                dlna_profile = "PNG_LRG";
+            } else if (g_strcmp0 (content_type, "image/jpeg") == 0) {
+                gint64 width;
+                gint64 height;
+
+                width = tracker_sparql_cursor_get_integer (self->priv->cursor,
+                                                           6);
+                height = tracker_sparql_cursor_get_integer (self->priv->cursor,
+                                                            7);
+                if (width <= 640 && height <= 480) {
+                    dlna_profile = "JPEG_SM";
+                } else if (width <= 1024 && height <= 768) {
+                    dlna_profile = "JPEG_MED";
+                } else if (width <= 4096 && height <= 4096) {
+                    dlna_profile = "JPEG_LRG";
+                }
+            }
+        } else if (g_strcmp0 (upnp_class, "object.item.audioItem.musicTrack") == 0) {
+            if (g_strcmp0 (content_type, "audio/mpeg") == 0) {
+                /* Yeah... Best guess. Could really be anything */
+                dlna_profile = "MP3";
+            }
+        }
+
+        g_debug ("Guessed DLNA profile: %s", dlna_profile);
+
+        g_hash_table_insert (self->priv->params,
+                             g_strdup ("DLNAProfile"),
+                             g_variant_new_string (dlna_profile));
+    }
+
+    size = tracker_sparql_cursor_get_integer (self->priv->cursor, 4);
+    g_hash_table_insert (self->priv->params,
+                         g_strdup ("Size"),
+                         g_variant_new_uint64 (size));
+
+    value = tracker_sparql_cursor_get_string (self->priv->cursor, 5, NULL);
+    g_hash_table_insert (self->priv->params,
+                         g_strdup ("Title"),
+                         g_variant_new_string (value));
+
+out:
     g_simple_async_result_complete_in_idle (self->priv->result);
     g_object_unref (self->priv->result);
-    g_object_unref (info);
 }

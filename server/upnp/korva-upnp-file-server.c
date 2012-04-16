@@ -452,6 +452,7 @@ korva_upnp_file_server_class_init (KorvaUPnPFileServerClass *klass)
     GObjectClass* object_class = G_OBJECT_CLASS (klass);
 
     object_class->constructor = korva_upnp_file_server_constructor;
+    object_class->dispose = korva_upnp_file_server_dispose;
     object_class->finalize = korva_upnp_file_server_finalize;
     object_class->dispose = korva_upnp_file_server_dispose;
 

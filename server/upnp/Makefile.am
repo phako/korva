@@ -9,4 +9,4 @@ libkorva_upnp_backend_a_SOURCES=\
 	korva-upnp-metadata-query.c \
 	korva-upnp-metadata-query.h
 
-libkorva_upnp_backend_a_CFLAGS = -I$(srcdir)/.. $(GUPNP_CFLAGS)
+libkorva_upnp_backend_a_CFLAGS = -I$(srcdir)/.. $(GUPNP_CFLAGS) $(TRACKER_CFLAGS)
