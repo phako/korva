@@ -41,13 +41,13 @@ PushUpMethod::~PushUpMethod()
 
 QString PushUpMethod::title()
 {
-    QString name = qtTrId ("DLNA Play to");
+    QString name = qtTrId ("Play to DLNA");
     return name;
 }
 
 QString PushUpMethod::icon()
 {
-    return QString::fromLatin1 ("icon-pushup");
+    return QString::fromLatin1 ("icon-l-pushup_play");
 }
 
 QString PushUpMethod::id()
