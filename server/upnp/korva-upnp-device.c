@@ -893,7 +893,7 @@ korva_upnp_device_on_host_file_async (GObject      *source,
                                       gpointer      user_data)
 {
     GError *error = NULL;
-    GHashTable *params;
+    GHashTable *params = NULL;
     HostPathData *data = (HostPathData *) user_data;
     GUPnPServiceProxy *proxy;
     GUPnPDIDLLiteWriter *writer;

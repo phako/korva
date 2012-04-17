@@ -1,0 +1,8 @@
+<aegis>
+    <request>
+        <credential name="TrackerReadAccess" />
+        <credential name="GRP::metadata-users" />
+        <for path="/opt/korva/lib/korva/korva" />
+    </request>
+</aegis>
+
