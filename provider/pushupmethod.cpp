@@ -59,7 +59,6 @@ QString PushUpMethod::id()
 
 void PushUpMethod::selected(const ShareUI::ItemContainer *items)
 {
-
     QStringList filePaths;
     QString body;
     QString subject;
@@ -70,72 +69,14 @@ void PushUpMethod::selected(const ShareUI::ItemContainer *items)
     m_items = items;
     connect (selector, SIGNAL(done(QString)), SLOT(onSelectorDone(QString)));
     selector->appearSystemwide(MSceneWindow::KeepWhenDone);
-/*
-    ShareUI::ItemIterator itemsIter = items->itemIterator();
-    while (itemsIter.hasNext()) {
-
-        item = itemsIter.next();
-
-        //	GConfItem* gi = new GConfItem("/apps/ControlPanel/PushUpShare/cmd", this);
-        //	cmd = gi->value().toString();
-
-        ShareUI::FileItem * fileItem = qobject_cast<ShareUI::FileItem*> (item.data());
-
-        if (fileItem != 0) {
-            filePaths << fileItem->filePath();
-        }
-    }
-
-    // Add files
-    QStringList files;
-    for (int i = 0; i < filePaths.count(); ++i) {
-        files << filePaths.at (i);
-    }
-
-    // Replace %s with the first file
-    cmd = cmd.replace("%s", files.at(0));
-
-    if (1) { // Debug
-        QFile file("/tmp/out.txt");
-        file.open(QIODevice::WriteOnly | QIODevice::Text);
-        QTextStream out(&file);
-        out << "files:" << files.join(" ") << "\n";
-        out << "cmd:" << cmd << "\n";
-        file.close();
-    }
-
-    // Launch the command
-    QProcess process;
-    if (!QProcess::startDetached(cmd)) {
-
-        // Failed to launch the command
-        QString err = "Failed to launch: " + cmd;
-        qCritical(err.toLatin1());
-        emit(selectedFailed(err));
-    } else {
-        // Command successfully launched (still running)
-        emit(done());
-    } */
 }
 
 void PushUpMethod::currentItems (const ShareUI::ItemContainer * items)
 {
-    Q_EMIT visible(true);
-}
+    if (items == 0 || items->count() == 0 || items->count() > 1) {
+        Q_EMIT visible (false);
 
-bool PushUpMethod::acceptContent (const ShareUI::ItemContainer * items)
-{
-
-    if (items == 0 || items->count() == 0) {
-        return false;
-    }
-
-    //  GConfItem* gi = new GConfItem("/apps/ControlPanel/PushUpShare/enabled", this);
-    //  bool enabled = gi->value().toBool();
-    bool enabled = false;
-
-    if (!enabled) {
-        return false;
+        return;
     }
 
     ShareUI::ItemIterator itemsIter = items->itemIterator();
@@ -147,11 +88,13 @@ bool PushUpMethod::acceptContent (const ShareUI::ItemContainer * items)
         ShareUI::FileItem * fileItem = ShareUI::FileItem::toFileItem (item);
 
         if (fileItem == 0) {
-            return false;
+            Q_EMIT visible (false);
+
+            return;
         }
     }
 
-    return true;
+    Q_EMIT visible (true);
 }
 
 void PushUpMethod::onSelectorDone(const QString& uid)
