@@ -1,5 +1,7 @@
 #!/bin/sh
 
+mkdir -p m4
+
 #GDBUS_CODEGEN=`which gdbus-codegen`
 #test -x ${GDBUS_CODEGEN} || { echo "You need gdbus-codegen"; exit 1; }
 #
