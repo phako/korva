@@ -51,6 +51,7 @@ struct _KorvaDeviceListerInterface {
     GList*       (*get_devices) (KorvaDeviceLister *self);
     KorvaDevice* (*get_device_info) (KorvaDeviceLister *self, const char *uid);
     gint         (*get_device_count) (KorvaDeviceLister *self);
+    gboolean     (*idle) (KorvaDeviceLister *self);
 
     /* signals */
     void (*device_available) (KorvaDevice *device);
@@ -67,5 +68,8 @@ korva_device_lister_get_device_info (KorvaDeviceLister *self,
                                      const char        *uid);
 gint
 korva_device_lister_get_device_count (KorvaDeviceLister *self);
+
+gboolean
+korva_device_lister_idle (KorvaDeviceLister *self);
 
 #endif /* __KORVA_DEVICE_LISTER_H__ */

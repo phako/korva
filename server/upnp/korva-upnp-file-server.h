@@ -68,6 +68,9 @@ korva_upnp_file_server_host_file_finish (KorvaUPnPFileServer  *self,
                                          GHashTable          **params,
                                          GError              **error);
 
+gboolean
+korva_upnp_file_server_idle (KorvaUPnPFileServer *self);
+
 G_END_DECLS
 
 #endif /* _KORVA_UPN_PFILE_SERVER_H_ */

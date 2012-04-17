@@ -60,6 +60,9 @@ korva_upnp_device_lister_get_device_info (KorvaDeviceLister *self, const char *u
 static gint
 korva_upnp_device_lister_get_device_count (KorvaDeviceLister *self);
 
+static gboolean
+korva_upnp_device_lister_idle (KorvaDeviceLister *lister);
+
 /* ContextManager callbacks */
 static void
 korva_upnp_device_lister_on_context_available (GUPnPContextManager *cm,
@@ -86,6 +89,7 @@ korva_upnp_device_lister_iface_init (gpointer g_iface,
     iface->get_devices = korva_upnp_device_lister_get_devices;
     iface->get_device_info = korva_upnp_device_lister_get_device_info;
     iface->get_device_count = korva_upnp_device_lister_get_device_count;
+    iface->idle = korva_upnp_device_lister_idle;
 }
 
 static void
@@ -192,6 +196,19 @@ korva_upnp_device_lister_get_device_count (KorvaDeviceLister *lister)
     self = KORVA_UPNP_DEVICE_LISTER (lister);
     
     return g_hash_table_size (self->priv->devices);
+}
+
+static gboolean
+korva_upnp_device_lister_idle (KorvaDeviceLister *lister)
+{
+    gboolean result;
+    KorvaUPnPFileServer *server;
+
+    server = korva_upnp_file_server_get_default ();
+    result = korva_upnp_file_server_idle (server);
+    g_object_unref (server);
+
+    return result;
 }
 
 static void
