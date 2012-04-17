@@ -223,6 +223,8 @@ korva_upnp_file_server_handle_request (SoupServer *server,
     if (msg->method != SOUP_METHOD_HEAD &&
         msg->method != SOUP_METHOD_GET) {
         soup_message_set_status (msg, SOUP_STATUS_METHOD_NOT_ALLOWED);
+
+        return;
     }
 
     g_debug ("Got %s request for uri: %s", msg->method, path);
