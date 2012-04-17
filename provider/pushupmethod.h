@@ -74,6 +74,7 @@ public Q_SLOTS:
 
 private slots:
     void onSelectorDone(const QString& uid);
+    void onPushDone(QDBusPendingCallWatcher *watcher);
 
 private:
     PushUpController m_controller;

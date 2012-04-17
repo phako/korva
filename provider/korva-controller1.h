@@ -43,17 +43,24 @@ public Q_SLOTS: // METHODS
         return asyncCallWithArgumentList(QLatin1String("GetDeviceInfo"), argumentList);
     }
 
-    inline QDBusPendingReply<> GetDevices()
+    inline QDBusPendingReply<QList<QVariantMap> > GetDevices()
     {
         QList<QVariant> argumentList;
         return asyncCallWithArgumentList(QLatin1String("GetDevices"), argumentList);
     }
 
-    inline QDBusPendingReply<> Push(const QVariantMap &Source, const QString &UID)
+    inline QDBusPendingReply<QString> Push(const QVariantMap &Source, const QString &UID)
     {
         QList<QVariant> argumentList;
         argumentList << qVariantFromValue(Source) << qVariantFromValue(UID);
         return asyncCallWithArgumentList(QLatin1String("Push"), argumentList);
+    }
+
+    inline QDBusPendingReply<> Unshare(const QString &Tag)
+    {
+        QList<QVariant> argumentList;
+        argumentList << qVariantFromValue(Tag);
+        return asyncCallWithArgumentList(QLatin1String("Unshare"), argumentList);
     }
 
 Q_SIGNALS: // SIGNALS

@@ -25,6 +25,9 @@
 #include <QDebug>
 #include <QProcess>
 #include <QFile>
+
+#include <MMessageBox>
+
 #include <ShareUI/ItemContainer>
 #include <ShareUI/DataUriItem>
 #include <ShareUI/FileItem>
@@ -106,13 +109,29 @@ void PushUpMethod::onSelectorDone(const QString& uid)
             ShareUI::FileItem *fileItem = qobject_cast<ShareUI::FileItem*>(item.data());
             if (fileItem != 0) {
                 QVariantMap source;
+
                 source["URI"] = fileItem->fileUri();
-                m_controller.getInterface()->Push(source, uid);
+                QDBusPendingCall reply = m_controller.getInterface()->Push(source, uid);
+                QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(reply, this);
+                connect(watcher, SIGNAL(finished(QDBusPendingCallWatcher*)), SLOT(onPushDone(QDBusPendingCallWatcher*)));
 
                 break;
             }
         }
     }
+}
 
+void PushUpMethod::onPushDone(QDBusPendingCallWatcher *watcher)
+{
+    QDBusPendingReply<QString> reply = *watcher;
+
+    if (reply.isError()) {
+        MMessageBox *dialog = new MMessageBox(reply.error().message());
+        dialog->appear(MSceneWindow::DestroyWhenDone);
+
+        return;
+    }
+
+    watcher->deleteLater();
     emit done();
 }
