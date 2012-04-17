@@ -41,7 +41,7 @@ PushUpMethod::~PushUpMethod()
 
 QString PushUpMethod::title()
 {
-    QString name = qtTrId ("DLNA-compatible +PU+/+UP+ sharing");
+    QString name = qtTrId ("DLNA Play to");
     return name;
 }
 
