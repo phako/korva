@@ -31,8 +31,17 @@
 #include "korva-upnp-file-server.h"
 #include "korva-upnp-metadata-query.h"
 
+#define DEFAULT_IDLE_TIMEOUT 300
+
 G_DEFINE_TYPE (KorvaUPnPFileServer, korva_upnp_file_server, G_TYPE_OBJECT);
 
+struct _KorvaUPnPFileServerPrivate {
+    SoupServer *http_server;
+    GHashTable *host_data;
+    GHashTable *id_map;
+    guint       port;
+    GRegex     *path_regex;
+};
 
 typedef struct {
     GFile      *file;
@@ -43,7 +52,36 @@ typedef struct {
     char       *protocol_info;
     KorvaUPnPFileServer *self;
     GSimpleAsyncResult *result;
+    uint timeout_id;
 } HostData;
+
+static char *
+host_data_get_id (HostData *self);
+
+static gboolean
+host_data_on_timeout (gpointer user_data)
+{
+    HostData *self = (HostData *) user_data;
+    char *id, *uri;
+    GFile *file;
+
+    file = g_object_ref (self->file);
+    uri = g_file_get_uri (file);
+    g_debug ("File '%s' was not accessed for %d seconds; removing.",
+             uri,
+             DEFAULT_IDLE_TIMEOUT);
+    g_free (uri);
+
+    id = host_data_get_id (self);
+
+    g_hash_table_remove (self->self->priv->id_map, id);
+    g_free (id);
+
+    g_hash_table_remove (self->self->priv->host_data, file);
+    g_object_unref (file);
+
+    return FALSE;
+}
 
 static HostData *
 host_data_new (GFile *file, GHashTable *meta_data, const char *address)
@@ -54,6 +92,7 @@ host_data_new (GFile *file, GHashTable *meta_data, const char *address)
     self->meta_data = meta_data;
     self->ifaces = g_list_prepend (self->ifaces, g_strdup (address));
     self->file = g_object_ref (file);
+    self->timeout_id = g_timeout_add_seconds (DEFAULT_IDLE_TIMEOUT, host_data_on_timeout, self);
 
     return self;
 }
@@ -132,22 +171,19 @@ host_data_free (HostData *self)
         g_free (self->protocol_info);
     }
 
+    if (self->timeout_id != 0) {
+        g_source_remove (self->timeout_id);
+    }
+
     g_slice_free (HostData, self);
 }
-
-struct _KorvaUPnPFileServerPrivate {
-    SoupServer *http_server;
-    GHashTable *host_data;
-    GHashTable *id_map;
-    guint       port;
-    GRegex     *path_regex;
-};
 
 typedef struct _ServeData {
     SoupServer *server;
     GMappedFile *file;
     goffset start;
     goffset end;
+    HostData *host_data;
 } ServeData;
 
 static void
@@ -191,6 +227,8 @@ korva_upnp_file_server_on_finished (SoupMessage *msg,
 
     g_debug ("Handled request for '%s'",
              soup_uri_to_string (soup_message_get_uri (msg), FALSE));
+
+    data->host_data->timeout_id = g_timeout_add_seconds (DEFAULT_IDLE_TIMEOUT, host_data_on_timeout, data->host_data);
 
     g_mapped_file_unref (data->file);
     g_slice_free (ServeData, data);
@@ -266,6 +304,7 @@ korva_upnp_file_server_handle_request (SoupServer *server,
      * data
      */
     serve_data = g_slice_new0 (ServeData);
+    serve_data->host_data = data;
     if (soup_message_headers_get_ranges (msg->request_headers, data->size, &ranges, &length)) {
         goffset start, end;
         start = ranges[0].start;
@@ -341,6 +380,10 @@ korva_upnp_file_server_handle_request (SoupServer *server,
 
         goto out;
     }
+
+    /* Drop timeout until the message is done */
+    g_source_remove (data->timeout_id);
+    data->timeout_id = 0;
 
     g_signal_connect (msg,
                       "wrote-chunk",
@@ -512,8 +555,6 @@ korva_upnp_file_server_on_metadata_query_run_done (GObject *sender,
     g_simple_async_result_set_op_res_gpointer (result, result_data, g_free);
 
     data->result = NULL;
-    data->self = NULL;
-
 out:
     g_simple_async_result_complete_in_idle (result);
     g_object_unref (result);
@@ -592,4 +633,10 @@ korva_upnp_file_server_host_file_finish (KorvaUPnPFileServer  *self,
     *params = result_data->params;
 
     return result_data->uri;
+}
+
+gboolean
+korva_upnp_file_server_idle (KorvaUPnPFileServer *self)
+{
+    return g_hash_table_size (self->priv->host_data) == 0;
 }

@@ -33,6 +33,8 @@
 
 #include "upnp/korva-upnp-device-lister.h"
 
+#define DEFAULT_TIMEOUT 600
+
 struct _KorvaBackend {
     KorvaDeviceLister *lister;
 };
@@ -47,6 +49,13 @@ korva_backend_free (KorvaBackend *backend) {
 G_DEFINE_TYPE(KorvaServer, korva_server, G_TYPE_OBJECT);
 
 /* forward declarations */
+
+/* Source functions */
+static gboolean
+korva_server_on_timeout (gpointer user_data);
+
+static void
+korva_server_reset_timeout (KorvaServer *self);
 
 /* g_bus_own_name */
 static void
@@ -103,6 +112,7 @@ struct _KorvaServerPrivate {
     GList            *backends;
     guint             bus_id;
     GHashTable       *tags;
+    guint             timeout_id;
 };
 
 static gboolean
@@ -140,6 +150,8 @@ korva_server_init (KorvaServer *self)
 #ifdef G_OS_UNIX
     g_unix_signal_add (SIGINT, korva_server_signal_handler, self);
 #endif
+
+    korva_server_reset_timeout (self);
 }
 
 static void
@@ -316,6 +328,8 @@ korva_server_on_handle_get_devices (KorvaController1      *iface,
     GList *it;
     gboolean devices = FALSE;
 
+    korva_server_reset_timeout (self);
+
     builder = g_variant_builder_new (G_VARIANT_TYPE_ARRAY);
     it = self->priv->backends;
     while (it) {
@@ -380,6 +394,8 @@ korva_server_on_handle_get_device_info (KorvaController1      *iface,
     KorvaServer *self = KORVA_SERVER (user_data);
     KorvaDevice *device;
 
+    korva_server_reset_timeout (self);
+
     device = korva_server_get_device (self, uid);
 
     if (device != NULL) {
@@ -442,6 +458,8 @@ korva_server_on_handle_push (KorvaController1      *iface,
     KorvaServer *self = KORVA_SERVER (user_data);
     KorvaDevice *device;
     PushAsyncData *data;
+
+    korva_server_reset_timeout (self);
 
     device = korva_server_get_device (self, uid);
 
@@ -507,6 +525,8 @@ korva_server_on_handle_unshare (KorvaController1      *iface,
     PushAsyncData *data;
     const char *uid;
 
+    korva_server_reset_timeout (self);
+
     uid = g_hash_table_lookup (self->priv->tags, tag);
     if (uid == NULL) {
         g_dbus_method_invocation_return_error (invocation,
@@ -563,4 +583,50 @@ korva_server_on_device_unavailable (KorvaDeviceLister *source,
     g_signal_emit_by_name (self->priv->dbus_controller,
                            "device-unavailable",
                            uid);
+}
+
+static void
+idle_collector (gpointer data, gpointer user_data)
+{
+    KorvaBackend *backend = (KorvaBackend *) data;
+    gboolean *is_idle = (gboolean *)user_data;
+
+    /* already found busy back-end */
+    if (!(*is_idle)) {
+        return;
+    }
+
+    if (!korva_device_lister_idle (backend->lister)) {
+        g_debug ("Backend claims it's not idle");
+        *is_idle = FALSE;
+    }
+}
+
+static void
+korva_server_reset_timeout (KorvaServer *self)
+{
+    if (self->priv->timeout_id != 0) {
+        g_source_remove (self->priv->timeout_id);
+    }
+
+    g_debug ("Setting timeout to %d seconds", DEFAULT_TIMEOUT);
+    self->priv->timeout_id = g_timeout_add_seconds (DEFAULT_TIMEOUT,
+                                                    korva_server_on_timeout,
+                                                    self);
+}
+
+static gboolean
+korva_server_on_timeout (gpointer user_data)
+{
+    KorvaServer *self = KORVA_SERVER (user_data);
+    gboolean is_idle = TRUE;
+
+    g_list_foreach (self->priv->backends, idle_collector, &is_idle);
+
+    if (is_idle) {
+        g_main_loop_quit (self->priv->loop);
+    }
+
+    /* If we were not idle, just restart the timeout */
+    return !is_idle;
 }

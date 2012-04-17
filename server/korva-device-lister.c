@@ -107,3 +107,18 @@ korva_device_lister_get_device_count (KorvaDeviceLister *self)
 {
     return KORVA_DEVICE_LISTER_GET_INTERFACE (self)->get_device_count (self);
 }
+
+/**
+ * korva_device_lister_idle:
+ *
+ * Get the idle status of the device lister. What "idle" means is up to the
+ * device lister.
+ * @self: a #KorvaDeviceLister
+ *
+ * Returns: %TRUE if idle, %FALSE otherwise.
+ */
+gboolean
+korva_device_lister_idle (KorvaDeviceLister *self)
+{
+    return KORVA_DEVICE_LISTER_GET_INTERFACE (self)->idle (self);
+}
