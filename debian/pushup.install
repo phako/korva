@@ -1,0 +1,3 @@
+opt/korva/lib/korva/korva
+usr/share/dbus-1/services/pushup.service
+usr/lib/share-ui/plugins/libpushup_play.so

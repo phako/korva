@@ -1,5 +1,5 @@
-plugin_LTLIBRARIES = libpushupshare.la
-plugindir = $(libdir)/share-ui/plugins
+plugin_LTLIBRARIES = libpushup_play.la
+plugindir = /usr/lib/share-ui/plugins
 
 MOC_FILES = moc_pushupmethod.cpp \
 			moc_pushupplugin.cpp \
@@ -8,7 +8,7 @@ MOC_FILES = moc_pushupmethod.cpp \
 			moc_pushupcontroller.cpp \
 			moc_pushupdevicemodel.cpp
 
-libpushupshare_la_SOURCES = pushupmethod.cpp \
+libpushup_play_la_SOURCES = pushupmethod.cpp \
 							pushupmethod.h \
 							pushupplugin.cpp \
 							pushupplugin.h \
@@ -25,6 +25,6 @@ libpushupshare_la_SOURCES = pushupmethod.cpp \
 moc_%.cpp: %.h
 	$(AM_V_GEN)moc $< -o $@
 
-libpushupshare_la_LIBADD = $(SHAREUI_LIBS)
-libpushupshare_la_LDFLAGS = -shared -module -avoid-version -fPIC
-libpushupshare_la_CXXFLAGS = $(SHAREUI_CFLAGS)
+libpushup_play_la_LIBADD = $(SHAREUI_LIBS)
+libpushup_play_la_LDFLAGS = -shared -module -avoid-version -fPIC
+libpushup_play_la_CXXFLAGS = $(SHAREUI_CFLAGS)

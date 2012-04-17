@@ -1,9 +1,9 @@
 # DBus service file
-dbusservicedir = $(datadir)/dbus-1/services
-dbusservice_in_files = org.jensge.Korva.service.in
+dbusservicedir = /usr/share/dbus-1/services
+dbusservice_in_files = pushup.service.in
 dbusservice_DATA = $(dbusservice_in_files:.service.in=.service)
 
-icondir = $(datadir)/themes/blanco/meegotouch/icons
+icondir = /usr/share/themes/blanco/meegotouch/icons
 icon_DATA = icon-l-pushup_play.png
 
 # Rule to make the service file with bindir expanded

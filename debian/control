@@ -1,14 +1,18 @@
 Source: korva
 Priority: optional
-Section: user/other
+Section: user/network
 Maintainer: Jens Georg <jensg@openismus.com>
 Build-Depends: debhelper (>= 7.2.3), libffi-dev, libglib2.0-dev, libgupnp-1.0-dev, libshare-ui-dev, libqt4-dev, libmdatauri-dev, libmeegotouch-dev
 Standards-Version: 3.8.1
+Homepage: https://gitorious.org/helium/korva
 
-Package: korva-server
+Package: pushup
 Architecture: any
-Depends: ${shlibs:Depends}
-Description: foo
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Sharing provider for DLNA
+ Pushup allows you to push images and videos from your phone's gallery to DLNA or UPnP capable rendering devices.
+XSBC-Maemo-Display-Name: PushUp
+XB-Maemo-Icon-26: iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAN1wAADdcBQiibeAAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAAO7SURBVHic7ZtNbBtFGIafmawV23EQrYSIwgEikkMQrU1pndI2gOWCGg49IXooJw7cKi5FQtyQOFTcOPRIIwyqkqCCKiEhQMCBghI7qInbSuXUKgK3RE0cWsf5IZmPQ0hIcoj/dj0bdZ/T7mr2/d55tTOeWXmViPAwo20bsE0QgG0DtgkCsG3ANkEAtg3YJgjAtgHbBAHYNmAbB6Cnp6c1+ujes0CaxkIpaCUfXc1mJ1xx1wQcgMiePa8jfOiGoBj1DJBwQ6sZOAAatW99T+g4DqGQU5OICCwuLq4dK+KuOvSYLT199ZWXSb10lFAoVLNQoXCXwcwQxeKca+aawcZ4j0TCpFP9dXUeoLOzg+Sh51wz1iw2noBIOExLS0tDYrFYW0P3d6VS4UcelE+h6GpIaGdElPxyLZf7QUSktsHuMe2l8nkUb0F9c1EllpaWMcagRLHv+eRp4KKvAgAGAF7sf4HXTqRxHHftlebn+TQzzK3bU2glx4GLvloIqf/mpP6jfa53HiDW1saBA/sBEKU0+HQl6Lj86G8mtC1YXwbQTIIAbBuwTRCAbQO2CQKwUTR+KHn52SNH9tqovR0rAYiQc/5Z/cRG7e14vhROJPvOiainNl/TWmkRTiaSyVMT2eyw1x52wvMADOp3LWbrSwKl20AMRk97Xb8SngeQz44Obr+WOHh4EK0+nsiN/uR1/UrYmQMwd1bLpfdt1N6Ole3w5Hh2x84Xi3/THot5Untu7v6Wc7+9D5gFHr/05df0HztMJNLqqvjMTJErv46tnRiZA/8FcA44/2fhTmxo5Csv60wZ0RfAZwFM5sYy8Xj8ko5GH6um/cmBgd7e3qcvrBrz12Bm6I2Z2dnlSveoJS3d3U/8MTIysgo+CwBgcnJyHpivpu13P37zjoIOoOO9s2e6jqdOfFtrvV29F1BKIuvHxvx/XAu7OgARdW/jRMlsPRq+GgKJg32fi+JYte211k40GlkQY1bK5cXMu3xQdS0lXJkYH3vTVwGIoht4str2xhhKpY3por3GWndhlw8BN/DVE2CMelu3mM6m1FrVBdgUwP0HJRYWFohE6ppMAZievle50Q5c+200D+QbEqmRjQBWVlYY/uLy2hI0HK5Z6NbtKXLjV1011wwcADFiUIrrN25y/cbNRjV31f/vNYBR2rV9ucD3bmk1A7X+wUQ8mUxjSCut6v5lECMFWW79LJ//ueiaQ49RwRcjDzlBALYN2CYIwLYB2wQB2DZgmyAA2wZsEwRg24BtggBsG7DNv1hrD0El4eAkAAAAAElFTkSuQmCC
 
 Package: korva-client
 Architecture: any

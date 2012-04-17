@@ -3,6 +3,9 @@
 %:
 	dh $@
 
+override_dh_auto_configure:
+	dh_auto_configure -- --prefix=/opt/korva
+
 #override_dh_builddeb:
 #	dh_builddeb
 #	aegis-deb-add -control debian/contact-watcher/DEBIAN/control .. debian/contact-watcher.aegis=_aegis
