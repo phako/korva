@@ -90,7 +90,7 @@ static HostData *
 host_data_new (GFile *file, GHashTable *meta_data, const char *address)
 {
     HostData *self;
-    
+
     self = g_slice_new0 (HostData);
     self->meta_data = meta_data;
     self->peers = g_list_prepend (self->peers, g_strdup (address));
@@ -508,7 +508,7 @@ korva_upnp_file_server_constructor (GType                  type,
 
     if (instance == NULL) {
         GObjectClass *parent_class;
-        parent_class = G_OBJECT_CLASS (korva_upnp_file_server_parent_class); 
+        parent_class = G_OBJECT_CLASS (korva_upnp_file_server_parent_class);
         instance = parent_class->constructor (type,
                                               n_construct_params,
                                               construct_params);

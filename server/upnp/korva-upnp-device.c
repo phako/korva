@@ -220,7 +220,7 @@ korva_upnp_device_dispose (GObject *obj)
         g_object_unref (self->priv->session);
         self->priv->session = NULL;
     }
-    
+
     if (self->priv->other_proxies != NULL) {
         g_list_free_full (self->priv->other_proxies, g_object_unref);
         self->priv->other_proxies = NULL;
@@ -301,7 +301,7 @@ korva_upnp_device_class_init (KorvaUPnPDeviceClass *klass)
                                         NULL);
 
     g_type_class_add_private (klass, sizeof (KorvaUPnPDevicePrivate));
-    
+
     object_class->dispose = korva_upnp_device_dispose;
     object_class->finalize = korva_upnp_device_finalize;
     object_class->set_property = korva_upnp_device_set_property;
@@ -314,7 +314,7 @@ korva_upnp_device_class_init (KorvaUPnPDeviceClass *klass)
                                                           "proxy",
                                                           GUPNP_TYPE_DEVICE_PROXY,
                                                           G_PARAM_CONSTRUCT_ONLY |
-                                                          G_PARAM_READWRITE | 
+                                                          G_PARAM_READWRITE |
                                                           G_PARAM_STATIC_BLURB |
                                                           G_PARAM_STATIC_NAME |
                                                           G_PARAM_STATIC_NICK));
@@ -780,7 +780,6 @@ korva_upnp_device_remove_proxy (KorvaUPnPDevice *self, GUPnPDeviceProxy *proxy)
                                                     self->priv->other_proxies);
 
     korva_upnp_device_update_ip_address (self);
-
 
     /* and update the service proxies */
     it = keys = g_hash_table_get_keys (self->priv->services);

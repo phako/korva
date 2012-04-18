@@ -46,7 +46,7 @@ struct _KorvaUPnPMetadataQuery
 {
     GObject parent_instance;
 
-	KorvaUPnPMetadataQueryPrivate *priv;
+    KorvaUPnPMetadataQueryPrivate *priv;
 };
 
 GType korva_upnp_metadata_query_get_type (void) G_GNUC_CONST;
@@ -56,14 +56,14 @@ korva_upnp_metadata_query_new (GFile *file, GHashTable *params);
 
 void
 korva_upnp_metadata_query_run_async (KorvaUPnPMetadataQuery *query,
-                                     GAsyncReadyCallback	 callback,
-                                     GCancellable			*cancellable,
-                                     gpointer				 user_data);
+                                     GAsyncReadyCallback     callback,
+                                     GCancellable            *cancellable,
+                                     gpointer                 user_data);
 
 gboolean
 korva_upnp_metadata_query_run_finish (KorvaUPnPMetadataQuery  *query,
-                     				  GAsyncResult			  *res,
-                                      GError				 **error);
+                                      GAsyncResult            *res,
+                                      GError                 **error);
 
 G_END_DECLS
 

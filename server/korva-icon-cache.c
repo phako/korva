@@ -51,10 +51,10 @@ korva_icon_cache_lookup (const char *uid)
     if (g_file_query_exists (file, NULL)) {
         file_path = g_file_get_uri (file);
     }
-    
+
     g_object_unref (file);
 
-    return file_path; 
+    return file_path;
 }
 
 char *

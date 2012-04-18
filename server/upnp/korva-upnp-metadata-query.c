@@ -28,9 +28,9 @@ enum
 };
 
 struct _KorvaUPnPMetadataQueryPrivate {
-	GFile              *file;
-	GSimpleAsyncResult *result;
-	GCancellable       *cancellable;
+    GFile              *file;
+    GSimpleAsyncResult *result;
+    GCancellable       *cancellable;
     GHashTable         *params;
 };
 
@@ -38,16 +38,16 @@ G_DEFINE_TYPE (KorvaUPnPMetadataQuery, korva_upnp_metadata_query, G_TYPE_OBJECT)
 
 /* Forward declarations */
 static void
-korva_upnp_metadata_query_on_file_query_info_async (GObject		 *source,
+korva_upnp_metadata_query_on_file_query_info_async (GObject         *source,
                                                     GAsyncResult *res,
                                                     gpointer      user_data);
 
 static void
 korva_upnp_metadata_query_init (KorvaUPnPMetadataQuery *self)
 {
-	self->priv = G_TYPE_INSTANCE_GET_PRIVATE (self,
-	                                          KORVA_TYPE_UPNP_METADATA_QUERY,
-	                                          KorvaUPnPMetadataQueryPrivate);
+    self->priv = G_TYPE_INSTANCE_GET_PRIVATE (self,
+                                              KORVA_TYPE_UPNP_METADATA_QUERY,
+                                              KorvaUPnPMetadataQueryPrivate);
 }
 
 static void
@@ -72,7 +72,7 @@ static void
 korva_upnp_metadata_query_set_property (GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec)
 {
     KorvaUPnPMetadataQuery *self = KORVA_UPNP_METADATA_QUERY (object);
-    
+
     g_return_if_fail (KORVA_IS_UPNP_METADATA_QUERY (object));
 
     switch (prop_id)
@@ -93,7 +93,7 @@ static void
 korva_upnp_metadata_query_get_property (GObject *object, guint prop_id, GValue *value, GParamSpec *pspec)
 {
     g_return_if_fail (KORVA_IS_UPNP_METADATA_QUERY (object));
-	KorvaUPnPMetadataQuery *self = KORVA_UPNP_METADATA_QUERY (object);
+    KorvaUPnPMetadataQuery *self = KORVA_UPNP_METADATA_QUERY (object);
 
     switch (prop_id)
     {
@@ -114,8 +114,8 @@ korva_upnp_metadata_query_class_init (KorvaUPnPMetadataQueryClass *klass)
 {
     GObjectClass* object_class = G_OBJECT_CLASS (klass);
 
-	g_type_class_add_private (klass, sizeof (KorvaUPnPMetadataQueryPrivate));    
-    
+    g_type_class_add_private (klass, sizeof (KorvaUPnPMetadataQueryPrivate));
+
     object_class->finalize = korva_upnp_metadata_query_finalize;
     object_class->set_property = korva_upnp_metadata_query_set_property;
     object_class->get_property = korva_upnp_metadata_query_get_property;
@@ -132,7 +132,7 @@ korva_upnp_metadata_query_class_init (KorvaUPnPMetadataQueryClass *klass)
                                                           G_PARAM_STATIC_NAME |
                                                           G_PARAM_STATIC_NICK |
                                                           G_PARAM_STATIC_BLURB));
-    
+
     g_object_class_install_property (object_class,
                                      PROP_PARAMS,
                                      g_param_spec_boxed ("params",
@@ -152,9 +152,9 @@ KorvaUPnPMetadataQuery*
 korva_upnp_metadata_query_new (GFile *file, GHashTable *params)
 {
     return KORVA_UPNP_METADATA_QUERY (g_object_new (KORVA_TYPE_UPNP_METADATA_QUERY,
-              										"file", file,
+                                                      "file", file,
                                                     "params", params,
-              										NULL));
+                                                      NULL));
 }
 
 void
@@ -164,17 +164,17 @@ korva_upnp_metadata_query_run_async (KorvaUPnPMetadataQuery *self, GAsyncReadyCa
                                                     callback,
                                                     user_data,
                                                     (gpointer) korva_upnp_metadata_query_run_async);
-	self->priv->cancellable = cancellable;
+    self->priv->cancellable = cancellable;
 
-	g_file_query_info_async (self->priv->file,
-	                         G_FILE_ATTRIBUTE_STANDARD_CONTENT_TYPE","
+    g_file_query_info_async (self->priv->file,
+                             G_FILE_ATTRIBUTE_STANDARD_CONTENT_TYPE","
                              G_FILE_ATTRIBUTE_STANDARD_SIZE","
                              G_FILE_ATTRIBUTE_STANDARD_DISPLAY_NAME,
-	                         G_FILE_QUERY_INFO_NONE,
-	                         G_PRIORITY_DEFAULT_IDLE,
-	                         self->priv->cancellable,
-	                         korva_upnp_metadata_query_on_file_query_info_async,
-	                         self);
+                             G_FILE_QUERY_INFO_NONE,
+                             G_PRIORITY_DEFAULT_IDLE,
+                             self->priv->cancellable,
+                             korva_upnp_metadata_query_on_file_query_info_async,
+                             self);
 }
 
 gboolean
@@ -197,17 +197,17 @@ korva_upnp_metadata_query_run_finish (KorvaUPnPMetadataQuery *self, GAsyncResult
 }
 
 static void
-korva_upnp_metadata_query_on_file_query_info_async (GObject		 *source,
+korva_upnp_metadata_query_on_file_query_info_async (GObject         *source,
                                                     GAsyncResult *res,
                                                     gpointer      user_data)
 {
-	KorvaUPnPMetadataQuery *self = KORVA_UPNP_METADATA_QUERY (user_data);
+    KorvaUPnPMetadataQuery *self = KORVA_UPNP_METADATA_QUERY (user_data);
     GError                 *error = NULL;
     GVariant               *value;
     GFileInfo              *info;
 
     info = g_file_query_info_finish (self->priv->file, res, &error);
-	if (info == NULL) {
+    if (info == NULL) {
         g_simple_async_result_take_error (self->priv->result, error);
     } else {
         value = g_hash_table_lookup (self->priv->params, "Size");
@@ -235,7 +235,7 @@ korva_upnp_metadata_query_on_file_query_info_async (GObject		 *source,
                                  g_variant_new_string (g_file_info_get_display_name (info)));
         }
     }
-    
+
     g_simple_async_result_complete_in_idle (self->priv->result);
     g_object_unref (self->priv->result);
     g_object_unref (info);

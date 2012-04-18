@@ -195,7 +195,7 @@ korva_server_class_init (KorvaServerClass *klass)
 
     object_class->dispose = korva_server_dispose;
     object_class->finalize = korva_server_finalize;
-    
+
     g_type_class_add_private (klass, sizeof (KorvaServerPrivate));
 }
 
@@ -229,7 +229,7 @@ korva_server_on_bus_aquired  (GDBusConnection *connection,
     KorvaBackend *backend;
     GError *error = NULL;
     KorvaController1 *controller;
-    
+
     KorvaServer *self = KORVA_SERVER (user_data);
     controller = korva_controller1_skeleton_new ();
     self->priv->dbus_controller = controller;
@@ -251,7 +251,7 @@ korva_server_on_bus_aquired  (GDBusConnection *connection,
                       "handle-unshare",
                       G_CALLBACK (korva_server_on_handle_unshare),
                       user_data);
-    
+
     g_dbus_interface_skeleton_export (G_DBUS_INTERFACE_SKELETON(controller),
                                       connection,
                                       "/org/jensge/Korva",

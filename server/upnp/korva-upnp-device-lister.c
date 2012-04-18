@@ -110,7 +110,7 @@ korva_upnp_device_lister_init (KorvaUPnPDeviceLister *self)
                                                          g_free,
                                                          g_object_unref);
     self->priv->server = korva_upnp_file_server_get_default ();
-    
+
     cm = gupnp_context_manager_create (0);
     self->priv->context_manager = cm;
     g_signal_connect (cm,
@@ -171,7 +171,7 @@ korva_upnp_device_lister_get_devices (KorvaDeviceLister *lister)
 
     g_return_val_if_fail (KORVA_IS_UPNP_DEVICE_LISTER (lister), NULL);
     self = KORVA_UPNP_DEVICE_LISTER (lister);
-    
+
     return g_hash_table_get_values (self->priv->devices);
 }
 
@@ -194,7 +194,7 @@ korva_upnp_device_lister_get_device_count (KorvaDeviceLister *lister)
 
     g_return_val_if_fail (KORVA_IS_UPNP_DEVICE_LISTER (lister), 0);
     self = KORVA_UPNP_DEVICE_LISTER (lister);
-    
+
     return g_hash_table_size (self->priv->devices);
 }
 
