@@ -1010,7 +1010,7 @@ korva_upnp_device_update_ip_address (KorvaUPnPDevice *self)
     }
 
     location = soup_uri_new (gupnp_device_info_get_location (self->priv->info));
-    self->priv->ip_address = g_strdup (soup_uri_get_host (location));
+    self->priv->ip_address = g_strdup (location->host);
     soup_uri_free (location);
 }
 
