@@ -106,6 +106,19 @@ host_data_add_peer (HostData *self, const char *iface)
     self->peers = g_list_prepend (self->peers, g_strdup (iface));
 }
 
+static void
+host_data_remove_peer (HostData *self, const char *peer)
+{
+    GList *it;
+
+    it = g_list_find_custom (self->peers, peer, (GCompareFunc) g_strcmp0);
+    if (it != NULL) {
+        g_free (it->data);
+
+        self->peers = g_list_remove_link (self->peers, it);
+    }
+}
+
 static char *
 host_data_get_id (HostData *self)
 {
@@ -661,4 +674,32 @@ gboolean
 korva_upnp_file_server_idle (KorvaUPnPFileServer *self)
 {
     return g_hash_table_size (self->priv->host_data) == 0;
+}
+
+void
+korva_upnp_file_server_unhost_file_by_peer (KorvaUPnPFileServer *self,
+                                            const char *peer)
+{
+    GHashTableIter iter;
+    HostData *value;
+    char *key;
+
+    g_hash_table_iter_init (&iter, self->priv->host_data);
+    while (g_hash_table_iter_next (&iter, (gpointer) &key, (gpointer) &value)) {
+        host_data_remove_peer (value, peer);
+        if (value->peers == NULL) {
+            char *id, *uri;
+
+            id = host_data_get_id (value);
+            g_hash_table_remove (self->priv->id_map, id);
+            g_free (id);
+
+            uri = g_file_get_uri (value->file);
+            g_debug ("File '%s' no longer shared to any peer, removing…",
+                     uri);
+            g_free (uri);
+
+            g_hash_table_iter_remove (&iter);
+        }
+    }
 }

@@ -746,6 +746,7 @@ gboolean
 korva_upnp_device_remove_proxy (KorvaUPnPDevice *self, GUPnPDeviceProxy *proxy)
 {
     GList *it, *keys = NULL;
+    KorvaUPnPFileServer *server;
 
     it = g_list_find (self->priv->other_proxies, proxy);
     if (it != NULL) {
@@ -762,6 +763,10 @@ korva_upnp_device_remove_proxy (KorvaUPnPDevice *self, GUPnPDeviceProxy *proxy)
         return FALSE;
     }
 
+    server = korva_upnp_file_server_get_default ();
+    korva_upnp_file_server_unhost_file_by_peer (server, self->priv->ip_address);
+    g_object_unref (server);
+
     /* That's the only proxy associated with this.
      * We can destroy the device. */
     if (self->priv->other_proxies == NULL) {
@@ -774,8 +779,8 @@ korva_upnp_device_remove_proxy (KorvaUPnPDevice *self, GUPnPDeviceProxy *proxy)
     self->priv->other_proxies = g_list_remove_link (self->priv->other_proxies,
                                                     self->priv->other_proxies);
 
-    /* TODO: Unshare resources bound to the old IP */
     korva_upnp_device_update_ip_address (self);
+
 
     /* and update the service proxies */
     it = keys = g_hash_table_get_keys (self->priv->services);

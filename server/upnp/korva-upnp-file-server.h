@@ -72,6 +72,10 @@ korva_upnp_file_server_host_file_finish (KorvaUPnPFileServer  *self,
 gboolean
 korva_upnp_file_server_idle (KorvaUPnPFileServer *self);
 
+void
+korva_upnp_file_server_unhost_file_by_peer (KorvaUPnPFileServer *self,
+                                            const char *peer);
+
 G_END_DECLS
 
 #endif /* _KORVA_UPN_PFILE_SERVER_H_ */
