@@ -1,4 +1,4 @@
-lib_LIBRARIES=libkorva-dbus.a
+noinst_LIBRARIES=libkorva-dbus.a
 libkorva_dbus_a_SOURCES = gdbusinterface.h \
 						  gdbusinterface.c \
 						  gdbusobject.c \

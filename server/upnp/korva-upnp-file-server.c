@@ -46,13 +46,16 @@ struct _KorvaUPnPFileServerPrivate {
 typedef struct {
     GFile      *file;
     GHashTable *meta_data;
-    GList      *ifaces;
+    GList      *peers;
     goffset     size;
     const char *content_type;
     char       *protocol_info;
     KorvaUPnPFileServer *self;
-    GSimpleAsyncResult *result;
     uint timeout_id;
+
+    /* Helper members for first host_async call */
+    GSimpleAsyncResult *result;
+    char *iface;
 } HostData;
 
 static char *
@@ -87,10 +90,10 @@ static HostData *
 host_data_new (GFile *file, GHashTable *meta_data, const char *address)
 {
     HostData *self;
-    
+
     self = g_slice_new0 (HostData);
     self->meta_data = meta_data;
-    self->ifaces = g_list_prepend (self->ifaces, g_strdup (address));
+    self->peers = g_list_prepend (self->peers, g_strdup (address));
     self->file = g_object_ref (file);
     self->timeout_id = g_timeout_add_seconds (DEFAULT_IDLE_TIMEOUT, host_data_on_timeout, self);
 
@@ -98,9 +101,22 @@ host_data_new (GFile *file, GHashTable *meta_data, const char *address)
 }
 
 static void
-host_data_add_interface (HostData *self, const char *iface)
+host_data_add_peer (HostData *self, const char *iface)
 {
-    self->ifaces = g_list_prepend (self->ifaces, g_strdup (iface));
+    self->peers = g_list_prepend (self->peers, g_strdup (iface));
+}
+
+static void
+host_data_remove_peer (HostData *self, const char *peer)
+{
+    GList *it;
+
+    it = g_list_find_custom (self->peers, peer, (GCompareFunc) g_strcmp0);
+    if (it != NULL) {
+        g_free (it->data);
+
+        self->peers = g_list_remove_link (self->peers, it);
+    }
 }
 
 static char *
@@ -156,6 +172,16 @@ host_data_get_protocol_info (HostData *self)
     return self->protocol_info;
 }
 
+static gboolean
+host_data_valid_for_peer (HostData *self, const char *peer)
+{
+    GList *it;
+
+    it = g_list_find_custom (self->peers, peer, (GCompareFunc) g_strcmp0);
+
+    return it != NULL;
+}
+
 static void
 host_data_free (HostData *self)
 {
@@ -165,7 +191,7 @@ host_data_free (HostData *self)
 
     g_hash_table_destroy (self->meta_data);
     g_object_unref (self->file);
-    g_list_free_full (self->ifaces, g_free);
+    g_list_free_full (self->peers, g_free);
 
     if (self->protocol_info != NULL) {
         g_free (self->protocol_info);
@@ -300,9 +326,12 @@ korva_upnp_file_server_handle_request (SoupServer *server,
         goto out;
     }
 
-    /* TODO: Check IP of requesting client with list of IPs attached to host
-     * data
-     */
+    if (!host_data_valid_for_peer (data, soup_client_context_get_host (client))) {
+        soup_message_set_status (msg, SOUP_STATUS_NOT_FOUND);
+
+        goto out;
+    }
+
     serve_data = g_slice_new0 (ServeData);
     serve_data->host_data = data;
     if (soup_message_headers_get_ranges (msg->request_headers, data->size, &ranges, &length)) {
@@ -479,7 +508,7 @@ korva_upnp_file_server_constructor (GType                  type,
 
     if (instance == NULL) {
         GObjectClass *parent_class;
-        parent_class = G_OBJECT_CLASS (korva_upnp_file_server_parent_class); 
+        parent_class = G_OBJECT_CLASS (korva_upnp_file_server_parent_class);
         instance = parent_class->constructor (type,
                                               n_construct_params,
                                               construct_params);
@@ -551,12 +580,16 @@ korva_upnp_file_server_on_metadata_query_run_done (GObject *sender,
 
     result_data = g_new0 (HostFileResult, 1);
     result_data->params = data->meta_data;
-    result_data->uri = host_data_get_uri (data, (char *) data->ifaces->data, port);
+    result_data->uri = host_data_get_uri (data, data->iface, port);
 
     g_simple_async_result_set_op_res_gpointer (result, result_data, g_free);
 
     data->result = NULL;
+
 out:
+    g_free (data->iface);
+    data->iface = NULL;
+
     g_simple_async_result_complete_in_idle (result);
     g_object_unref (result);
     g_object_unref (sender);
@@ -567,6 +600,7 @@ korva_upnp_file_server_host_file_async (KorvaUPnPFileServer *self,
                                         GFile *file,
                                         GHashTable *params,
                                         const char *iface,
+                                        const char *peer,
                                         GAsyncReadyCallback callback,
                                         gpointer user_data)
 {
@@ -583,9 +617,10 @@ korva_upnp_file_server_host_file_async (KorvaUPnPFileServer *self,
 
     data = g_hash_table_lookup (self->priv->host_data, file);
     if (data == NULL) {
-        data = host_data_new (file, params, iface);
+        data = host_data_new (file, params, peer);
         data->self = self;
         data->result = result;
+        data->iface = g_strdup (iface);
 
         query = korva_upnp_metadata_query_new (file, params);
         korva_upnp_metadata_query_run_async (query,
@@ -596,7 +631,7 @@ korva_upnp_file_server_host_file_async (KorvaUPnPFileServer *self,
         return;
     }
 
-    host_data_add_interface (data, iface);
+    host_data_add_peer (data, peer);
 
     port = soup_server_get_port (self->priv->http_server);
 
@@ -641,4 +676,32 @@ gboolean
 korva_upnp_file_server_idle (KorvaUPnPFileServer *self)
 {
     return g_hash_table_size (self->priv->host_data) == 0;
+}
+
+void
+korva_upnp_file_server_unhost_file_by_peer (KorvaUPnPFileServer *self,
+                                            const char *peer)
+{
+    GHashTableIter iter;
+    HostData *value;
+    char *key;
+
+    g_hash_table_iter_init (&iter, self->priv->host_data);
+    while (g_hash_table_iter_next (&iter, (gpointer) &key, (gpointer) &value)) {
+        host_data_remove_peer (value, peer);
+        if (value->peers == NULL) {
+            char *id, *uri;
+
+            id = host_data_get_id (value);
+            g_hash_table_remove (self->priv->id_map, id);
+            g_free (id);
+
+            uri = g_file_get_uri (value->file);
+            g_debug ("File '%s' no longer shared to any peer, removing…",
+                     uri);
+            g_free (uri);
+
+            g_hash_table_iter_remove (&iter);
+        }
+    }
 }

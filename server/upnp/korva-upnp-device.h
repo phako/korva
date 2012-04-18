@@ -71,15 +71,5 @@ korva_upnp_device_add_proxy (KorvaUPnPDevice *self, GUPnPDeviceProxy *proxy);
 gboolean
 korva_upnp_device_remove_proxy (KorvaUPnPDevice *self, GUPnPDeviceProxy *proxy);
 
-void
-korva_upnp_device_push_async (KorvaDevice         *self,
-                              GVariant            *source,
-                              GAsyncReadyCallback  callback,
-                              gpointer             user_data);
-
-char *
-korva_upnp_device_push_finish (KorvaDevice   *self,
-                               GAsyncResult  *result,
-                               GError       **error);
 G_END_DECLS
 #endif /* __KORVA_UPNP_DEVICE_H__ */

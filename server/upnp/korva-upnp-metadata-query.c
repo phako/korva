@@ -42,9 +42,9 @@ enum
 };
 
 struct _KorvaUPnPMetadataQueryPrivate {
-	GFile               *file;
-	GSimpleAsyncResult  *result;
-	GCancellable        *cancellable;
+    GFile              *file;
+    GSimpleAsyncResult *result;
+    GCancellable       *cancellable;
     GHashTable          *params;
     TrackerSparqlCursor *cursor;
     TrackerSparqlConnection *connection;
@@ -71,9 +71,9 @@ korva_upnp_metadata_query_on_cursor_next (GObject *source,
 static void
 korva_upnp_metadata_query_init (KorvaUPnPMetadataQuery *self)
 {
-	self->priv = G_TYPE_INSTANCE_GET_PRIVATE (self,
-	                                          KORVA_TYPE_UPNP_METADATA_QUERY,
-	                                          KorvaUPnPMetadataQueryPrivate);
+    self->priv = G_TYPE_INSTANCE_GET_PRIVATE (self,
+                                              KORVA_TYPE_UPNP_METADATA_QUERY,
+                                              KorvaUPnPMetadataQueryPrivate);
 }
 
 static void
@@ -116,7 +116,7 @@ static void
 korva_upnp_metadata_query_set_property (GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec)
 {
     KorvaUPnPMetadataQuery *self = KORVA_UPNP_METADATA_QUERY (object);
-    
+
     g_return_if_fail (KORVA_IS_UPNP_METADATA_QUERY (object));
 
     switch (prop_id)
@@ -137,7 +137,7 @@ static void
 korva_upnp_metadata_query_get_property (GObject *object, guint prop_id, GValue *value, GParamSpec *pspec)
 {
     g_return_if_fail (KORVA_IS_UPNP_METADATA_QUERY (object));
-	KorvaUPnPMetadataQuery *self = KORVA_UPNP_METADATA_QUERY (object);
+    KorvaUPnPMetadataQuery *self = KORVA_UPNP_METADATA_QUERY (object);
 
     switch (prop_id)
     {
@@ -158,8 +158,8 @@ korva_upnp_metadata_query_class_init (KorvaUPnPMetadataQueryClass *klass)
 {
     GObjectClass* object_class = G_OBJECT_CLASS (klass);
 
-	g_type_class_add_private (klass, sizeof (KorvaUPnPMetadataQueryPrivate));    
-    
+    g_type_class_add_private (klass, sizeof (KorvaUPnPMetadataQueryPrivate));
+
     object_class->finalize = korva_upnp_metadata_query_finalize;
     object_class->dispose = korva_upnp_metadata_query_dispose;
     object_class->set_property = korva_upnp_metadata_query_set_property;
@@ -177,7 +177,7 @@ korva_upnp_metadata_query_class_init (KorvaUPnPMetadataQueryClass *klass)
                                                           G_PARAM_STATIC_NAME |
                                                           G_PARAM_STATIC_NICK |
                                                           G_PARAM_STATIC_BLURB));
-    
+
     g_object_class_install_property (object_class,
                                      PROP_PARAMS,
                                      g_param_spec_boxed ("params",
@@ -197,9 +197,9 @@ KorvaUPnPMetadataQuery*
 korva_upnp_metadata_query_new (GFile *file, GHashTable *params)
 {
     return KORVA_UPNP_METADATA_QUERY (g_object_new (KORVA_TYPE_UPNP_METADATA_QUERY,
-              										"file", file,
+                                                      "file", file,
                                                     "params", params,
-              										NULL));
+                                                      NULL));
 }
 
 void
@@ -209,7 +209,7 @@ korva_upnp_metadata_query_run_async (KorvaUPnPMetadataQuery *self, GAsyncReadyCa
                                                     callback,
                                                     user_data,
                                                     (gpointer) korva_upnp_metadata_query_run_async);
-	self->priv->cancellable = cancellable;
+    self->priv->cancellable = cancellable;
 
     tracker_sparql_connection_get_async (cancellable,
                                          korva_upnp_metadata_query_on_sparql_connection_get,
