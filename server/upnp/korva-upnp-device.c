@@ -32,6 +32,11 @@
 #define AV_TRANSPORT "urn:schemas-upnp-org:service:AVTransport"
 #define CONNECTION_MANAGER "urn:schemas-upnp-org:service:ConnectionManager"
 
+#define AV_STATE_STOPPED "STOPPED"
+#define AV_STATE_NO_MEDIA_PRESENT "NO_MEDIA_PRESENT"
+#define AV_STATE_PLAYING "PLAYING"
+#define AV_STATE_UNKNOWN "UNKNOWN"
+
 static void
 korva_upnp_device_async_initable_init (GAsyncInitableIface *iface);
 
@@ -178,7 +183,7 @@ korva_upnp_device_init (KorvaUPnPDevice *self)
                                                   g_object_unref);
     self->priv->session = soup_session_async_new ();
     self->priv->last_change_parser = gupnp_last_change_parser_new ();
-    self->priv->state = g_strdup ("UNKNOWN");
+    self->priv->state = g_strdup (AV_STATE_UNKNOWN);
 }
 
 static void
@@ -868,8 +873,8 @@ korva_upnp_device_on_set_av_transport_uri (GUPnPServiceProxy       *proxy,
         goto out;
     }
 
-    if (g_ascii_strcasecmp (self->priv->state, "STOPPED") == 0 ||
-        g_ascii_strcasecmp (self->priv->state, "NO_MEDIA_PRESENT") == 0) {
+    if (g_ascii_strcasecmp (self->priv->state, AV_STATE_STOPPED) == 0 ||
+        g_ascii_strcasecmp (self->priv->state, AV_STATE_NO_MEDIA_PRESENT) == 0) {
         gupnp_service_proxy_begin_action (proxy,
                                           "Play",
                                           korva_upnp_device_on_play,
