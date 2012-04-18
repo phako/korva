@@ -653,6 +653,8 @@ korva_upnp_file_server_host_file_finish (KorvaUPnPFileServer  *self,
     GSimpleAsyncResult *result;
     HostFileResult *result_data;
 
+    *params = NULL;
+
     if (!g_simple_async_result_is_valid (res,
                                          G_OBJECT (self),
                                          korva_upnp_file_server_host_file_async)) {
