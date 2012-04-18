@@ -136,6 +136,17 @@ static GVariant *
 korva_upnp_device_serialize (KorvaDevice *device);
 
 static void
+korva_upnp_device_push_async (KorvaDevice         *self,
+                              GVariant            *source,
+                              GAsyncReadyCallback  callback,
+                              gpointer             user_data);
+
+static char *
+korva_upnp_device_push_finish (KorvaDevice   *self,
+                               GAsyncResult  *result,
+                               GError       **error);
+
+static void
 korva_upnp_device_unshare_async (KorvaDevice         *self,
                                  const char          *tag,
                                  GAsyncReadyCallback  callback,
@@ -1049,7 +1060,7 @@ out:
     g_simple_async_result_complete_in_idle (result);
 }
 
-char *
+static char *
 korva_upnp_device_push_finish (KorvaDevice   *device,
                                GAsyncResult  *res,
                                GError       **error)
