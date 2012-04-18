@@ -25,17 +25,77 @@
 
 #include <korva-dbus-interface.h>
 
-static gboolean list = FALSE;
+typedef enum {
+    KORVA_CONTROL_MODE_NONE,
+    KORVA_CONTROL_MODE_LIST,
+    KORVA_CONTROL_MODE_PUSH,
+    KORVA_CONTROL_MODE_UNSHARE
+} KorvaControlMode;
+
 static char *file = NULL;
 static char *device = NULL;
 static char *tag = NULL;
+static KorvaControlMode mode = KORVA_CONTROL_MODE_NONE;
+
+static gboolean
+parse_mode (const char *option_name,
+            const char *value,
+            gpointer data,
+            GError **error)
+{
+    if (mode != KORVA_CONTROL_MODE_NONE) {
+        g_set_error_literal (error,
+                             G_OPTION_ERROR,
+                             G_OPTION_ERROR_FAILED,
+                             "Mode already set");
+        return FALSE;
+    }
+
+    if (g_ascii_strcasecmp (value, "push") == 0) {
+        mode = KORVA_CONTROL_MODE_PUSH;
+    } else  if (g_ascii_strcasecmp (value, "list") == 0) {
+        mode = KORVA_CONTROL_MODE_LIST;
+    } else  if (g_ascii_strcasecmp (value, "unshare") == 0) {
+        mode = KORVA_CONTROL_MODE_UNSHARE;
+    } else {
+        g_set_error (error,
+                     G_OPTION_ERROR,
+                     G_OPTION_ERROR_FAILED,
+                     "Unknown action '%s'",
+                     value);
+
+        return FALSE;
+    }
+
+    return TRUE;
+}
+
+static gboolean
+set_list_mode (const char *option_name,
+               const char *value,
+               gpointer data,
+               GError **error)
+{
+    if (mode != KORVA_CONTROL_MODE_NONE) {
+        g_set_error_literal (error,
+                             G_OPTION_ERROR,
+                             G_OPTION_ERROR_FAILED,
+                             "Mode already set");
+        return FALSE;
+    }
+
+    mode = KORVA_CONTROL_MODE_LIST;
+
+    return TRUE;
+}
 
 static GOptionEntry entries[] =
 {
-    { "list", 'l', 0, G_OPTION_ARG_NONE, &list, "Show available devices", NULL },
-    { "push", 'p', 0, G_OPTION_ARG_FILENAME, &file, "Path to FILE to push", "FILE" },
+    { "list", 'l', G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK, set_list_mode, "Show available devices; short for --action=list", NULL },
+    { "action", 'a', 0, G_OPTION_ARG_CALLBACK, parse_mode, "ACTION to perform (push, unshare, list)", "ACTION" },
+    { "file", 'f', 0, G_OPTION_ARG_FILENAME, &file, "Path to a FILE", "FILE" },
     { "device", 'd', 0, G_OPTION_ARG_STRING, &device, "UID of a device", "UID" },
-    { "unshare", 'u', 0, G_OPTION_ARG_STRING, &tag, "TAG of a previously done push operation", "TAG" },
+    { "tag", 't', 0, G_OPTION_ARG_STRING, &tag, "TAG of a previously done push operation", "TAG" },
     { NULL }
 };
 
@@ -81,6 +141,43 @@ korva_control_list_devices (KorvaController1 *proxy)
     g_variant_iter_free (outer);
 }
 
+static void
+korva_control_push (KorvaController1 *controller, const char *path, const char *uid)
+{
+    GFile *source;
+    GVariantBuilder *builder;
+    char *out_tag;
+    GError *error = NULL;
+
+    source = g_file_new_for_commandline_arg (path);
+    builder = g_variant_builder_new (G_VARIANT_TYPE_ARRAY);
+    g_variant_builder_add (builder, "{sv}", "URI", g_variant_new_string (g_file_get_uri (source)));
+
+    korva_controller1_call_push_sync (controller,
+                                      g_variant_builder_end (builder),
+                                      device,
+                                      &out_tag,
+                                      NULL,
+                                      &error);
+    if (error != NULL) {
+        g_print ("Failed to Push %s to %s: %s\n",
+                 file,
+                 device,
+                 error->message);
+
+        g_error_free (error);
+    } else {
+        g_print ("Pushed %s to %s. The ID is %s\n", file, device, out_tag);
+    }
+}
+
+static void usage (GOptionContext *context)
+{
+    g_print ("%s", g_option_context_get_help (context, FALSE, NULL));
+
+    exit (0);
+}
+
 int main(int argc, char *argv[])
 {
     GOptionContext *context;
@@ -97,13 +194,6 @@ int main(int argc, char *argv[])
         exit (1);
     }
 
-    if (!((list == TRUE && device == NULL && file == NULL && tag == NULL) ||
-        (list == FALSE && (device != NULL && (file != NULL || tag != NULL))))) {
-        g_print ("%s", g_option_context_get_help (context, FALSE, NULL));
-
-        exit (0);
-    }
-
     controller = korva_controller1_proxy_new_for_bus_sync (G_BUS_TYPE_SESSION,
                                                            G_DBUS_PROXY_FLAGS_NONE,
                                                            "org.jensge.Korva",
@@ -116,10 +206,22 @@ int main(int argc, char *argv[])
         exit (1);
     }
 
-    if (list) {
-        korva_control_list_devices (controller);
-    } else {
-        if (tag != NULL) {
+    switch (mode) {
+        case KORVA_CONTROL_MODE_LIST:
+            korva_control_list_devices (controller);
+
+            break;
+        case KORVA_CONTROL_MODE_PUSH:
+            if (file == NULL || device == NULL) {
+                usage (context);
+            }
+            korva_control_push (controller, file, device);
+
+            break;
+        case KORVA_CONTROL_MODE_UNSHARE:
+            if (tag == NULL) {
+                usage (context);
+            }
             korva_controller1_call_unshare_sync (controller, tag, NULL, &error);
 
             if (error != NULL) {
@@ -129,32 +231,15 @@ int main(int argc, char *argv[])
 
                 g_error_free (error);
             }
-        } else {
-            GFile *source;
-            GVariantBuilder *builder;
-            char *out_tag;
 
-            source = g_file_new_for_commandline_arg (file);
-            builder = g_variant_builder_new (G_VARIANT_TYPE_ARRAY);
-            g_variant_builder_add (builder, "{sv}", "URI", g_variant_new_string (g_file_get_uri (source)));
+            break;
+        case KORVA_CONTROL_MODE_NONE:
+            usage (context);
 
-            korva_controller1_call_push_sync (controller,
-                                              g_variant_builder_end (builder),
-                                              device,
-                                              &out_tag,
-                                              NULL,
-                                              &error);
-            if (error != NULL) {
-                g_print ("Failed to Push %s to %s: %s\n",
-                         file,
-                         device,
-                         error->message);
-
-                g_error_free (error);
-            } else {
-                g_print ("Pushed %s to %s. The ID is %s\n", file, device, out_tag);
-            }
-        }
+            break;
+        default:
+            g_assert_not_reached ();
+            break;
     }
 
     g_object_unref (controller);
