@@ -234,9 +234,9 @@ korva_upnp_metadata_query_on_file_query_info_async (GObject         *source,
                                  g_strdup ("Title"),
                                  g_variant_new_string (g_file_info_get_display_name (info)));
         }
+        g_object_unref (info);
     }
 
     g_simple_async_result_complete_in_idle (self->priv->result);
     g_object_unref (self->priv->result);
-    g_object_unref (info);
 }
