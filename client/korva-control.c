@@ -178,6 +178,11 @@ static void usage (GOptionContext *context)
     exit (0);
 }
 
+#define OPTION_SUMMARY \
+"  korva-control --list | --action=list\n" \
+"  korva-control --action=push --device=<UID> --file=<PATH>\n" \
+"  korva-control --action=unshare --tag=<TAG>"
+
 int main(int argc, char *argv[])
 {
     GOptionContext *context;
@@ -187,6 +192,7 @@ int main(int argc, char *argv[])
     g_type_init ();
 
     context = g_option_context_new ("- control a korva server");
+    g_option_context_set_summary (context, OPTION_SUMMARY);
     g_option_context_add_main_entries (context, entries, NULL);
     if (!g_option_context_parse (context, &argc, &argv, &error)) {
         g_print ("Error parsing options: %s\n", error->message);
