@@ -937,7 +937,7 @@ korva_upnp_device_on_host_file_async (GObject      *source,
     GUPnPServiceProxy *proxy;
     GUPnPDIDLLiteWriter *writer;
     GUPnPDIDLLiteObject *object;
-    GUPnPDIDLLiteResource *resource;
+    GUPnPDIDLLiteResource *resource, *compat_resource;
     GUPnPProtocolInfo *protocol_info;
     const char *title, *content_type, *dlna_profile = NULL;
     GVariant *value;
@@ -979,9 +979,24 @@ korva_upnp_device_on_host_file_async (GObject      *source,
     }
     gupnp_didl_lite_resource_set_protocol_info (resource, protocol_info);
 
+    compat_resource = gupnp_didl_lite_object_get_compat_resource (object,
+                                                                  data->device->priv->protocol_info,
+                                                                  FALSE);
     data->meta_data = gupnp_didl_lite_writer_get_string (writer);
     g_object_unref (object);
     g_object_unref (writer);
+
+    if (compat_resource == NULL) {
+        g_set_error_literal (&error,
+                             KORVA_CONTROLLER1_ERROR,
+                             KORVA_CONTROLLER1_ERROR_NOT_COMPATIBLE,
+                             "The file is not compatible with the selected renderer");
+
+        g_simple_async_result_take_error (data->result, error);
+
+        goto out;
+    }
+    g_object_unref (compat_resource);
 
     proxy = g_hash_table_lookup (data->device->priv->services, AV_TRANSPORT);
     gupnp_service_proxy_begin_action (proxy,
