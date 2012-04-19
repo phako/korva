@@ -22,6 +22,7 @@
 #define _KORVA_UPN_PFILE_SERVER_H_
 
 #include <glib-object.h>
+#include <gio/gio.h>
 
 G_BEGIN_DECLS
 
@@ -73,9 +74,13 @@ gboolean
 korva_upnp_file_server_idle (KorvaUPnPFileServer *self);
 
 void
-korva_upnp_file_server_unhost_file_by_peer (KorvaUPnPFileServer *self,
-                                            const char *peer);
+korva_upnp_file_server_unhost_by_peer (KorvaUPnPFileServer *self,
+                                       const char *peer);
 
+void
+korva_upnp_file_server_unhost_file_for_peer (KorvaUPnPFileServer *self,
+                                             GFile               *file,
+                                             const char          *peer);
 G_END_DECLS
 
 #endif /* _KORVA_UPN_PFILE_SERVER_H_ */

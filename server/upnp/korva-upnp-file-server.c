@@ -706,8 +706,8 @@ korva_upnp_file_server_idle (KorvaUPnPFileServer *self)
 }
 
 void
-korva_upnp_file_server_unhost_file_by_peer (KorvaUPnPFileServer *self,
-                                            const char *peer)
+korva_upnp_file_server_unhost_by_peer (KorvaUPnPFileServer *self,
+                                       const char *peer)
 {
     GHashTableIter iter;
     HostData *value;
@@ -730,5 +730,34 @@ korva_upnp_file_server_unhost_file_by_peer (KorvaUPnPFileServer *self,
 
             g_hash_table_iter_remove (&iter);
         }
+    }
+}
+
+void
+korva_upnp_file_server_unhost_file_for_peer (KorvaUPnPFileServer *self,
+                                             GFile               *file,
+                                             const char          *peer)
+{
+    HostData *data;
+
+    data = g_hash_table_lookup (self->priv->host_data, file);
+    if (data == NULL) {
+        return;
+    }
+
+    host_data_remove_peer (data, peer);
+    if (data->peers == NULL) {
+        char *id, *uri;
+
+        id = host_data_get_id (data);
+        g_hash_table_remove (self->priv->id_map, id);
+        g_free (id);
+
+        uri = g_file_get_uri (data->file);
+        g_debug ("File '%s' no longer shared to any peer, removing…",
+                 uri);
+        g_free (uri);
+
+        g_hash_table_remove (self->priv->host_data, file);
     }
 }
