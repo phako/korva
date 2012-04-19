@@ -171,7 +171,7 @@ korva_control_push (KorvaController1 *controller, const char *path, const char *
     }
 }
 
-static void usage (GOptionContext *context)
+G_GNUC_NORETURN static void usage (GOptionContext *context)
 {
     g_print ("%s", g_option_context_get_help (context, FALSE, NULL));
 
