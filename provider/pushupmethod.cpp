@@ -118,6 +118,8 @@ void PushUpMethod::onSelectorDone(const QString& uid)
                 break;
             }
         }
+    } else {
+        emit done();
     }
 }
 
