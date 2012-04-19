@@ -23,6 +23,9 @@
 #include <QGraphicsLinearLayout>
 #include <QUrl>
 
+#include <QtNetwork/QNetworkConfigurationManager>
+#include <QtNetwork/QNetworkSession>
+
 #include <MAbstractCellCreator>
 #include <MButton>
 #include <MBasicSheetHeader>
@@ -113,6 +116,12 @@ PushUpDeviceSelector::PushUpDeviceSelector(PushUpController *controller)
     viewport->setWidget(pannable);
 
     centralLayout->addItem(viewport);
+
+    QNetworkConfigurationManager manager;
+    QNetworkSession *session = new QNetworkSession(manager.defaultConfiguration(), this);
+    if (not manager.isOnline()) {
+        session->open();
+    }
 }
 
 void PushUpDeviceSelector::onSelectionChanged(const QItemSelection &selected, const QItemSelection &unselected)
