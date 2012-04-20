@@ -330,7 +330,7 @@ korva_upnp_metadata_query_on_cursor_next (GObject *source,
     KorvaUPnPMetadataQuery *self = KORVA_UPNP_METADATA_QUERY (user_data);
     GError                 *error = NULL;
     gboolean next;
-    const char *upnp_class, *value, *content_type, *dlna_profile;
+    const char *upnp_class, *value, *content_type, *dlna_profile = NULL;
     gint64 size;
 
     next = tracker_sparql_cursor_next_finish (self->priv->cursor,
@@ -358,6 +358,8 @@ korva_upnp_metadata_query_on_cursor_next (GObject *source,
         upnp_class = "object.item.audioItem.musicTrack";
     } else if (g_strstr_len (value, -1, "nmm#Photo") != NULL) {
         upnp_class = "object.item.imageItem.photo";
+    } else {
+        upnp_class = "object.item";
     }
 
     g_hash_table_insert (self->priv->params,
@@ -413,9 +415,11 @@ korva_upnp_metadata_query_on_cursor_next (GObject *source,
 
         g_debug ("Guessed DLNA profile: %s", dlna_profile);
 
-        g_hash_table_insert (self->priv->params,
-                             g_strdup ("DLNAProfile"),
-                             g_variant_new_string (dlna_profile));
+        if (dlna_profile != NULL) {
+            g_hash_table_insert (self->priv->params,
+                                 g_strdup ("DLNAProfile"),
+                                 g_variant_new_string (dlna_profile));
+        }
     }
 
     size = tracker_sparql_cursor_get_integer (self->priv->cursor, 4);
