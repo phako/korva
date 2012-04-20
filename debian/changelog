@@ -1,3 +1,9 @@
+korva (0.2.1-1) UNRELEASED; urgency=low
+
+  * Fix SPARQL query for PR < 1.2
+
+ -- Jens Georg <jensg@openismus.com>  Fri, 20 Apr 2012 10:12:35 +0200
+
 korva (0.2-1) UNRELEASED; urgency=low
 
   * Fix missing icon
