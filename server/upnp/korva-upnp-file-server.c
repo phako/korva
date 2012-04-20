@@ -41,6 +41,7 @@ struct _KorvaUPnPFileServerPrivate {
     GHashTable *id_map;
     guint       port;
     GRegex     *path_regex;
+    int         version;
 };
 
 typedef struct {
@@ -438,6 +439,8 @@ out:
 static void
 korva_upnp_file_server_init (KorvaUPnPFileServer *self)
 {
+    GFile *file;
+
     self->priv = G_TYPE_INSTANCE_GET_PRIVATE (self,
                                               KORVA_TYPE_UPNP_FILE_SERVER,
                                               KorvaUPnPFileServerPrivate);
@@ -460,6 +463,9 @@ korva_upnp_file_server_init (KorvaUPnPFileServer *self)
                                           G_REGEX_OPTIMIZE,
                                           G_REGEX_MATCH_NEWLINE_ANY,
                                           NULL);
+    file = g_file_new_for_path ("/usr/bin/rygel");
+    self->priv->version = g_file_query_exists (file, NULL) ? 12 : 10;
+    g_object_unref (file);
 }
 
 static void
@@ -622,7 +628,7 @@ korva_upnp_file_server_host_file_async (KorvaUPnPFileServer *self,
         data->result = result;
         data->iface = g_strdup (iface);
 
-        query = korva_upnp_metadata_query_new (file, params);
+        query = korva_upnp_metadata_query_new (file, params, self->priv->version);
         korva_upnp_metadata_query_run_async (query,
                                              korva_upnp_file_server_on_metadata_query_run_done,
                                              NULL,

@@ -52,7 +52,7 @@ struct _KorvaUPnPMetadataQuery
 GType korva_upnp_metadata_query_get_type (void) G_GNUC_CONST;
 
 KorvaUPnPMetadataQuery*
-korva_upnp_metadata_query_new (GFile *file, GHashTable *params);
+korva_upnp_metadata_query_new (GFile *file, GHashTable *params, int version);
 
 void
 korva_upnp_metadata_query_run_async (KorvaUPnPMetadataQuery *query,

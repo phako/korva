@@ -26,7 +26,7 @@
         "SELECT " \
         "    ?r " \
         "    rdf:type(?r) " \
-        "    tracker:coalesce(nmm:dlnaMime(?r), nie:mimeType(?r)) " \
+        "    %s " \
         "    nmm:dlnaProfile(?r) " \
         "    nfo:fileSize(?r) " \
         "    nie:title(?r) " \
@@ -34,11 +34,15 @@
         "    nfo:height(?r) " \
         "{ ?r nie:url '%s' } "
 
+#define PR1_2_CONTENT_TYPE_QUERY "tracker:coalesce(nmm:dlnaMime(?r), nie:mimeType(?r))"
+#define PR1_0_CONTENT_TYPE_QUERY "nie:mimeType(?r)"
+
 enum
 {
     PROP_0,
     PROP_FILE,
-    PROP_PARAMS
+    PROP_PARAMS,
+    PROP_VERSION
 };
 
 struct _KorvaUPnPMetadataQueryPrivate {
@@ -48,6 +52,7 @@ struct _KorvaUPnPMetadataQueryPrivate {
     GHashTable          *params;
     TrackerSparqlCursor *cursor;
     TrackerSparqlConnection *connection;
+    int                      version;
 };
 
 G_DEFINE_TYPE (KorvaUPnPMetadataQuery, korva_upnp_metadata_query, G_TYPE_OBJECT);
@@ -127,6 +132,9 @@ korva_upnp_metadata_query_set_property (GObject *object, guint prop_id, const GV
     case PROP_PARAMS:
         self->priv->params = g_value_dup_boxed (value);
         break;
+    case PROP_VERSION:
+        self->priv->version = g_value_get_int (value);
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
         break;
@@ -146,6 +154,9 @@ korva_upnp_metadata_query_get_property (GObject *object, guint prop_id, GValue *
         break;
     case PROP_PARAMS:
         g_value_set_boxed (value, self->priv->params);
+        break;
+    case PROP_VERSION:
+        g_value_set_int (value, self->priv->version);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -190,16 +201,32 @@ korva_upnp_metadata_query_class_init (KorvaUPnPMetadataQueryClass *klass)
                                                           G_PARAM_STATIC_NAME |
                                                           G_PARAM_STATIC_NICK |
                                                           G_PARAM_STATIC_BLURB));
+
+    g_object_class_install_property (object_class,
+                                     PROP_VERSION,
+                                     g_param_spec_int ("version",
+                                                       "version",
+                                                       "version",
+                                                       0,
+                                                       20,
+                                                       10,
+                                                       G_PARAM_READABLE |
+                                                       G_PARAM_WRITABLE |
+                                                       G_PARAM_CONSTRUCT |
+                                                       G_PARAM_STATIC_NAME |
+                                                       G_PARAM_STATIC_NICK |
+                                                       G_PARAM_STATIC_BLURB));
 }
 
 
 KorvaUPnPMetadataQuery*
-korva_upnp_metadata_query_new (GFile *file, GHashTable *params)
+korva_upnp_metadata_query_new (GFile *file, GHashTable *params, int version)
 {
     return KORVA_UPNP_METADATA_QUERY (g_object_new (KORVA_TYPE_UPNP_METADATA_QUERY,
-                                                      "file", file,
+                                                    "file", file,
                                                     "params", params,
-                                                      NULL));
+                                                    "version", version,
+                                                    NULL));
 }
 
 void
@@ -254,7 +281,9 @@ korva_upnp_metadata_query_on_sparql_connection_get (GObject      *source,
     }
 
     uri = g_file_get_uri (self->priv->file);
-    query = g_strdup_printf (ITEM_QUERY, uri);
+    query = g_strdup_printf (ITEM_QUERY,
+                             self->priv->version >= 12 ? PR1_2_CONTENT_TYPE_QUERY : PR1_0_CONTENT_TYPE_QUERY,
+                             uri);
     g_free (uri);
     tracker_sparql_connection_query_async (self->priv->connection,
                                            query,
