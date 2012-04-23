@@ -1,1 +1,1 @@
-SUBDIRS=dbus server client data
+SUBDIRS=dbus server client data tests

@@ -217,7 +217,7 @@ korva_upnp_metadata_query_on_file_query_info_async (GObject         *source,
 
         goto out;
     }
-
+    
     can_read = g_file_info_get_attribute_boolean (info, G_FILE_ATTRIBUTE_ACCESS_CAN_READ);
     if (!can_read) {
         g_simple_async_result_take_error (self->priv->result,
@@ -254,7 +254,7 @@ out:
     if (info != NULL) {
         g_object_unref (info);
     }
-
+    
     g_simple_async_result_complete_in_idle (self->priv->result);
     g_object_unref (self->priv->result);
 }

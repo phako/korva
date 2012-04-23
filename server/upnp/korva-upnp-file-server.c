@@ -577,7 +577,7 @@ korva_upnp_file_server_on_metadata_query_run_done (GObject *sender,
             if (code == G_IO_ERROR_NOT_FOUND) {
                 error = g_error_new_literal (KORVA_CONTROLLER1_ERROR,
                                              KORVA_CONTROLLER1_ERROR_FILE_NOT_FOUND,
-                                             "File not found");
+                                             "File not found"); 
             } else {
                 error = g_error_new_literal (KORVA_CONTROLLER1_ERROR,
                                              KORVA_CONTROLLER1_ERROR_NOT_ACCESSIBLE,
@@ -680,6 +680,7 @@ korva_upnp_file_server_host_file_finish (KorvaUPnPFileServer  *self,
     GSimpleAsyncResult *result;
     HostFileResult *result_data;
 
+       
     *params = NULL;
 
     if (!g_simple_async_result_is_valid (res,
@@ -692,9 +693,9 @@ korva_upnp_file_server_host_file_finish (KorvaUPnPFileServer  *self,
     if (g_simple_async_result_propagate_error (result, error)) {
         return NULL;
     }
-
-    result_data = (HostFileResult *) g_simple_async_result_get_op_res_gpointer (result);
+     result_data = (HostFileResult *) g_simple_async_result_get_op_res_gpointer (result);
     *params = result_data->params;
+   
 
     return result_data->uri;
 }
