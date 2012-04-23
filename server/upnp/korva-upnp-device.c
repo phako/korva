@@ -916,7 +916,7 @@ korva_upnp_device_on_set_av_transport_uri (GUPnPServiceProxy       *proxy,
                                           korva_upnp_device_on_play,
                                           user_data,
                                           "InstanceID", G_TYPE_STRING, "0",
-                                          "Speed", G_TYPE_STRING, "1",
+                                          "Speed", G_TYPE_FLOAT, 1.0f,
                                           NULL);
 
         return;
