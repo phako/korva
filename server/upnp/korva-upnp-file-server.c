@@ -103,6 +103,13 @@ host_data_new (GFile *file, GHashTable *meta_data, const char *address)
 static void
 host_data_add_peer (HostData *self, const char *iface)
 {
+    GList *it;
+
+    it = g_list_find_custom (self->peers, iface, (GCompareFunc) g_strcmp0);
+    if (it != NULL) {
+        return;
+    }
+
     self->peers = g_list_prepend (self->peers, g_strdup (iface));
 }
 
