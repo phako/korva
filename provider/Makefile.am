@@ -27,4 +27,4 @@ moc_%.cpp: %.h
 
 libpushup_play_la_LIBADD = $(SHAREUI_LIBS)
 libpushup_play_la_LDFLAGS = -shared -module -avoid-version -fPIC
-libpushup_play_la_CXXFLAGS = $(SHAREUI_CFLAGS)
+libpushup_play_la_CXXFLAGS = $(SHAREUI_CFLAGS) -DICON_DIR='"$(datadir)/korva/icons"'

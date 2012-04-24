@@ -50,7 +50,7 @@ QString PushUpMethod::title()
 
 QString PushUpMethod::icon()
 {
-    return QString::fromLatin1 ("icon-l-pushup_play");
+    return QString::fromLatin1 (ICON_DIR"/icon-l-pushup_play.png");
 }
 
 QString PushUpMethod::id()
