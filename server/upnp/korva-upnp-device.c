@@ -33,6 +33,7 @@
 #define CONNECTION_MANAGER "urn:schemas-upnp-org:service:ConnectionManager"
 
 #define AV_STATE_STOPPED "STOPPED"
+#define AV_STATE_PAUSED_PLAYBACK "PAUSED_PLAYBACK"
 #define AV_STATE_NO_MEDIA_PRESENT "NO_MEDIA_PRESENT"
 #define AV_STATE_PLAYING "PLAYING"
 #define AV_STATE_UNKNOWN "UNKNOWN"
@@ -908,13 +909,14 @@ korva_upnp_device_on_set_av_transport_uri (GUPnPServiceProxy       *proxy,
     }
 
     if (g_ascii_strcasecmp (self->priv->state, AV_STATE_STOPPED) == 0 ||
-        g_ascii_strcasecmp (self->priv->state, AV_STATE_NO_MEDIA_PRESENT) == 0) {
+        g_ascii_strcasecmp (self->priv->state, AV_STATE_NO_MEDIA_PRESENT) == 0 ||
+        g_ascii_strcasecmp (self->priv->state, AV_STATE_PAUSED_PLAYBACK) == 0) {
         gupnp_service_proxy_begin_action (proxy,
                                           "Play",
                                           korva_upnp_device_on_play,
                                           user_data,
                                           "InstanceID", G_TYPE_STRING, "0",
-                                          "Speed", G_TYPE_STRING, "1",
+                                          "Speed", G_TYPE_FLOAT, 1.0f,
                                           NULL);
 
         return;
