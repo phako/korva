@@ -6,12 +6,15 @@
 override_dh_auto_configure:
 	dh_auto_configure -- --prefix=/opt/korva
 
+override_dh_auto_install:
+	dh_auto_install -- DESTDIR=$(CURDIR)/debian/tmp
+
 override_dh_builddeb:
 	dh_builddeb
 	aegis-deb-add -control debian/pushup/DEBIAN/control .. debian/pushup.aegis=_aegis
 
-override_dh_strip:
-	dh_strip --dbg-package="korva-dbg"
+#override_dh_strip:
+#	dh_strip --dbg-package="korva-dbg"
 
 override_dh_autotest:
 override_dh_pysupport override_dh_installinit override_dh_installinit override_dh_installmenu:
