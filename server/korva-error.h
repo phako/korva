@@ -20,6 +20,8 @@
 #ifndef __KORVA_ERROR_H__
 #define __KORVA_ERROR_H__
 
+#include <glib.h>
+
 G_BEGIN_DECLS
 
 #define KORVA_CONTROLLER1_ERROR korva_controller1_error_quark ()
