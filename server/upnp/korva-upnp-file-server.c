@@ -565,6 +565,23 @@ korva_upnp_file_server_on_metadata_query_run_done (GObject *sender,
     if (!korva_upnp_metadata_query_run_finish (KORVA_UPNP_METADATA_QUERY (sender),
                                                res,
                                                &error)) {
+        if (error->domain != KORVA_CONTROLLER1_ERROR) {
+            int code;
+            code = error->code;
+
+            g_error_free (error);
+            error = NULL;
+            if (code == G_IO_ERROR_NOT_FOUND) {
+                error = g_error_new_literal (KORVA_CONTROLLER1_ERROR,
+                                             KORVA_CONTROLLER1_ERROR_FILE_NOT_FOUND,
+                                             "File not found");
+            } else {
+                error = g_error_new_literal (KORVA_CONTROLLER1_ERROR,
+                                             KORVA_CONTROLLER1_ERROR_NOT_ACCESSIBLE,
+                                             "File not accessible");
+            }
+        }
+
         g_simple_async_result_take_error (data->result, error);
         host_data_free (data);
 

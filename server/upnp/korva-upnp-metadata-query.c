@@ -18,6 +18,8 @@
     along with Korva.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <korva-error.h>
+
 #include "korva-upnp-metadata-query.h"
 
 enum
@@ -169,7 +171,8 @@ korva_upnp_metadata_query_run_async (KorvaUPnPMetadataQuery *self, GAsyncReadyCa
     g_file_query_info_async (self->priv->file,
                              G_FILE_ATTRIBUTE_STANDARD_CONTENT_TYPE","
                              G_FILE_ATTRIBUTE_STANDARD_SIZE","
-                             G_FILE_ATTRIBUTE_STANDARD_DISPLAY_NAME,
+                             G_FILE_ATTRIBUTE_STANDARD_DISPLAY_NAME","
+                             G_FILE_ATTRIBUTE_ACCESS_CAN_READ,
                              G_FILE_QUERY_INFO_NONE,
                              G_PRIORITY_DEFAULT_IDLE,
                              self->priv->cancellable,
@@ -205,35 +208,52 @@ korva_upnp_metadata_query_on_file_query_info_async (GObject         *source,
     GError                 *error = NULL;
     GVariant               *value;
     GFileInfo              *info;
+    gboolean                can_read;
 
     info = g_file_query_info_finish (self->priv->file, res, &error);
     if (info == NULL) {
         g_simple_async_result_take_error (self->priv->result, error);
-    } else {
-        value = g_hash_table_lookup (self->priv->params, "Size");
-        if (value == NULL) {
-            goffset size;
 
-            size = g_file_info_get_size (info);
-            g_hash_table_insert (self->priv->params,
-                                 g_strdup ("Size"),
-                                 g_variant_new_uint64 (size));
-        }
+        goto out;
+    }
 
-        value = g_hash_table_lookup (self->priv->params, "ContentType");
-        if (value == NULL) {
-            const char *content_type = g_file_info_get_content_type (info);
-            g_hash_table_insert (self->priv->params,
-                                 g_strdup ("ContentType"),
-                                 g_variant_new_string (content_type));
-        }
+    can_read = g_file_info_get_attribute_boolean (info, G_FILE_ATTRIBUTE_ACCESS_CAN_READ);
+    if (!can_read) {
+        g_simple_async_result_take_error (self->priv->result,
+                                          g_error_new_literal (KORVA_CONTROLLER1_ERROR,
+                                                               KORVA_CONTROLLER1_ERROR_NOT_ACCESSIBLE,
+                                                               "Can not read file"));
 
-        value = g_hash_table_lookup (self->priv->params, "Title");
-        if (value == NULL) {
-            g_hash_table_insert (self->priv->params,
-                                 g_strdup ("Title"),
-                                 g_variant_new_string (g_file_info_get_display_name (info)));
-        }
+        goto out;
+    }
+
+    value = g_hash_table_lookup (self->priv->params, "Size");
+    if (value == NULL) {
+        goffset size;
+
+        size = g_file_info_get_size (info);
+        g_hash_table_insert (self->priv->params,
+                             g_strdup ("Size"),
+                             g_variant_new_uint64 (size));
+    }
+
+    value = g_hash_table_lookup (self->priv->params, "ContentType");
+    if (value == NULL) {
+        const char *content_type = g_file_info_get_content_type (info);
+        g_hash_table_insert (self->priv->params,
+                             g_strdup ("ContentType"),
+                             g_variant_new_string (content_type));
+    }
+
+    value = g_hash_table_lookup (self->priv->params, "Title");
+    if (value == NULL) {
+        g_hash_table_insert (self->priv->params,
+                             g_strdup ("Title"),
+                             g_variant_new_string (g_file_info_get_display_name (info)));
+    }
+
+out:
+    if (info != NULL) {
         g_object_unref (info);
     }
 
