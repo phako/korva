@@ -28,10 +28,9 @@
 
 #include <korva-error.h>
 
+#include "korva-upnp-constants-private.h"
 #include "korva-upnp-file-server.h"
 #include "korva-upnp-metadata-query.h"
-
-#define DEFAULT_IDLE_TIMEOUT 300
 
 G_DEFINE_TYPE (KorvaUPnPFileServer, korva_upnp_file_server, G_TYPE_OBJECT);
 
@@ -72,7 +71,7 @@ host_data_on_timeout (gpointer user_data)
     uri = g_file_get_uri (file);
     g_debug ("File '%s' was not accessed for %d seconds; removing.",
              uri,
-             DEFAULT_IDLE_TIMEOUT);
+             KORVA_UPNP_FILE_SERVER_DEFAULT_TIMEOUT);
     g_free (uri);
 
     id = host_data_get_id (self);
@@ -95,7 +94,9 @@ host_data_new (GFile *file, GHashTable *meta_data, const char *address)
     self->meta_data = meta_data;
     self->peers = g_list_prepend (self->peers, g_strdup (address));
     self->file = g_object_ref (file);
-    self->timeout_id = g_timeout_add_seconds (DEFAULT_IDLE_TIMEOUT, host_data_on_timeout, self);
+    self->timeout_id = g_timeout_add_seconds (KORVA_UPNP_FILE_SERVER_DEFAULT_TIMEOUT,
+                                              host_data_on_timeout,
+                                              self);
 
     return self;
 }
@@ -261,7 +262,9 @@ korva_upnp_file_server_on_finished (SoupMessage *msg,
     g_debug ("Handled request for '%s'",
              soup_uri_to_string (soup_message_get_uri (msg), FALSE));
 
-    data->host_data->timeout_id = g_timeout_add_seconds (DEFAULT_IDLE_TIMEOUT, host_data_on_timeout, data->host_data);
+    data->host_data->timeout_id = g_timeout_add_seconds (KORVA_UPNP_FILE_SERVER_DEFAULT_TIMEOUT,
+                                                         host_data_on_timeout,
+                                                         data->host_data);
 
     g_mapped_file_unref (data->file);
     g_slice_free (ServeData, data);

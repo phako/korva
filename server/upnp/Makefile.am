@@ -7,6 +7,7 @@ libkorva_upnp_backend_a_SOURCES=\
 	korva-upnp-file-server.c \
 	korva-upnp-file-server.h \
 	korva-upnp-metadata-query.c \
-	korva-upnp-metadata-query.h
+	korva-upnp-metadata-query.h \
+	korva-upnp-constants-private.h
 
 libkorva_upnp_backend_a_CFLAGS = -I$(srcdir)/.. $(GUPNP_CFLAGS)
