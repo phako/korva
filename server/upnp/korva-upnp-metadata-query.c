@@ -209,6 +209,7 @@ korva_upnp_metadata_query_on_file_query_info_async (GObject         *source,
     GVariant               *value;
     GFileInfo              *info;
     gboolean                can_read;
+    goffset                 size;
 
     info = g_file_query_info_finish (self->priv->file, res, &error);
     if (info == NULL) {
@@ -228,14 +229,11 @@ korva_upnp_metadata_query_on_file_query_info_async (GObject         *source,
     }
 
     value = g_hash_table_lookup (self->priv->params, "Size");
-    if (value == NULL) {
-        goffset size;
 
-        size = g_file_info_get_size (info);
-        g_hash_table_insert (self->priv->params,
-                             g_strdup ("Size"),
-                             g_variant_new_uint64 (size));
-    }
+    size = g_file_info_get_size (info);
+    g_hash_table_replace (self->priv->params,
+                          g_strdup ("Size"),
+                          g_variant_new_uint64 (size));
 
     value = g_hash_table_lookup (self->priv->params, "ContentType");
     if (value == NULL) {
