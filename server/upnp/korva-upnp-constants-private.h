@@ -17,27 +17,9 @@
     You should have received a copy of the GNU Lesser General Public License
     along with Korva.  If not, see <http://www.gnu.org/licenses/>.
 */
-#ifndef __KORVA_ERROR_H__
-#define __KORVA_ERROR_H__
+#ifndef _KORVA_UPNP_CONSTANTS_PRIVATE_H_
+#define _KORVA_UPNP_CONSTANTS_PRIVATE_H_
 
-#include <glib.h>
+#define KORVA_UPNP_FILE_SERVER_DEFAULT_TIMEOUT 300
 
-G_BEGIN_DECLS
-
-#define KORVA_CONTROLLER1_ERROR korva_controller1_error_quark ()
-
-GQuark korva_controller1_error_quark ();
-
-enum _KorvaController1Error {
-    KORVA_CONTROLLER1_ERROR_NO_SUCH_DEVICE,
-    KORVA_CONTROLLER1_ERROR_TIMEOUT,
-    KORVA_CONTROLLER1_ERROR_FILE_NOT_FOUND,
-    KORVA_CONTROLLER1_ERROR_NOT_COMPATIBLE,
-    KORVA_CONTROLLER1_ERROR_INVALID_ARGS,
-    KORVA_CONTROLLER1_ERROR_NO_SUCH_TRANSFER,
-    KORVA_CONTROLLER1_ERROR_NOT_ACCESSIBLE
-};
-
-G_END_DECLS
-
-#endif /* __KORVA_ERROR_H__ */
+#endif /* _KORVA_UPNP_CONSTANTS_PRIVATE_H_ */

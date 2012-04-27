@@ -31,6 +31,7 @@ static const GDBusErrorEntry korva_controller1_error_entries[] =
     { KORVA_CONTROLLER1_ERROR_TIMEOUT,          "org.jensge.Korva.Error.Timeout" },
     { KORVA_CONTROLLER1_ERROR_INVALID_ARGS,     "org.jensge.Korva.Error.InvalidArgs" },
     { KORVA_CONTROLLER1_ERROR_NO_SUCH_TRANSFER, "org.jensge.Korva.Error.NoSuchTransfer" },
+    { KORVA_CONTROLLER1_ERROR_NOT_ACCESSIBLE,   "org.jensge.Korva.Error.NotAccessible" }
 };
 
 GQuark

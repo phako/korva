@@ -41,6 +41,23 @@ else
     CFLAGS="${CFLAGS} -O2"
 fi
 
+dnl Generate coverage data
+AC_ARG_ENABLE([coverage],
+  AS_HELP_STRING([--enable-coverage],
+                 [Generate converage reports for unit tests]),
+  [],
+  [enable_coverage=no])
+AM_CONDITIONAL([ENABLE_COVERAGE],[test "x$enable_coverage" != "xno"])
+AS_IF([test "x$enable_coverage" != "xno"],
+  [
+    AC_PATH_PROG([LCOV], [lcov])
+    AC_PATH_PROG([GENHTML], [genhtml])
+    AC_SUBST([COVERAGE_LIBS],["-lgcov"])
+    AC_SUBST([COVERAGE_CFLAGS],["-fprofile-arcs -ftest-coverage"])
+    AC_SUBST(COVERAGE_VALAFLAGS,["-g"])
+  ]
+)
+
 AC_CONFIG_FILES([
 Makefile
 dbus/Makefile
@@ -49,6 +66,7 @@ server/upnp/Makefile
 client/Makefile
 data/Makefile
 libgupnp-av/Makefile
+tests/Makefile
 provider/Makefile
 ])
 AC_OUTPUT

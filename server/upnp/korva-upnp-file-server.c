@@ -28,10 +28,9 @@
 
 #include <korva-error.h>
 
+#include "korva-upnp-constants-private.h"
 #include "korva-upnp-file-server.h"
 #include "korva-upnp-metadata-query.h"
-
-#define DEFAULT_IDLE_TIMEOUT 300
 
 G_DEFINE_TYPE (KorvaUPnPFileServer, korva_upnp_file_server, G_TYPE_OBJECT);
 
@@ -73,7 +72,7 @@ host_data_on_timeout (gpointer user_data)
     uri = g_file_get_uri (file);
     g_debug ("File '%s' was not accessed for %d seconds; removing.",
              uri,
-             DEFAULT_IDLE_TIMEOUT);
+             KORVA_UPNP_FILE_SERVER_DEFAULT_TIMEOUT);
     g_free (uri);
 
     id = host_data_get_id (self);
@@ -96,7 +95,9 @@ host_data_new (GFile *file, GHashTable *meta_data, const char *address)
     self->meta_data = meta_data;
     self->peers = g_list_prepend (self->peers, g_strdup (address));
     self->file = g_object_ref (file);
-    self->timeout_id = g_timeout_add_seconds (DEFAULT_IDLE_TIMEOUT, host_data_on_timeout, self);
+    self->timeout_id = g_timeout_add_seconds (KORVA_UPNP_FILE_SERVER_DEFAULT_TIMEOUT,
+                                              host_data_on_timeout,
+                                              self);
 
     return self;
 }
@@ -104,6 +105,13 @@ host_data_new (GFile *file, GHashTable *meta_data, const char *address)
 static void
 host_data_add_peer (HostData *self, const char *iface)
 {
+    GList *it;
+
+    it = g_list_find_custom (self->peers, iface, (GCompareFunc) g_strcmp0);
+    if (it != NULL) {
+        return;
+    }
+
     self->peers = g_list_prepend (self->peers, g_strdup (iface));
 }
 
@@ -255,7 +263,9 @@ korva_upnp_file_server_on_finished (SoupMessage *msg,
     g_debug ("Handled request for '%s'",
              soup_uri_to_string (soup_message_get_uri (msg), FALSE));
 
-    data->host_data->timeout_id = g_timeout_add_seconds (DEFAULT_IDLE_TIMEOUT, host_data_on_timeout, data->host_data);
+    data->host_data->timeout_id = g_timeout_add_seconds (KORVA_UPNP_FILE_SERVER_DEFAULT_TIMEOUT,
+                                                         host_data_on_timeout,
+                                                         data->host_data);
 
     g_mapped_file_unref (data->file);
     g_slice_free (ServeData, data);
@@ -459,7 +469,7 @@ korva_upnp_file_server_init (KorvaUPnPFileServer *self)
                                                 (GEqualFunc) g_str_equal,
                                                 g_free,
                                                 g_object_unref);
-    self->priv->path_regex = g_regex_new ("^/item/([0-9a-zA-Z]{32})$",
+    self->priv->path_regex = g_regex_new ("^/item/([0-9a-fA-F]{32})$",
                                           G_REGEX_OPTIMIZE,
                                           G_REGEX_MATCH_NEWLINE_ANY,
                                           NULL);
@@ -565,6 +575,23 @@ korva_upnp_file_server_on_metadata_query_run_done (GObject *sender,
     if (!korva_upnp_metadata_query_run_finish (KORVA_UPNP_METADATA_QUERY (sender),
                                                res,
                                                &error)) {
+        if (error->domain != KORVA_CONTROLLER1_ERROR) {
+            int code;
+            code = error->code;
+
+            g_error_free (error);
+            error = NULL;
+            if (code == G_IO_ERROR_NOT_FOUND) {
+                error = g_error_new_literal (KORVA_CONTROLLER1_ERROR,
+                                             KORVA_CONTROLLER1_ERROR_FILE_NOT_FOUND,
+                                             "File not found"); 
+            } else {
+                error = g_error_new_literal (KORVA_CONTROLLER1_ERROR,
+                                             KORVA_CONTROLLER1_ERROR_NOT_ACCESSIBLE,
+                                             "File not accessible");
+            }
+        }
+
         g_simple_async_result_take_error (data->result, error);
         host_data_free (data);
 
@@ -661,6 +688,7 @@ korva_upnp_file_server_host_file_finish (KorvaUPnPFileServer  *self,
     HostFileResult *result_data;
     *params = NULL;
 
+       
     *params = NULL;
 
     if (!g_simple_async_result_is_valid (res,
@@ -673,9 +701,9 @@ korva_upnp_file_server_host_file_finish (KorvaUPnPFileServer  *self,
     if (g_simple_async_result_propagate_error (result, error)) {
         return NULL;
     }
-
-    result_data = (HostFileResult *) g_simple_async_result_get_op_res_gpointer (result);
+     result_data = (HostFileResult *) g_simple_async_result_get_op_res_gpointer (result);
     *params = result_data->params;
+   
 
     return result_data->uri;
 }
@@ -687,8 +715,8 @@ korva_upnp_file_server_idle (KorvaUPnPFileServer *self)
 }
 
 void
-korva_upnp_file_server_unhost_file_by_peer (KorvaUPnPFileServer *self,
-                                            const char *peer)
+korva_upnp_file_server_unhost_by_peer (KorvaUPnPFileServer *self,
+                                       const char *peer)
 {
     GHashTableIter iter;
     HostData *value;
@@ -711,5 +739,34 @@ korva_upnp_file_server_unhost_file_by_peer (KorvaUPnPFileServer *self,
 
             g_hash_table_iter_remove (&iter);
         }
+    }
+}
+
+void
+korva_upnp_file_server_unhost_file_for_peer (KorvaUPnPFileServer *self,
+                                             GFile               *file,
+                                             const char          *peer)
+{
+    HostData *data;
+
+    data = g_hash_table_lookup (self->priv->host_data, file);
+    if (data == NULL) {
+        return;
+    }
+
+    host_data_remove_peer (data, peer);
+    if (data->peers == NULL) {
+        char *id, *uri;
+
+        id = host_data_get_id (data);
+        g_hash_table_remove (self->priv->id_map, id);
+        g_free (id);
+
+        uri = g_file_get_uri (data->file);
+        g_debug ("File '%s' no longer shared to any peer, removing…",
+                 uri);
+        g_free (uri);
+
+        g_hash_table_remove (self->priv->host_data, file);
     }
 }

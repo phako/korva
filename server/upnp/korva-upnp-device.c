@@ -180,6 +180,9 @@ struct _KorvaUPnPDevicePrivate {
     GUPnPLastChangeParser     *last_change_parser;
     char                      *state;
     char                      *ip_address;
+    char                      *current_tag;
+    char                      *current_uri;
+    GFile                     *current_file;
 };
 
 enum Properties {
@@ -232,6 +235,11 @@ korva_upnp_device_dispose (GObject *obj)
         self->priv->last_change_parser = NULL;
     }
 
+    if (self->priv->current_file != NULL) {
+        g_object_unref (self->priv->current_file);
+        self->priv->current_file = NULL;
+    }
+
     G_OBJECT_CLASS (korva_upnp_device_parent_class)->dispose (obj);
 }
 
@@ -248,6 +256,16 @@ korva_upnp_device_finalize (GObject *obj)
     if (self->priv->ip_address != NULL) {
         g_free (self->priv->ip_address);
         self->priv->ip_address = NULL;
+    }
+
+    if (self->priv->current_tag != NULL) {
+        g_free (self->priv->current_tag);
+        self->priv->current_tag = NULL;
+    }
+
+    if (self->priv->current_uri != NULL) {
+        g_free (self->priv->current_uri);
+        self->priv->current_uri = NULL;
     }
 
     G_OBJECT_CLASS (korva_upnp_device_parent_class)->finalize (obj);
@@ -705,6 +723,7 @@ korva_upnp_device_on_last_change (GUPnPServiceProxy *proxy,
 {
     KorvaUPnPDevice *self = KORVA_UPNP_DEVICE (user_data);
     char *status = NULL;
+    char *uri = NULL;
     gboolean result = FALSE;
     GError *error = NULL;
 
@@ -713,6 +732,7 @@ korva_upnp_device_on_last_change (GUPnPServiceProxy *proxy,
                                                          g_value_get_string (value),
                                                          &error,
                                                          "TransportState", G_TYPE_STRING, &status,
+                                                         "AVTransportURI", G_TYPE_STRING, &uri,
                                                          NULL);
     if (!result) {
         g_warning ("Failed to parse LastState: %s", error->message);
@@ -732,6 +752,30 @@ korva_upnp_device_on_last_change (GUPnPServiceProxy *proxy,
         }
         self->priv->state = status;
         g_debug ("Device %s has new state '%s'", self->priv->udn, self->priv->state);
+    }
+
+    g_debug ("uri: %s, cu: %s", uri, self->priv->current_uri);
+
+    if (uri != NULL &&
+        self->priv->current_uri != NULL &&
+        g_strcmp0 (uri, self->priv->current_uri) != 0) {
+        KorvaUPnPFileServer *server;
+
+        g_debug ("Device has been modified externally.");
+        server = korva_upnp_file_server_get_default ();
+        korva_upnp_file_server_unhost_file_for_peer (server,
+                                                     self->priv->current_file,
+                                                     self->priv->ip_address);
+        g_object_unref (server);
+
+        g_free (self->priv->current_uri);
+        self->priv->current_uri = NULL;
+
+        g_free (self->priv->current_tag);
+        self->priv->current_tag = NULL;
+
+        g_object_unref (self->priv->current_file);
+        self->priv->current_file = NULL;
     }
 }
 
@@ -765,7 +809,7 @@ korva_upnp_device_remove_proxy (KorvaUPnPDevice *self, GUPnPDeviceProxy *proxy)
     }
 
     server = korva_upnp_file_server_get_default ();
-    korva_upnp_file_server_unhost_file_by_peer (server, self->priv->ip_address);
+    korva_upnp_file_server_unhost_by_peer (server, self->priv->ip_address);
     g_object_unref (server);
 
     /* That's the only proxy associated with this.
@@ -807,6 +851,8 @@ typedef struct {
     GHashTable         *params;
     char               *uri;
     char               *meta_data;
+    gboolean            unshare;
+    GFile              *file;
 } HostPathData;
 
 static void
@@ -818,6 +864,10 @@ host_path_data_free (HostPathData *data)
 
     if (data->meta_data != NULL) {
         g_free (data->meta_data);
+    }
+
+    if (data->file != NULL) {
+        g_object_unref (data->file);
     }
 
     g_free (data);
@@ -834,8 +884,22 @@ korva_upnp_device_on_play (GUPnPServiceProxy       *proxy,
 
     gupnp_service_proxy_end_action (proxy, action, &error, NULL);
     if (error != NULL) {
+       if (!data->unshare) {
+            KorvaUPnPFileServer *server;
+
+            server = korva_upnp_file_server_get_default ();
+            korva_upnp_file_server_unhost_file_for_peer (server,
+                                                         data->file,
+                                                         data->device->priv->ip_address);
+            g_object_unref (server);
+        }
+
         g_simple_async_result_take_error (result, error);
     }
+
+    data->device->priv->current_uri = g_strdup (data->uri);
+    data->device->priv->current_file = data->file;
+    data->file = NULL;
 
     host_path_data_free (data);
     g_simple_async_result_complete_in_idle (result);
@@ -854,6 +918,16 @@ korva_upnp_device_on_stop (GUPnPServiceProxy       *proxy,
     gupnp_service_proxy_end_action (proxy, action, &error, NULL);
     if (error != NULL) {
         g_simple_async_result_take_error (result, error);
+
+       if (!data->unshare) {
+            KorvaUPnPFileServer *server;
+
+            server = korva_upnp_file_server_get_default ();
+            korva_upnp_file_server_unhost_file_for_peer (server,
+                                                         data->file,
+                                                         data->device->priv->ip_address);
+            g_object_unref (server);
+        }
     } else {
         gupnp_service_proxy_begin_action (proxy,
                                           "SetAVTransportURI",
@@ -900,11 +974,35 @@ korva_upnp_device_on_set_av_transport_uri (GUPnPServiceProxy       *proxy,
 
         g_simple_async_result_take_error (result, error);
 
+       if (!data->unshare) {
+            KorvaUPnPFileServer *server;
+
+            server = korva_upnp_file_server_get_default ();
+            korva_upnp_file_server_unhost_file_for_peer (server,
+                                                         data->file,
+                                                         data->device->priv->ip_address);
+            g_object_unref (server);
+        }
+
         goto out;
     }
 
     /* This was called from Unshare. We're done now */
-    if (g_strcmp0 (data->uri, "") == 0) {
+    if (data->unshare) {
+        KorvaUPnPFileServer *server = korva_upnp_file_server_get_default ();
+        korva_upnp_file_server_unhost_file_for_peer (server,
+                                                     data->device->priv->current_file,
+                                                     data->device->priv->ip_address);
+        g_object_unref (server);
+        g_free (data->device->priv->current_tag);
+        data->device->priv->current_tag = NULL;
+
+        g_free (data->device->priv->current_uri);
+        data->device->priv->current_uri = NULL;
+
+        g_object_unref (data->device->priv->current_file);
+        data->device->priv->current_file = NULL;
+
         goto out;
     }
 
@@ -921,6 +1019,10 @@ korva_upnp_device_on_set_av_transport_uri (GUPnPServiceProxy       *proxy,
 
         return;
     }
+
+    data->device->priv->current_uri = g_strdup (data->uri);
+    data->device->priv->current_file = data->file;
+    data->file = NULL;
 
 out:
     host_path_data_free (data);
@@ -995,6 +1097,9 @@ korva_upnp_device_on_host_file_async (GObject      *source,
                              "The file is not compatible with the selected renderer");
 
         g_simple_async_result_take_error (data->result, error);
+        korva_upnp_file_server_unhost_file_for_peer (KORVA_UPNP_FILE_SERVER (source),
+                                                     data->file,
+                                                     data->device->priv->ip_address);
 
         goto out;
     }
@@ -1091,11 +1196,27 @@ korva_upnp_device_push_async (KorvaDevice         *device,
     host_path_data->result = result;
     host_path_data->device = self;
     host_path_data->params = params;
+    host_path_data->file = g_object_ref (file);
 
     g_simple_async_result_set_op_res_gpointer (result,
                                                g_compute_checksum_for_string (G_CHECKSUM_MD5, raw_tag, -1),
                                                g_free);
     g_free (raw_tag);
+
+    if (self->priv->current_tag != NULL) {
+        korva_upnp_file_server_unhost_file_for_peer (server,
+                                                     self->priv->current_file,
+                                                     self->priv->ip_address);
+
+        g_free (self->priv->current_tag);
+        self->priv->current_tag = NULL;
+
+        g_free (self->priv->current_uri);
+        self->priv->current_uri = NULL;
+
+        g_object_unref (self->priv->current_file);
+        self->priv->current_file = NULL;
+    }
 
     korva_upnp_file_server_host_file_async (server,
                                             file,
@@ -1121,6 +1242,7 @@ korva_upnp_device_push_finish (KorvaDevice   *device,
                                GError       **error)
 {
     GSimpleAsyncResult *result;
+    KorvaUPnPDevice *self;
     char *tag;
 
     if (!g_simple_async_result_is_valid (res,
@@ -1135,6 +1257,8 @@ korva_upnp_device_push_finish (KorvaDevice   *device,
     }
 
     tag = g_strdup (g_simple_async_result_get_op_res_gpointer (result));
+    self = KORVA_UPNP_DEVICE (device);
+    self->priv->current_tag = g_strdup (tag);
 
     return tag;
 }
@@ -1155,11 +1279,26 @@ korva_upnp_device_unshare_async (KorvaDevice         *device,
                                         user_data,
                                         (gpointer) korva_upnp_device_unshare_async);
 
+    if (g_strcmp0 (self->priv->current_tag, tag) != 0) {
+        GError *error;
+
+        error = g_error_new (KORVA_CONTROLLER1_ERROR,
+                             KORVA_CONTROLLER1_ERROR_NO_SUCH_TRANSFER,
+                             "Sharing operation '%s' is not valid",
+                             tag);
+        g_simple_async_result_take_error (result, error);
+        g_simple_async_result_complete_in_idle (result);
+        g_object_unref (result);
+
+        return;
+    }
+
     data = g_new0(HostPathData, 1);
     data->result = result;
     data->uri = g_strdup ("");
     data->meta_data = g_strdup ("");
     data->device = self;
+    data->unshare = TRUE;
 
     proxy = g_hash_table_lookup (data->device->priv->services, AV_TRANSPORT);
     gupnp_service_proxy_begin_action (proxy,
