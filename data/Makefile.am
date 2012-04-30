@@ -10,3 +10,6 @@ icon_DATA = $(srcdir)/icons/network-server.png \
 # Rule to make the service file with bindir expanded
 $(dbusservice_DATA): $(dbusservice_in_files) Makefile
 	@sed -e "s|\@libexecdir\@|$(libexecdir)|" $< > $@
+
+EXTRA_DIST = $(dbusservice_in_files)
+CLEANFILES = $(dbusservice_DATA)
