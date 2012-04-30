@@ -648,8 +648,8 @@ korva_upnp_device_get_icon (KorvaUPnPDevice *self)
                                                   NULL);
     }
 
-    /* TODO: Add default uri */
     if (uri == NULL) {
+        self->priv->icon_uri = korva_icon_cache_get_default (self->priv->device_type);
         korva_upnp_device_introspection_success (self);
     } else {
         SoupMessage *message;
@@ -709,7 +709,7 @@ korva_upnp_device_on_icon_ready (SoupMessage *message, gpointer user_data)
     }
 
     if (self->priv->icon_uri == NULL) {
-        /* TODO: add default uri */
+        self->priv->icon_uri = korva_icon_cache_get_default (self->priv->device_type);
     }
 
     korva_upnp_device_introspection_finish (self, NULL);

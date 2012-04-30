@@ -26,6 +26,8 @@
 #include "korva-icon-cache.h"
 
 static char *cache_path;
+static GFile *default_icon_path;
+static GFile *user_icon_cache;
 
 void
 korva_icon_cache_init (void)
@@ -33,6 +35,8 @@ korva_icon_cache_init (void)
     const char *cache_dir = g_get_user_cache_dir ();
     cache_path = g_build_filename (cache_dir, "korva", "icons", NULL);
     g_mkdir_with_parents (cache_path, 0700);
+    user_icon_cache = g_file_new_for_path (cache_path);
+    default_icon_path = g_file_new_for_path (ICON_PATH);
 
     g_debug ("Using %s as icon cache directory…", cache_path);
 }
@@ -40,13 +44,10 @@ korva_icon_cache_init (void)
 char *
 korva_icon_cache_lookup (const char *uid)
 {
-    char *file_path;
+    char *file_path = NULL;
     GFile *file;
 
-    file_path = korva_icon_cache_create_path (uid);
-    file = g_file_new_for_path (file_path);
-    g_free (file_path);
-    file_path = NULL;
+    file = g_file_get_child (user_icon_cache, uid);
 
     if (g_file_query_exists (file, NULL)) {
         file_path = g_file_get_uri (file);
@@ -55,6 +56,29 @@ korva_icon_cache_lookup (const char *uid)
     g_object_unref (file);
 
     return file_path;
+}
+
+char *
+korva_icon_cache_get_default (KorvaDeviceType type)
+{
+    char *uri;
+    GFile *file;
+
+    switch (type) {
+        case DEVICE_TYPE_SERVER:
+            file = g_file_get_child (default_icon_path, "network-server.png");
+            break;
+        case DEVICE_TYPE_PLAYER:
+            file = g_file_get_child (default_icon_path, "video-display.png");
+            break;
+        default:
+            g_assert_not_reached ();
+    }
+
+    uri = g_file_get_uri (file);
+    g_object_unref (file);
+
+    return uri;
 }
 
 char *
