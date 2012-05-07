@@ -853,6 +853,7 @@ typedef struct {
     char               *meta_data;
     gboolean            unshare;
     GFile              *file;
+    gboolean            transport_locked;
 } HostPathData;
 
 static void
@@ -958,8 +959,9 @@ korva_upnp_device_on_set_av_transport_uri (GUPnPServiceProxy       *proxy,
 
     gupnp_service_proxy_end_action (proxy, action, &error, NULL);
     if (error != NULL) {
-        /* Transport locked */
-        if (error->code == 705) {
+        /* Transport locked and we didn't come from a transport_locked state already */
+        if (error->code == 705 && !data->transport_locked) {
+            data->transport_locked = TRUE;
             g_debug ("Transport was locked, trying to stop the device");
             gupnp_service_proxy_begin_action (proxy,
                                               "Stop",
