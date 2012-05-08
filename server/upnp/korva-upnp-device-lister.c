@@ -143,6 +143,8 @@ korva_upnp_device_lister_dispose (GObject *object)
         g_object_unref (self->priv->server);
         self->priv->server = NULL;
     }
+
+	G_OBJECT_CLASS (korva_upnp_device_lister_parent_class)->dispose (object);
 }
 
 static void
