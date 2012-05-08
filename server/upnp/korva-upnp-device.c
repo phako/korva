@@ -1299,8 +1299,10 @@ korva_upnp_device_unshare_async (KorvaDevice         *device,
     data->meta_data = g_strdup ("");
     data->device = self;
     data->unshare = TRUE;
+    data->file = g_object_ref (self->priv->current_file);
 
     proxy = g_hash_table_lookup (data->device->priv->services, AV_TRANSPORT);
+
     gupnp_service_proxy_begin_action (proxy,
                                       "Stop",
                                       korva_upnp_device_on_stop,
