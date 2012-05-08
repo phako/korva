@@ -754,8 +754,6 @@ korva_upnp_device_on_last_change (GUPnPServiceProxy *proxy,
         g_debug ("Device %s has new state '%s'", self->priv->udn, self->priv->state);
     }
 
-    g_debug ("uri: %s, cu: %s", uri, self->priv->current_uri);
-
     if (uri != NULL &&
         self->priv->current_uri != NULL &&
         g_strcmp0 (uri, self->priv->current_uri) != 0) {
@@ -918,17 +916,17 @@ korva_upnp_device_on_stop (GUPnPServiceProxy       *proxy,
 
     gupnp_service_proxy_end_action (proxy, action, &error, NULL);
     if (error != NULL) {
+        KorvaUPnPFileServer *server;
+
         g_simple_async_result_take_error (result, error);
 
-       if (!data->unshare) {
-            KorvaUPnPFileServer *server;
 
-            server = korva_upnp_file_server_get_default ();
-            korva_upnp_file_server_unhost_file_for_peer (server,
-                                                         data->file,
-                                                         data->device->priv->ip_address);
-            g_object_unref (server);
-        }
+
+        server = korva_upnp_file_server_get_default ();
+        korva_upnp_file_server_unhost_file_for_peer (server,
+                                                     data->file,
+                                                     data->device->priv->ip_address);
+        g_object_unref (server);
     } else {
         gupnp_service_proxy_begin_action (proxy,
                                           "SetAVTransportURI",
