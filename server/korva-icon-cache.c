@@ -63,7 +63,7 @@ korva_icon_cache_get_default (KorvaDeviceType type)
 {
     char *uri;
     GFile *file;
-
+    
     switch (type) {
         case DEVICE_TYPE_SERVER:
             file = g_file_get_child (default_icon_path, "network-server.png");

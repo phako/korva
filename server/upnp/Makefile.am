@@ -11,4 +11,3 @@ libkorva_upnp_backend_a_SOURCES=\
 	korva-upnp-constants-private.h
 
 libkorva_upnp_backend_a_CFLAGS = -I$(srcdir)/.. $(GUPNP_CFLAGS) $(COVERAGE_CFLAGS)
-

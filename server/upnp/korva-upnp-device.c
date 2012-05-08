@@ -523,6 +523,7 @@ korva_upnp_device_introspect_renderer (KorvaUPnPDevice *self)
 
         return;
     }
+
     g_hash_table_insert (self->priv->services,
                          (char *)AV_TRANSPORT,
                          GUPNP_SERVICE_PROXY (service));
@@ -734,6 +735,7 @@ korva_upnp_device_on_last_change (GUPnPServiceProxy *proxy,
                                                          "TransportState", G_TYPE_STRING, &status,
                                                          "AVTransportURI", G_TYPE_STRING, &uri,
                                                          NULL);
+
     if (!result) {
         g_warning ("Failed to parse LastState: %s", error->message);
         g_error_free (error);
@@ -1302,7 +1304,7 @@ korva_upnp_device_unshare_async (KorvaDevice         *device,
     data->file = g_object_ref (self->priv->current_file);
 
     proxy = g_hash_table_lookup (data->device->priv->services, AV_TRANSPORT);
-
+    
     gupnp_service_proxy_begin_action (proxy,
                                       "Stop",
                                       korva_upnp_device_on_stop,

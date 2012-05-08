@@ -317,7 +317,6 @@ korva_upnp_device_lister_on_renderer_unavailable (GUPnPControlPoint *cp,
     KorvaDevice *device;
 
     uid = gupnp_device_info_get_udn (GUPNP_DEVICE_INFO (proxy));
-
     if (uid == NULL) {
         g_warning ("Device is invalid. NULL UDN");
 

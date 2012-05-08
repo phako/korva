@@ -2,7 +2,9 @@ check_PROGRAMS=test-upnp
 
 TESTS=$(check_PROGRAMS)
 
-test_upnp_SOURCES=test-upnp.c
+test_upnp_SOURCES=test-upnp.c \
+	mock-dmr/mock-dmr.c \
+	mock-dmr/mock-dmr.h
 test_upnp_CFLAGS=-I$(srcdir)/.. -I$(top_srcdir)/server \
 	-I$(top_srcdir)/server/upnp \
 	$(GUPNP_CFLAGS) $(COVERAGE_CFLAGS) -DTEST_DATA_DIR='"$(srcdir)"'
@@ -37,4 +39,8 @@ gen-coverage:
 endif
 
 
-EXTRA_DIST=test-upnp-image.jpg
+EXTRA_DIST=test-upnp-image.jpg \
+	$(srcdir)/mock-dmr/AVTransport2.xml \
+	$(srcdir)/mock-dmr/ConnectionManager.xml \
+	$(srcdir)/mock-dmr/MediaRenderer2.xml \
+	$(srcdir)/mock-dmr/RenderingControl2.xml
