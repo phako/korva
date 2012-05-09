@@ -40,7 +40,6 @@
 #define KORVA_UPNP_DEVICE_GET_CLASS(obj) \
     (G_TYPE_INSTANCE_GET_CLASS ((obj), KORVA_TYPE_UPNP_DEVICE, KorvaUPnPDeviceClass))
 
-
 typedef struct _KorvaUPnPDevicePrivate KorvaUPnPDevicePrivate;
 typedef struct _KorvaUPnPDeviceClass KorvaUPnPDeviceClass;
 typedef struct _KorvaUPnPDevice KorvaUPnPDevice;

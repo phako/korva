@@ -147,6 +147,11 @@ korva_control_list_devices (KorvaController1 *proxy)
             if (strcmp (key, "UID") == 0 ||
                 strcmp (key, "DisplayName") == 0) {
                 g_print ("    %s: %s\n", key, g_variant_get_string (value, NULL));
+            } else if (strcmp (key, "Type") == 0) {
+                int type;
+
+                type = g_variant_get_uint32 (value);
+                g_print ("    %s: %s\n", key, type == 0 ? "Server" : "Renderer");
             }
 
             g_free (key);

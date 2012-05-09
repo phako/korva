@@ -29,14 +29,27 @@
 #include "korva-upnp-device.h"
 #include "korva-upnp-file-server.h"
 
-#define AV_TRANSPORT "urn:schemas-upnp-org:service:AVTransport"
-#define CONNECTION_MANAGER "urn:schemas-upnp-org:service:ConnectionManager"
+#define SERVICE_PREFIX "urn:schemas-upnp-org:service:"
+
+#define AV_TRANSPORT SERVICE_PREFIX"AVTransport"
+#define CONNECTION_MANAGER SERVICE_PREFIX"ConnectionManager"
+#define CONTENT_DIRECTORY SERVICE_PREFIX"ContentDirectory"
 
 #define AV_STATE_STOPPED "STOPPED"
 #define AV_STATE_PAUSED_PLAYBACK "PAUSED_PLAYBACK"
 #define AV_STATE_NO_MEDIA_PRESENT "NO_MEDIA_PRESENT"
 #define AV_STATE_PLAYING "PLAYING"
 #define AV_STATE_UNKNOWN "UNKNOWN"
+
+#define UPNP_CLASS_IMAGE "object.item.imageItem"
+#define UPNP_CLASS_AUDIO "object.item.audioItem"
+#define UPNP_CLASS_AV "object.item.videoItem"
+
+#define DLNA_ANY_CONTAINER "DLNA.ORG_AnyContainer"
+
+#define FIND_UPLOAD_CONTAINER_SEARCH "(upnp:class derivedfrom \"object.container\") &&" \
+                                     "(upnp:createClass exists true)"
+#define FIND_UPLOAD_CONTAINER_FILTER "upnp:createClass"
 
 static void
 korva_upnp_device_async_initable_init (GAsyncInitableIface *iface);
@@ -75,6 +88,11 @@ struct _KorvaUPnPDevicePrivate {
     char                      *current_tag;
     char                      *current_uri;
     GFile                     *current_file;
+    GHashTable                *upload_capabilities;
+    gboolean                   has_import_resource;
+    gboolean                   has_search;
+    gboolean                   has_get_upload_profiles;
+    char                      *import_uri;
 };
 
 G_DEFINE_TYPE_WITH_CODE (KorvaUPnPDevice,
@@ -91,6 +109,9 @@ G_DEFINE_TYPE_WITH_CODE (KorvaUPnPDevice,
 /* KorvaUPnPDevice */
 static void
 korva_upnp_device_introspect_renderer (KorvaUPnPDevice *self);
+
+static void
+korva_upnp_device_introspect_server (KorvaUPnPDevice *self);
 
 static void
 korva_upnp_device_introspection_finish (KorvaUPnPDevice *self,
@@ -130,6 +151,17 @@ korva_upnp_device_on_stop (GUPnPServiceProxy       *proxy,
                            gpointer                 user_data);
 
 static void
+korva_upnp_device_on_get_content_directory_introspection (GUPnPServiceInfo *info,
+                                                          GUPnPServiceIntrospection *introspection,
+                                                          const GError *error,
+                                                          gpointer user_data);
+
+static void
+korva_upnp_device_on_get_upload_profiles (GUPnPServiceProxy       *proxy,
+                                          GUPnPServiceProxyAction *action,
+                                          gpointer                 user_data);
+
+static void
 korva_upnp_device_update_ip_address (KorvaUPnPDevice *self);
 
 static void
@@ -138,7 +170,15 @@ korva_upnp_device_on_get_transport_info (GUPnPServiceProxy       *proxy,
                                          gpointer                 user_data);
 
 static void
+korva_upnp_device_on_container_available (GUPnPDIDLLiteParser *parser,
+                                          GUPnPDIDLLiteContainer *container,
+                                          gpointer user_data);
+
+static void
 korva_upnp_device_drop_current_file (KorvaUPnPDevice *self);
+
+static void
+korva_upnp_device_get_upload_profiles (KorvaUPnPDevice *self);
 
 /* GAsyncInitable */
 static void
@@ -196,10 +236,74 @@ korva_upnp_device_unshare_finish (KorvaDevice  *self,
                                   GAsyncResult *result,
                                   GError      **error);
 
+static void
+korva_upnp_device_on_media_query (GUPnPServiceProxy       *proxy,
+                                  GUPnPServiceProxyAction *action,
+                                  gpointer                 user_data);
+
+
 enum Properties {
     PROP_0,
     PROP_PROXY
 };
+
+typedef enum _QueryType {
+    QUERY_TYPE_BROWSE,
+    QUERY_TYPE_SEARCH
+} QueryType;
+
+typedef struct _MediaQueryData {
+    GQueue *pending_containers;
+    KorvaUPnPDevice *self;
+    goffset offset;
+    GUPnPDIDLLiteParser *parser;
+    QueryType type;
+    const char *action;
+    const char *first_arg;
+    const char *second_arg;
+    const char *second_arg_value;
+    GUPnPServiceProxyActionCallback callback;
+} MediaQueryData;
+
+static MediaQueryData *
+media_query_data_new (QueryType type, KorvaUPnPDevice *self)
+{
+    MediaQueryData *data;
+
+    data = g_slice_new0 (MediaQueryData);
+    data->pending_containers = g_queue_new ();
+    g_queue_push_tail (data->pending_containers, g_strdup ("0"));
+    data->parser = gupnp_didl_lite_parser_new ();
+    g_signal_connect (G_OBJECT (data->parser), "container-available",
+                      G_CALLBACK (korva_upnp_device_on_container_available),
+                      data);
+    data->self = self;
+    data->type = type;
+    if (type == QUERY_TYPE_SEARCH) {
+        data->action = "Search";
+        data->first_arg = "ContainerID";
+        data->second_arg = "SearchCriteria";
+        data->second_arg_value = FIND_UPLOAD_CONTAINER_SEARCH;
+    } else if (type == QUERY_TYPE_BROWSE) {
+        data->action = "Browse";
+        data->first_arg = "ObjectID";
+        data->second_arg = "BrowseFlag";
+        data->second_arg_value = "BrowseDirectChildren";
+    } else {
+        g_assert_not_reached ();
+    }
+
+    return data;
+}
+
+static void
+media_query_data_free (MediaQueryData *data)
+{
+    g_queue_free_full (data->pending_containers, g_free);
+    g_clear_object (&(data->parser));
+
+    g_slice_free (MediaQueryData, data);
+}
 
 static void
 korva_upnp_device_init (KorvaUPnPDevice *self)
@@ -212,6 +316,10 @@ korva_upnp_device_init (KorvaUPnPDevice *self)
     self->priv->session = soup_session_new ();
     self->priv->last_change_parser = gupnp_last_change_parser_new ();
     self->priv->state = g_strdup (AV_STATE_UNKNOWN);
+    self->priv->upload_capabilities = g_hash_table_new_full (g_str_hash,
+                                                             g_str_equal,
+                                                             NULL,
+                                                             g_free);
 }
 
 static void proxy_list_free (GList *proxies)
@@ -243,6 +351,11 @@ korva_upnp_device_finalize (GObject *obj)
     g_clear_pointer (&self->priv->ip_address, g_free);
     g_clear_pointer (&self->priv->current_tag, g_free);
     g_clear_pointer (&self->priv->current_uri, g_free);
+
+    if (self->priv->upload_capabilities != NULL) {
+        g_hash_table_destroy (self->priv->upload_capabilities);
+        self->priv->upload_capabilities = NULL;
+    }
 
     G_OBJECT_CLASS (korva_upnp_device_parent_class)->finalize (obj);
 }
@@ -412,6 +525,7 @@ korva_upnp_device_init_async (GAsyncInitable     *initable,
 
     if (g_regex_match (media_server_regex, device_type, 0, NULL)) {
         self->priv->device_type = DEVICE_TYPE_SERVER;
+        korva_upnp_device_introspect_server (self);
     } else if (g_regex_match (media_renderer_regex, device_type, 0, NULL)) {
         self->priv->device_type = DEVICE_TYPE_PLAYER;
         korva_upnp_device_introspect_renderer (self);
@@ -548,6 +662,405 @@ korva_upnp_device_on_get_transport_info (GUPnPServiceProxy       *proxy,
 }
 
 static void
+korva_upnp_device_introspect_server (KorvaUPnPDevice *self)
+{
+    GUPnPDeviceInfo *info;
+    GUPnPServiceInfo *service;
+    GList *dlna_caps;
+
+    info = GUPNP_DEVICE_INFO (self->priv->proxy);
+    g_debug ("Starting introspection of media server %s (%s)",
+             self->priv->friendly_name,
+             self->priv->udn);
+
+    service = gupnp_device_info_get_service (info, CONNECTION_MANAGER);
+    if (service == NULL) {
+        GError *error;
+
+        error = g_error_new (KORVA_UPNP_DEVICE_ERROR,
+                             MISSING_SERVICE,
+                             "Device %s is missing the 'ConnectionManager' service",
+                             self->priv->udn);
+
+        korva_upnp_device_introspection_finish (self, error);
+
+        return;
+    }
+    g_hash_table_insert (self->priv->services,
+                         (gpointer) CONNECTION_MANAGER,
+                         GUPNP_SERVICE_PROXY (service));
+
+    service = gupnp_device_info_get_service (info, CONTENT_DIRECTORY);
+    if (service == NULL) {
+        GError *error;
+
+        error = g_error_new (KORVA_UPNP_DEVICE_ERROR,
+                             MISSING_SERVICE,
+                             "Device %s is missing the 'ContentDirectory' service",
+                             self->priv->udn);
+
+        korva_upnp_device_introspection_finish (self, error);
+
+        return;
+    }
+    g_hash_table_insert (self->priv->services,
+                         (gpointer) CONTENT_DIRECTORY,
+                         GUPNP_SERVICE_PROXY (service));
+
+    /*
+     * This is usually an IP address; If not, the comparison later should work
+     * nevertheless.
+     */
+    korva_upnp_device_update_ip_address (self);
+
+    /* Check DLNA upload capabilities
+     *
+     * If there are none, we need to do some searching/recursive browsing later
+     * to check for containers with create classes.
+     */
+    dlna_caps = gupnp_device_info_list_dlna_capabilities (info);
+    if (dlna_caps != NULL) {
+        GList *it;
+
+        for (it = dlna_caps; it != NULL; it = it->next) {
+            const char *cap;
+
+            cap = (const char *) it->data;
+            if (g_ascii_strcasecmp (cap, "audio-upload") == 0) {
+                g_hash_table_insert (self->priv->upload_capabilities,
+                                     (gpointer) UPNP_CLASS_AUDIO,
+                                     g_strdup (DLNA_ANY_CONTAINER));
+            } else if (g_ascii_strcasecmp (cap, "image-upload") == 0) {
+                g_hash_table_insert (self->priv->upload_capabilities,
+                                     (gpointer) UPNP_CLASS_IMAGE,
+                                     g_strdup (DLNA_ANY_CONTAINER));
+            } else if (g_ascii_strcasecmp (cap, "av-upload") == 0) {
+                g_hash_table_insert (self->priv->upload_capabilities,
+                                     (gpointer) UPNP_CLASS_AV,
+                                     g_strdup (DLNA_ANY_CONTAINER));
+            }
+        }
+
+        g_list_free_full (dlna_caps, g_free);
+    }
+
+    /* Get introspection of the ContentDirectory service. We need this to check for
+     * - ImportResource
+     * - X_GetDLNAUploadProfiles
+     * - Search
+     * - CreateObject
+     */
+    gupnp_service_info_get_introspection_async (GUPNP_SERVICE_INFO (service),
+                                                korva_upnp_device_on_get_content_directory_introspection,
+                                                self);
+}
+
+static void
+korva_upnp_device_media_query (KorvaUPnPDevice *self, MediaQueryData *data)
+{
+    GUPnPServiceProxy *proxy;
+
+    proxy = g_hash_table_lookup (self->priv->services, CONTENT_DIRECTORY);
+    gupnp_service_proxy_begin_action (proxy,
+                                      data->action,
+                                      korva_upnp_device_on_media_query,
+                                      data,
+                                      data->first_arg, G_TYPE_STRING, g_queue_peek_head (data->pending_containers),
+                                      data->second_arg, G_TYPE_STRING, data->second_arg_value,
+                                      "Filter", G_TYPE_STRING, FIND_UPLOAD_CONTAINER_FILTER,
+                                      "StartingIndex", G_TYPE_UINT, data->offset,
+                                      "RequestedCount", G_TYPE_UINT, 30,
+                                      "SortCriteria", G_TYPE_STRING, "",
+                                      NULL);
+}
+
+static void
+korva_upnp_device_on_get_content_directory_introspection (GUPnPServiceInfo *info,
+                                                          GUPnPServiceIntrospection *introspection,
+                                                          const GError *error,
+                                                          gpointer user_data)
+{
+    KorvaUPnPDevice *self = KORVA_UPNP_DEVICE (user_data);
+    const GUPnPServiceActionInfo *action;
+
+    if (error != NULL) {
+        korva_upnp_device_introspection_finish (self, g_error_copy (error));
+
+        return;
+    }
+
+    /* Check if the device has "CreateObject". If it hasn't, there's no need to
+     * continue anyway */
+    action = gupnp_service_introspection_get_action (introspection,
+                                                     "CreateObject");
+    if (action == NULL) {
+        GError *internal_error;
+
+        internal_error = g_error_new_literal (KORVA_UPNP_DEVICE_ERROR,
+                                              MISSING_SERVICE,
+                                              "Device does not have the CreateObject call");
+        korva_upnp_device_introspection_finish (self, internal_error);
+
+        return;
+    }
+
+    /* Prefer to use ImportResource instead of HTTP post since we have the HTTP
+     * server in place anyway. */
+    action = gupnp_service_introspection_get_action (introspection,
+                                                     "ImportResource");
+    if (action != NULL) {
+        self->priv->has_import_resource = TRUE;
+    }
+
+    /* If we don't have DLNA.ORG_UploadAnyContainer support, we need to find
+     * proper containers for upload; hopefully the server has search capabilties
+     * as recursive browsing is rather heavy to do */
+    action = gupnp_service_introspection_get_action (introspection,
+                                                     "Search");
+    if (action != NULL) {
+        self->priv->has_search = TRUE;
+    }
+
+    action = gupnp_service_introspection_get_action (introspection,
+                                                     "X_GetDLNAUploadProfiles");
+    if (action != NULL) {
+        self->priv->has_get_upload_profiles = TRUE;
+    }
+
+    if (g_hash_table_size (self->priv->upload_capabilities) == 0) {
+        MediaQueryData *data;
+        if (self->priv->has_search) {
+            data = media_query_data_new (QUERY_TYPE_SEARCH, self);
+        } else {
+            /* start recursive browsing ... */
+            data = media_query_data_new (QUERY_TYPE_BROWSE, self);
+        }
+        korva_upnp_device_media_query (self, data);
+    } else {
+        korva_upnp_device_get_upload_profiles (self);
+    }
+}
+
+static void
+korva_upnp_device_get_upload_profiles (KorvaUPnPDevice *self)
+{
+    GUPnPServiceProxy *proxy;
+
+    if (self->priv->has_get_upload_profiles) {
+        /* Device supports a different (usually smaller) set of DLNA profiles
+           for upload than mentioned in the SourceProtocolInfo */
+        proxy = g_hash_table_lookup (self->priv->services, CONTENT_DIRECTORY);
+        gupnp_service_proxy_begin_action (proxy,
+                "X_GetDLNAUploadProfiles",
+                korva_upnp_device_on_get_upload_profiles,
+                self,
+                "UploadProfiles", G_TYPE_STRING, "",
+                NULL);
+    } else {
+        /* Finalize the introspection */
+        proxy = g_hash_table_lookup (self->priv->services, CONNECTION_MANAGER);
+        gupnp_service_proxy_begin_action (proxy,
+                "GetProtocolInfo",
+                korva_upnp_device_on_get_protocol_info,
+                self,
+                NULL);
+    }
+}
+
+static void
+korva_upnp_device_on_container_available (GUPnPDIDLLiteParser *parser,
+                                          GUPnPDIDLLiteContainer *container,
+                                          gpointer user_data)
+{
+    MediaQueryData *data = (MediaQueryData *) user_data;
+    KorvaUPnPDevice *self = data->self;
+    GList *create_classes, *it;
+    const char *id;
+
+    id = gupnp_didl_lite_object_get_id (GUPNP_DIDL_LITE_OBJECT (container));
+
+    if (g_hash_table_size (self->priv->upload_capabilities) == 3) {
+        /* Early exit; we already have everything we need */
+        return;
+    }
+
+    if (data->type == QUERY_TYPE_BROWSE) {
+        g_queue_push_tail (data->pending_containers, g_strdup (id));
+    }
+    create_classes = gupnp_didl_lite_container_get_create_classes (container);
+    if (create_classes == NULL) {
+        return;
+    }
+
+    for (it = create_classes; it != NULL; it = it->next) {
+        const char *create_class;
+
+        create_class = (const char *) it->data;
+        if (it->data == NULL) {
+            continue;
+        }
+
+        if ((g_ascii_strcasecmp (create_class, UPNP_CLASS_IMAGE) == 0) &&
+            !g_hash_table_contains (self->priv->upload_capabilities, UPNP_CLASS_IMAGE)) {
+            g_hash_table_insert (self->priv->upload_capabilities,
+                                 (gpointer) UPNP_CLASS_IMAGE,
+                                 g_strdup (id));
+        } else if ((g_ascii_strcasecmp (create_class, UPNP_CLASS_AUDIO) == 0) &&
+                   !g_hash_table_contains (self->priv->upload_capabilities, UPNP_CLASS_AUDIO)) {
+            g_hash_table_insert (self->priv->upload_capabilities,
+                                 (gpointer) UPNP_CLASS_AUDIO,
+                                 g_strdup (id));
+        } else if ((g_ascii_strcasecmp (create_class, UPNP_CLASS_AV) == 0) &&
+                   !g_hash_table_contains (self->priv->upload_capabilities, UPNP_CLASS_AV)) {
+            g_hash_table_insert (self->priv->upload_capabilities,
+                                 (gpointer) UPNP_CLASS_AV,
+                                 g_strdup (id));
+        }
+    }
+
+    g_list_free_full (create_classes, g_free);
+}
+
+static void
+korva_upnp_device_on_media_query (GUPnPServiceProxy       *proxy,
+                                  GUPnPServiceProxyAction *action,
+                                  gpointer                 user_data)
+{
+    MediaQueryData *data = (MediaQueryData *) user_data;
+    KorvaUPnPDevice *self = data->self;
+    GError *error = NULL;
+    char *result = NULL;
+    guint number_returned, total_matches;
+
+    gupnp_service_proxy_end_action (proxy,
+                                    action,
+                                    &error,
+                                    "Result", G_TYPE_STRING, &result,
+                                    "NumberReturned", G_TYPE_UINT, &number_returned,
+                                    "TotalMatches", G_TYPE_UINT, &total_matches,
+                                    NULL);
+    if (error != NULL) {
+        if (data->type == QUERY_TYPE_SEARCH &&
+            (error->code == 602 || error->code == 401)) {
+            g_debug ("%s does not implement 'Search', doing recursive 'Browse'...",
+                     self->priv->udn);
+            /* Optional operation not implemented; why is it in the SCDP then... */
+            media_query_data_free (data);
+            data = media_query_data_new (QUERY_TYPE_BROWSE, self);
+            korva_upnp_device_media_query (self, data);
+
+            return;
+        }
+        korva_upnp_device_introspection_finish (self, error);
+
+        goto out;
+    }
+
+    if (result == NULL) {
+        error = g_error_new_literal (KORVA_UPNP_DEVICE_ERROR,
+                                     MISSING_SERVICE,
+                                     "Device doesn't allow upload");
+        korva_upnp_device_introspection_finish (self, error);
+
+        goto out;
+    }
+
+    /* Finalize the call. No more data left. This part is usually hit
+     * if the server signalizes that it doesn't know the size of the full
+     * result set. */
+    if (number_returned == 0) {
+        g_free (g_queue_pop_head (data->pending_containers));
+
+        goto finish;
+    }
+
+    /* Process the current chunk of data. Fill our upload capabilities */
+    gupnp_didl_lite_parser_parse_didl (data->parser, result, &error);
+    g_free (result);
+
+    if (error != NULL) {
+        korva_upnp_device_introspection_finish (self, error);
+
+        goto out;
+    }
+
+    data->offset += number_returned;
+
+    /* Continue with next slice if there's any. */
+    if (data->offset < total_matches || total_matches == 0) {
+        korva_upnp_device_media_query (self, data);
+
+        return;
+    }
+
+    g_free (g_queue_pop_head (data->pending_containers));
+
+finish:
+    if (g_hash_table_size (self->priv->upload_capabilities) < 3 &&
+        g_queue_get_length (data->pending_containers) > 0) {
+        data->offset = 0;
+        korva_upnp_device_media_query (self, data);
+
+        return;
+    }
+
+    if (g_hash_table_size (self->priv->upload_capabilities) == 0) {
+        error = g_error_new_literal (KORVA_UPNP_DEVICE_ERROR,
+                                     MISSING_SERVICE,
+                                     "Device doesn't allow upload");
+        korva_upnp_device_introspection_finish (self, error);
+
+        goto out;
+    }
+
+    korva_upnp_device_get_upload_profiles (self);
+
+out:
+    media_query_data_free (data);
+}
+
+static void
+korva_upnp_device_on_get_upload_profiles (GUPnPServiceProxy       *proxy,
+                                          GUPnPServiceProxyAction *action,
+                                          gpointer                 user_data)
+{
+    KorvaUPnPDevice *self = KORVA_UPNP_DEVICE (user_data);
+    GError *error = NULL;
+    char *profiles = NULL;
+    char **profile_list, **it;
+    GString *protocol_info;
+
+    gupnp_service_proxy_end_action (proxy,
+                                    action,
+                                    &error,
+                                    "SupportedUploadProfiles",
+                                        G_TYPE_STRING, &profiles,
+                                    NULL);
+    if (error != NULL) {
+        korva_upnp_device_introspection_finish (self, error);
+
+        return;
+    }
+
+    profile_list = g_strsplit (profiles, ",", 0);
+    g_free (profiles);
+
+    it = profile_list;
+    protocol_info = g_string_new (NULL);
+    while (*it != NULL) {
+        if (it != profile_list) {
+            g_string_append_c (protocol_info, ',');
+        }
+
+        g_string_append_printf (protocol_info, "http-get:*:*:DLNA.ORG_PN=%s", *it);
+        it++;
+    }
+
+    self->priv->protocol_info = g_string_free (protocol_info, FALSE);
+    korva_upnp_device_get_icon (self);
+}
+
+static void
 korva_upnp_device_on_get_protocol_info (GUPnPServiceProxy       *proxy,
                                         GUPnPServiceProxyAction *action,
                                         gpointer                 user_data)
@@ -596,6 +1109,21 @@ static void
 korva_upnp_device_get_icon (KorvaUPnPDevice *self)
 {
     char *uri;
+
+    /* korva_upnp_device_get_icon is the last call in the introspection
+       chain and it does not fail. Dump some device information here */
+    if (self->priv->device_type == DEVICE_TYPE_SERVER) {
+        g_debug ("Upload containers for server %s:", self->priv->udn);
+        GList *values, *it;
+
+        it = values = g_hash_table_get_keys (self->priv->upload_capabilities);
+        while (it != NULL) {
+            g_debug ("    %s -> %s",
+                     (const char *) it->data,
+                     (const char *) g_hash_table_lookup (self->priv->upload_capabilities, (char *) it->data));
+            it = it->next;
+        }
+    }
 
     /* icon was already in cache */
     if (self->priv->icon_uri != NULL) {
@@ -811,7 +1339,7 @@ korva_upnp_device_remove_proxy (KorvaUPnPDevice *self, GUPnPDeviceProxy *proxy)
     return FALSE;
 }
 
-typedef struct {
+typedef struct _HostPathData {
     GTask           *result;
     KorvaUPnPDevice *device;
     GHashTable      *params;
@@ -1135,11 +1663,20 @@ korva_upnp_device_push_async (KorvaDevice        *device,
 
     uri = g_hash_table_lookup (params, "URI");
     if (uri == NULL) {
-
         error = g_error_new (KORVA_CONTROLLER1_ERROR,
                              KORVA_CONTROLLER1_ERROR_INVALID_ARGS,
                              "'Push' to device %s is missing mandatory URI key",
                              korva_device_get_uid (device));
+
+        g_simple_async_result_take_error (result, error);
+
+        goto out;
+    }
+
+    if (self->priv->device_type != DEVICE_TYPE_PLAYER) {
+        error = g_error_new_literal (KORVA_CONTROLLER1_ERROR,
+                                     KORVA_CONTROLLER1_ERROR_INVALID_ARGS,
+                                     "'Push' to server devices does not work yet");
 
         g_task_return_error (result, error);
         g_object_unref (result);

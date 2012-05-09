@@ -72,14 +72,14 @@ korva_upnp_device_lister_on_context_available (GUPnPContextManager *cm,
 
 /* ControlPoint callbacks */
 static void
-korva_upnp_device_lister_on_renderer_available (GUPnPControlPoint *cp,
-                                                GUPnPDeviceProxy  *proxy,
-                                                gpointer           user_data);
+korva_upnp_device_lister_on_device_available (GUPnPControlPoint *cp,
+                                              GUPnPDeviceProxy  *proxy,
+                                              gpointer           user_data);
 
 static void
-korva_upnp_device_lister_on_renderer_unavailable (GUPnPControlPoint *cp,
-                                                  GUPnPDeviceProxy  *proxy,
-                                                  gpointer           user_data);
+korva_upnp_device_lister_on_device_unavailable (GUPnPControlPoint *cp,
+                                                GUPnPDeviceProxy  *proxy,
+                                                gpointer           user_data);
 
 static void
 korva_upnp_device_lister_iface_init (gpointer g_iface,
@@ -209,16 +209,31 @@ korva_upnp_device_lister_on_context_available (GUPnPContextManager *cm,
     gupnp_context_manager_manage_control_point (cm, cp);
     g_signal_connect (cp,
                       "device-proxy-available",
-                      G_CALLBACK (korva_upnp_device_lister_on_renderer_available),
+                      G_CALLBACK (korva_upnp_device_lister_on_device_available),
                       user_data);
 
     g_signal_connect (cp,
                       "device-proxy-unavailable",
-                      G_CALLBACK (korva_upnp_device_lister_on_renderer_unavailable),
+                      G_CALLBACK (korva_upnp_device_lister_on_device_unavailable),
                       user_data);
     gssdp_resource_browser_set_active (GSSDP_RESOURCE_BROWSER (cp),
                                        TRUE);
+
     g_object_unref (cp);
+
+    cp = gupnp_control_point_new (context, MEDIA_SERVER);
+    gupnp_context_manager_manage_control_point (cm, cp);
+    g_signal_connect (cp,
+                      "device-proxy-available",
+                      G_CALLBACK (korva_upnp_device_lister_on_device_available),
+                      user_data);
+
+    g_signal_connect (cp,
+                      "device-proxy-unavailable",
+                      G_CALLBACK (korva_upnp_device_lister_on_device_unavailable),
+                      user_data);
+    gssdp_resource_browser_set_active (GSSDP_RESOURCE_BROWSER (cp),
+                                       TRUE);
 }
 
 static void
@@ -246,16 +261,18 @@ korva_upnp_device_lister_on_device_ready (GObject      *source,
                              device);
         g_signal_emit_by_name (self, "device-available", device);
     } else {
-        g_warning ("Failed to add device: %s", error->message);
+        g_warning ("Failed to add device %s: %s",
+                   korva_device_get_uid (KORVA_DEVICE (device)),
+                   error->message);
         g_error_free (error);
         g_object_unref (device);
     }
 }
 
 static void
-korva_upnp_device_lister_on_renderer_available (GUPnPControlPoint *cp,
-                                                GUPnPDeviceProxy  *proxy,
-                                                gpointer           user_data)
+korva_upnp_device_lister_on_device_available (GUPnPControlPoint *cp,
+                                              GUPnPDeviceProxy  *proxy,
+                                              gpointer           user_data)
 {
     KorvaUPnPDeviceLister *self = KORVA_UPNP_DEVICE_LISTER (user_data);
     KorvaUPnPDevice *device;
@@ -290,9 +307,9 @@ korva_upnp_device_lister_on_renderer_available (GUPnPControlPoint *cp,
 }
 
 static void
-korva_upnp_device_lister_on_renderer_unavailable (GUPnPControlPoint *cp,
-                                                  GUPnPDeviceProxy  *proxy,
-                                                  gpointer           user_data)
+korva_upnp_device_lister_on_device_unavailable (GUPnPControlPoint *cp,
+                                                GUPnPDeviceProxy  *proxy,
+                                                gpointer           user_data)
 {
     KorvaUPnPDeviceLister *self = KORVA_UPNP_DEVICE_LISTER (user_data);
     const char *uid;
