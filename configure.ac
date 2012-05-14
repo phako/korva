@@ -15,6 +15,7 @@ AM_SILENT_RULES([yes])
 
 AC_PROG_CC
 AC_PROG_RANLIB
+AC_PROG_LN_S
 AM_PROG_CC_C_O
 
 CFLAGS="${CFLAGS} -Wall -Wextra -Wno-unused-parameter"

@@ -178,21 +178,46 @@ G_GNUC_NORETURN static void usage (GOptionContext *context)
     exit (0);
 }
 
-#define OPTION_SUMMARY \
+#define DEFAULT_OPTION_SUMMARY \
 "  korva-control --list | --action=list\n" \
 "  korva-control --action=push --device=<UID> --file=<PATH>\n" \
 "  korva-control --action=unshare --tag=<TAG>"
+
+#define PUSH_OPTION_SUMMARY \
+"  korva-push --device=<UID> --file=<PATH>"
+
+#define UNSHARE_OPTION_SUMMARY \
+"  korva-unshare --tag=<TAG>"
+
+#define LIST_OPTION_SUMMARY \
+"  korva-list"
 
 int main(int argc, char *argv[])
 {
     GOptionContext *context;
     GError *error = NULL;
     KorvaController1 *controller;
+    char *basename;
 
     g_type_init ();
-
     context = g_option_context_new ("- control a korva server");
-    g_option_context_set_summary (context, OPTION_SUMMARY);
+
+    /* Preparse operating mode from executable name */
+    basename = g_path_get_basename (argv[0]);
+    if (g_ascii_strncasecmp (basename, "korva-push", 10) == 0) {
+        mode = KORVA_CONTROL_MODE_PUSH;
+        g_option_context_set_summary (context, PUSH_OPTION_SUMMARY);
+    } else if (g_ascii_strncasecmp (basename, "korva-unshare", 13) == 0) {
+        mode = KORVA_CONTROL_MODE_UNSHARE;
+        g_option_context_set_summary (context, UNSHARE_OPTION_SUMMARY);
+    } else if (g_ascii_strncasecmp (basename, "korva-list", 10) == 0) {
+        mode = KORVA_CONTROL_MODE_LIST;
+        g_option_context_set_summary (context, LIST_OPTION_SUMMARY);
+    } else {
+        g_option_context_set_summary (context, DEFAULT_OPTION_SUMMARY);
+    }
+    g_free (basename);
+
     g_option_context_add_main_entries (context, entries, NULL);
     if (!g_option_context_parse (context, &argc, &argv, &error)) {
         g_print ("Error parsing options: %s\n", error->message);
