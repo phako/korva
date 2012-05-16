@@ -93,7 +93,11 @@ korva_upnp_file_server_on_finished (SoupMessage *msg,
     g_debug ("Handled request for '%s'",
              soup_uri_to_string (soup_message_get_uri (msg), FALSE));
 
-    korva_upnp_host_data_start_timeout (data->host_data);
+    if (data->host_data != NULL) {
+        korva_upnp_host_data_start_timeout (data->host_data);
+        g_object_remove_weak_pointer (G_OBJECT (data->host_data),
+                                      (gpointer *)(&data->host_data));
+    }
 
     g_mapped_file_unref (data->file);
     g_slice_free (ServeData, data);
@@ -174,6 +178,7 @@ korva_upnp_file_server_handle_request (SoupServer *server,
 
     serve_data = g_slice_new0 (ServeData);
     serve_data->host_data = data;
+    g_object_add_weak_pointer (G_OBJECT (data), (gpointer *) &(serve_data->host_data));
     size = korva_upnp_host_data_get_size (data);
     if (soup_message_headers_get_ranges (msg->request_headers, size, &ranges, &length)) {
         goffset start, end;
