@@ -63,7 +63,7 @@ korva_upnp_file_server_on_wrote_chunk (SoupMessage *msg,
 
     soup_server_pause_message (data->server, msg);
 
-    chunk_size = MIN (data->end - data->start + 1, 65536);
+    chunk_size = MIN (data->end - data->start + 1, G_MAXUINT16 + 1);
 
     if (chunk_size <= 0) {
         soup_message_body_complete (msg->response_body);
