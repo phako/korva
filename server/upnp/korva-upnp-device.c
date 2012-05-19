@@ -523,6 +523,7 @@ korva_upnp_device_introspect_renderer (KorvaUPnPDevice *self)
 
         return;
     }
+
     g_hash_table_insert (self->priv->services,
                          (char *)AV_TRANSPORT,
                          GUPNP_SERVICE_PROXY (service));
@@ -648,8 +649,8 @@ korva_upnp_device_get_icon (KorvaUPnPDevice *self)
                                                   NULL);
     }
 
-    /* TODO: Add default uri */
     if (uri == NULL) {
+        self->priv->icon_uri = korva_icon_cache_get_default (self->priv->device_type);
         korva_upnp_device_introspection_success (self);
     } else {
         SoupMessage *message;
@@ -709,7 +710,7 @@ korva_upnp_device_on_icon_ready (SoupMessage *message, gpointer user_data)
     }
 
     if (self->priv->icon_uri == NULL) {
-        /* TODO: add default uri */
+        self->priv->icon_uri = korva_icon_cache_get_default (self->priv->device_type);
     }
 
     korva_upnp_device_introspection_finish (self, NULL);
@@ -734,6 +735,7 @@ korva_upnp_device_on_last_change (GUPnPServiceProxy *proxy,
                                                          "TransportState", G_TYPE_STRING, &status,
                                                          "AVTransportURI", G_TYPE_STRING, &uri,
                                                          NULL);
+
     if (!result) {
         g_warning ("Failed to parse LastState: %s", error->message);
         g_error_free (error);
@@ -753,8 +755,6 @@ korva_upnp_device_on_last_change (GUPnPServiceProxy *proxy,
         self->priv->state = status;
         g_debug ("Device %s has new state '%s'", self->priv->udn, self->priv->state);
     }
-
-    g_debug ("uri: %s, cu: %s", uri, self->priv->current_uri);
 
     if (uri != NULL &&
         self->priv->current_uri != NULL &&
@@ -853,6 +853,7 @@ typedef struct {
     char               *meta_data;
     gboolean            unshare;
     GFile              *file;
+    gboolean            transport_locked;
 } HostPathData;
 
 static void
@@ -917,17 +918,17 @@ korva_upnp_device_on_stop (GUPnPServiceProxy       *proxy,
 
     gupnp_service_proxy_end_action (proxy, action, &error, NULL);
     if (error != NULL) {
+        KorvaUPnPFileServer *server;
+
         g_simple_async_result_take_error (result, error);
 
-       if (!data->unshare) {
-            KorvaUPnPFileServer *server;
 
-            server = korva_upnp_file_server_get_default ();
-            korva_upnp_file_server_unhost_file_for_peer (server,
-                                                         data->file,
-                                                         data->device->priv->ip_address);
-            g_object_unref (server);
-        }
+
+        server = korva_upnp_file_server_get_default ();
+        korva_upnp_file_server_unhost_file_for_peer (server,
+                                                     data->file,
+                                                     data->device->priv->ip_address);
+        g_object_unref (server);
     } else {
         gupnp_service_proxy_begin_action (proxy,
                                           "SetAVTransportURI",
@@ -958,8 +959,9 @@ korva_upnp_device_on_set_av_transport_uri (GUPnPServiceProxy       *proxy,
 
     gupnp_service_proxy_end_action (proxy, action, &error, NULL);
     if (error != NULL) {
-        /* Transport locked */
-        if (error->code == 705) {
+        /* Transport locked and we didn't come from a transport_locked state already */
+        if (error->code == 705 && !data->transport_locked) {
+            data->transport_locked = TRUE;
             g_debug ("Transport was locked, trying to stop the device");
             gupnp_service_proxy_begin_action (proxy,
                                               "Stop",
@@ -1299,8 +1301,10 @@ korva_upnp_device_unshare_async (KorvaDevice         *device,
     data->meta_data = g_strdup ("");
     data->device = self;
     data->unshare = TRUE;
+    data->file = g_object_ref (self->priv->current_file);
 
     proxy = g_hash_table_lookup (data->device->priv->services, AV_TRANSPORT);
+    
     gupnp_service_proxy_begin_action (proxy,
                                       "Stop",
                                       korva_upnp_device_on_stop,

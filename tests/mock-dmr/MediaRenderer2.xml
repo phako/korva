@@ -1,0 +1,40 @@
+<?xml version="1.0"?>
+<root xmlns="urn:schemas-upnp-org:device-1-0" xmlns:dlna="urn:schemas-dlna-org:device-1-0">
+  <specVersion>
+    <major>1</major>
+    <minor>0</minor>
+  </specVersion>
+  <device>
+    <deviceType>urn:schemas-upnp-org:device:MediaRenderer:2</deviceType>
+    <friendlyName>Korva Testing DMR</friendlyName>
+    <manufacturer>Rygel Developers</manufacturer>
+    <manufacturerURL>http://live.gnome.org/Rygel</manufacturerURL>
+    <modelName>Rygel</modelName>
+    <modelNumber>0.1</modelNumber>
+    <modelURL>http://live.gnome.org/Rygel</modelURL>
+    <UDN>uuid:0a91ecf9-edc0-4631-a954-2a4e94d1e495</UDN>
+    <serviceList>
+      <service>
+        <serviceType>urn:schemas-upnp-org:service:ConnectionManager:2</serviceType>
+        <serviceId>urn:upnp-org:serviceId:ConnectionManager</serviceId>
+        <SCPDURL>/ConnectionManager.xml</SCPDURL>
+        <eventSubURL>/Event/Playbin/RygelSinkConnectionManager</eventSubURL>
+        <controlURL>/Control/Playbin/RygelSinkConnectionManager</controlURL>
+      </service>
+      <service>
+        <serviceType>urn:schemas-upnp-org:service:AVTransport:2</serviceType>
+        <serviceId>urn:upnp-org:serviceId:AVTransport</serviceId>
+        <SCPDURL>/AVTransport2.xml</SCPDURL>
+        <eventSubURL>/Event/Playbin/RygelAVTransport</eventSubURL>
+        <controlURL>/Control/Playbin/RygelAVTransport</controlURL>
+      </service>
+      <service>
+        <serviceType>urn:schemas-upnp-org:service:RenderingControl:2</serviceType>
+        <serviceId>urn:upnp-org:serviceId:RenderingControl</serviceId>
+        <SCPDURL>/RenderingControl2.xml</SCPDURL>
+        <eventSubURL>/Event/Playbin/RygelRenderingControl</eventSubURL>
+        <controlURL>/Control/Playbin/RygelRenderingControl</controlURL>
+      </service>
+    </serviceList>
+  </device>
+</root>

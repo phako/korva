@@ -23,6 +23,8 @@
 
 #include <glib.h>
 
+#include "korva-device.h"
+
 G_BEGIN_DECLS
 
 void
@@ -33,6 +35,9 @@ korva_icon_cache_lookup (const char *uid);
 
 char *
 korva_icon_cache_create_path (const char *uid);
+
+char *
+korva_icon_cache_get_default (KorvaDeviceType type);
 
 G_END_DECLS
 

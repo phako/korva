@@ -20,3 +20,4 @@ valgrind.log.*
 data/org.jensge.Korva.service
 server/korva
 client/korva-control
+*.gc*

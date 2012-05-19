@@ -31,6 +31,7 @@
 #include "korva-upnp-constants-private.h"
 #include "korva-upnp-file-server.h"
 #include "korva-upnp-metadata-query.h"
+#include "korva-upnp-host-data.h"
 
 G_DEFINE_TYPE (KorvaUPnPFileServer, korva_upnp_file_server, G_TYPE_OBJECT);
 
@@ -43,182 +44,12 @@ struct _KorvaUPnPFileServerPrivate {
     int         version;
 };
 
-typedef struct {
-    GFile      *file;
-    GHashTable *meta_data;
-    GList      *peers;
-    goffset     size;
-    const char *content_type;
-    char       *protocol_info;
-    KorvaUPnPFileServer *self;
-    uint timeout_id;
-
-    /* Helper members for first host_async call */
-    GSimpleAsyncResult *result;
-    char *iface;
-} HostData;
-
-static char *
-host_data_get_id (HostData *self);
-
-static gboolean
-host_data_on_timeout (gpointer user_data)
-{
-    HostData *self = (HostData *) user_data;
-    char *id, *uri;
-    GFile *file;
-
-    file = g_object_ref (self->file);
-    uri = g_file_get_uri (file);
-    g_debug ("File '%s' was not accessed for %d seconds; removing.",
-             uri,
-             KORVA_UPNP_FILE_SERVER_DEFAULT_TIMEOUT);
-    g_free (uri);
-
-    id = host_data_get_id (self);
-
-    g_hash_table_remove (self->self->priv->id_map, id);
-    g_free (id);
-
-    g_hash_table_remove (self->self->priv->host_data, file);
-    g_object_unref (file);
-
-    return FALSE;
-}
-
-static HostData *
-host_data_new (GFile *file, GHashTable *meta_data, const char *address)
-{
-    HostData *self;
-
-    self = g_slice_new0 (HostData);
-    self->meta_data = meta_data;
-    self->peers = g_list_prepend (self->peers, g_strdup (address));
-    self->file = g_object_ref (file);
-    self->timeout_id = g_timeout_add_seconds (KORVA_UPNP_FILE_SERVER_DEFAULT_TIMEOUT,
-                                              host_data_on_timeout,
-                                              self);
-
-    return self;
-}
-
-static void
-host_data_add_peer (HostData *self, const char *iface)
-{
-    GList *it;
-
-    it = g_list_find_custom (self->peers, iface, (GCompareFunc) g_strcmp0);
-    if (it != NULL) {
-        return;
-    }
-
-    self->peers = g_list_prepend (self->peers, g_strdup (iface));
-}
-
-static void
-host_data_remove_peer (HostData *self, const char *peer)
-{
-    GList *it;
-
-    it = g_list_find_custom (self->peers, peer, (GCompareFunc) g_strcmp0);
-    if (it != NULL) {
-        g_free (it->data);
-
-        self->peers = g_list_remove_link (self->peers, it);
-    }
-}
-
-static char *
-host_data_get_id (HostData *self)
-{
-    char *hash, *uri;
-
-    uri = g_file_get_uri (self->file);
-    hash = g_compute_checksum_for_string (G_CHECKSUM_MD5, uri, -1);
-    g_free (uri);
-
-    return hash;
-}
-
-static char *
-host_data_get_uri (HostData *self, const char *iface, guint port)
-{
-    char *hash, *result;
-
-    hash = host_data_get_id (self);
-
-    result = g_strdup_printf ("http://%s:%u/item/%s",
-                              iface,
-                              port,
-                              hash);
-
-    g_free (hash);
-
-    return result;
-}
-
-static const char *
-host_data_get_protocol_info (HostData *self)
-{
-    if (self->protocol_info == NULL) {
-        GVariant *value;
-        const char *dlna_profile;
-        GUPnPProtocolInfo *info;
-
-        info = gupnp_protocol_info_new_from_string ("http-get:*:*:DLNA.ORG_CI=0;DLNA.ORG_OP=01", NULL);
-        gupnp_protocol_info_set_mime_type (info, self->content_type);
-
-        value = g_hash_table_lookup (self->meta_data, "DLNAProfile");
-        if (value != NULL) {
-            dlna_profile = g_variant_get_string (value, NULL);
-            gupnp_protocol_info_set_dlna_profile (info, dlna_profile);
-        }
-
-        self->protocol_info = gupnp_protocol_info_to_string (info);
-        g_object_unref (info);
-    }
-
-    return self->protocol_info;
-}
-
-static gboolean
-host_data_valid_for_peer (HostData *self, const char *peer)
-{
-    GList *it;
-
-    it = g_list_find_custom (self->peers, peer, (GCompareFunc) g_strcmp0);
-
-    return it != NULL;
-}
-
-static void
-host_data_free (HostData *self)
-{
-    if (self == NULL) {
-        return;
-    }
-
-    g_hash_table_destroy (self->meta_data);
-    g_object_unref (self->file);
-    g_list_free_full (self->peers, g_free);
-
-    if (self->protocol_info != NULL) {
-        g_free (self->protocol_info);
-    }
-
-    if (self->timeout_id != 0) {
-        g_source_remove (self->timeout_id);
-    }
-
-    g_slice_free (HostData, self);
-}
-
 typedef struct _ServeData {
     SoupServer *server;
     GMappedFile *file;
     goffset start;
     goffset end;
-    HostData *host_data;
+    KorvaUPnPHostData *host_data;
 } ServeData;
 
 static void
@@ -233,7 +64,7 @@ korva_upnp_file_server_on_wrote_chunk (SoupMessage *msg,
 
     soup_server_pause_message (data->server, msg);
 
-    chunk_size = MIN (data->end - data->start + 1, 65536);
+    chunk_size = MIN (data->end - data->start + 1, G_MAXUINT16 + 1);
 
     if (chunk_size <= 0) {
         soup_message_body_complete (msg->response_body);
@@ -263,9 +94,11 @@ korva_upnp_file_server_on_finished (SoupMessage *msg,
     g_debug ("Handled request for '%s'",
              soup_uri_to_string (soup_message_get_uri (msg), FALSE));
 
-    data->host_data->timeout_id = g_timeout_add_seconds (KORVA_UPNP_FILE_SERVER_DEFAULT_TIMEOUT,
-                                                         host_data_on_timeout,
-                                                         data->host_data);
+    if (data->host_data != NULL) {
+        korva_upnp_host_data_start_timeout (data->host_data);
+        g_object_remove_weak_pointer (G_OBJECT (data->host_data),
+                                      (gpointer *)(&data->host_data));
+    }
 
     g_mapped_file_unref (data->file);
     g_slice_free (ServeData, data);
@@ -288,12 +121,13 @@ korva_upnp_file_server_handle_request (SoupServer *server,
     GMatchInfo *info;
     char *id, *file_path;
     GFile *file;
-    HostData *data;
+    KorvaUPnPHostData *data;
     ServeData *serve_data;
     SoupRange *ranges = NULL;
     int length;
     const char *content_features;
     GError *error = NULL;
+    goffset size;
 
     if (msg->method != SOUP_METHOD_HEAD &&
         msg->method != SOUP_METHOD_GET) {
@@ -337,7 +171,7 @@ korva_upnp_file_server_handle_request (SoupServer *server,
         goto out;
     }
 
-    if (!host_data_valid_for_peer (data, soup_client_context_get_host (client))) {
+    if (!korva_upnp_host_data_valid_for_peer (data, soup_client_context_get_host (client))) {
         soup_message_set_status (msg, SOUP_STATUS_NOT_FOUND);
 
         goto out;
@@ -345,47 +179,49 @@ korva_upnp_file_server_handle_request (SoupServer *server,
 
     serve_data = g_slice_new0 (ServeData);
     serve_data->host_data = data;
-    if (soup_message_headers_get_ranges (msg->request_headers, data->size, &ranges, &length)) {
+    g_object_add_weak_pointer (G_OBJECT (data), (gpointer *) &(serve_data->host_data));
+    size = korva_upnp_host_data_get_size (data);
+    if (soup_message_headers_get_ranges (msg->request_headers, size, &ranges, &length)) {
         goffset start, end;
         start = ranges[0].start;
         end = ranges[0].end;
 
-        if (start > data->size || start > end || end > data->size) {
+        if (start > size || start > end || end > size) {
             soup_message_set_status (msg, SOUP_STATUS_REQUESTED_RANGE_NOT_SATISFIABLE);
             g_slice_free (ServeData, serve_data);
 
             goto out;
         } else {
             soup_message_set_status (msg, SOUP_STATUS_PARTIAL_CONTENT);
-            soup_message_headers_set_content_range (msg->response_headers, start, end, data->size);
+            soup_message_headers_set_content_range (msg->response_headers, start, end, size);
         }
         serve_data->start = start;
         serve_data->end = end;
     } else {
         serve_data->start = 0;
-        serve_data->end = data->size - 1;
+        serve_data->end = size - 1;
         soup_message_set_status (msg, SOUP_STATUS_OK);
     }
 
     soup_message_headers_set_content_length (msg->response_headers,
                                              serve_data->end - serve_data->start + 1);
     soup_message_headers_set_content_type (msg->response_headers,
-                                           data->content_type,
+                                           korva_upnp_host_data_get_content_type (data),
                                            NULL);
 
     content_features = soup_message_headers_get_one (msg->request_headers,
                                                       "getContentFeatures.dlna.org");
     if (content_features != NULL && atol (content_features) == 1) {
-        GVariant *value;
+        const GVariant *value;
 
-        value = g_hash_table_lookup (data->meta_data, "DLNAProfile");
+        value = korva_upnp_host_data_lookup_meta_data (data, "DLNAProfile");
         if (value == NULL) {
             soup_message_headers_append (msg->response_headers,
                                          "contentFeatures.dlna.org", "*");
         } else {
             soup_message_headers_append (msg->response_headers,
                                          "contentFeatures.dlna.org",
-                                         host_data_get_protocol_info (data));
+                                         korva_upnp_host_data_get_protocol_info (data));
         }
     }
 
@@ -422,8 +258,7 @@ korva_upnp_file_server_handle_request (SoupServer *server,
     }
 
     /* Drop timeout until the message is done */
-    g_source_remove (data->timeout_id);
-    data->timeout_id = 0;
+    korva_upnp_host_data_cancel_timeout (data);
 
     g_signal_connect (msg,
                       "wrote-chunk",
@@ -464,7 +299,7 @@ korva_upnp_file_server_init (KorvaUPnPFileServer *self)
     self->priv->host_data = g_hash_table_new_full (g_file_hash,
                                                    (GEqualFunc) g_file_equal,
                                                    g_object_unref,
-                                                   (GDestroyNotify) host_data_free);
+                                                   g_object_unref);
     self->priv->id_map = g_hash_table_new_full (g_str_hash,
                                                 (GEqualFunc) g_str_equal,
                                                 g_free,
@@ -560,17 +395,40 @@ typedef struct {
     char *uri;
 } HostFileResult;
 
+typedef struct {
+    KorvaUPnPHostData *data;
+    KorvaUPnPFileServer *self;
+    char *iface;
+    GSimpleAsyncResult *result;
+} QueryMetaData;
+
+static void
+korva_upnp_file_server_on_host_data_timeout (KorvaUPnPFileServer *self,
+                                             KorvaUPnPHostData   *data)
+{
+    char *id;
+    GFile *file;
+
+    file = korva_upnp_host_data_get_file (data);
+    id = korva_upnp_host_data_get_id (data);
+
+    g_hash_table_remove (self->priv->id_map, id);
+    g_hash_table_remove (self->priv->host_data, file);
+
+    g_object_unref (file);
+    g_free (id);
+}
+
 static void
 korva_upnp_file_server_on_metadata_query_run_done (GObject *sender,
                                                    GAsyncResult *res,
                                                    gpointer      user_data)
 {
-    HostData *data = (HostData *) user_data;
+    QueryMetaData *data = (QueryMetaData *) user_data;
     GSimpleAsyncResult *result = data->result;
     HostFileResult *result_data;
     guint port;
     GError *error = NULL;
-    GVariant *value;
 
     if (!korva_upnp_metadata_query_run_finish (KORVA_UPNP_METADATA_QUERY (sender),
                                                res,
@@ -593,27 +451,28 @@ korva_upnp_file_server_on_metadata_query_run_done (GObject *sender,
         }
 
         g_simple_async_result_take_error (data->result, error);
-        host_data_free (data);
+        g_object_unref (data->data);
 
         goto out;
     }
 
-    g_hash_table_insert (data->self->priv->host_data, data->file, data);
+    g_signal_connect_swapped (data->data,
+                              "timeout",
+                              G_CALLBACK (korva_upnp_file_server_on_host_data_timeout),
+                              data->self);
+
+    g_hash_table_insert (data->self->priv->host_data,
+                         korva_upnp_host_data_get_file (data->data),
+                         data->data);
     g_hash_table_insert (data->self->priv->id_map,
-                         host_data_get_id (data),
-                         g_object_ref (data->file));
-
-    value = g_hash_table_lookup (data->meta_data, "Size");
-    data->size = g_variant_get_uint64 (value);
-
-    value = g_hash_table_lookup (data->meta_data, "ContentType");
-    data->content_type = g_variant_get_string (value, NULL);
+                         korva_upnp_host_data_get_id (data->data),
+                         korva_upnp_host_data_get_file (data->data));
 
     port = soup_server_get_port (data->self->priv->http_server);
 
     result_data = g_new0 (HostFileResult, 1);
-    result_data->params = data->meta_data;
-    result_data->uri = host_data_get_uri (data, data->iface, port);
+    result_data->params = korva_upnp_host_data_get_meta_data (data->data);
+    result_data->uri = korva_upnp_host_data_get_uri (data->data, data->iface, port);
 
     g_simple_async_result_set_op_res_gpointer (result, result_data, g_free);
 
@@ -626,6 +485,7 @@ out:
     g_simple_async_result_complete_in_idle (result);
     g_object_unref (result);
     g_object_unref (sender);
+    g_slice_free (QueryMetaData, data);
 }
 
 void
@@ -637,7 +497,7 @@ korva_upnp_file_server_host_file_async (KorvaUPnPFileServer *self,
                                         GAsyncReadyCallback callback,
                                         gpointer user_data)
 {
-    HostData *data;
+    KorvaUPnPHostData *data;
     GSimpleAsyncResult *result;
     guint port;
     HostFileResult *result_data;
@@ -650,27 +510,32 @@ korva_upnp_file_server_host_file_async (KorvaUPnPFileServer *self,
 
     data = g_hash_table_lookup (self->priv->host_data, file);
     if (data == NULL) {
-        data = host_data_new (file, params, peer);
-        data->self = self;
-        data->result = result;
-        data->iface = g_strdup (iface);
+        QueryMetaData *query_data;
+
+        query_data = g_slice_new0 (QueryMetaData);
+
+        data = korva_upnp_host_data_new (file, params, peer);
+        query_data->data = data;
+        query_data->self = self;
+        query_data->result = result;
+        query_data->iface = g_strdup (iface);
 
         query = korva_upnp_metadata_query_new (file, params, self->priv->version);
         korva_upnp_metadata_query_run_async (query,
                                              korva_upnp_file_server_on_metadata_query_run_done,
                                              NULL,
-                                             data);
+                                             query_data);
 
         return;
     }
 
-    host_data_add_peer (data, peer);
+    korva_upnp_host_data_add_peer (data, peer);
 
     port = soup_server_get_port (self->priv->http_server);
 
     result_data = g_new0 (HostFileResult, 1);
-    result_data->params = data->meta_data;
-    result_data->uri = host_data_get_uri (data, iface, port);
+    result_data->params = korva_upnp_host_data_get_meta_data (data);
+    result_data->uri = korva_upnp_host_data_get_uri (data, iface, port);
 
     g_simple_async_result_set_op_res_gpointer (result, result_data, g_free);
 
@@ -719,23 +584,26 @@ korva_upnp_file_server_unhost_by_peer (KorvaUPnPFileServer *self,
                                        const char *peer)
 {
     GHashTableIter iter;
-    HostData *value;
+    KorvaUPnPHostData *value;
     char *key;
 
     g_hash_table_iter_init (&iter, self->priv->host_data);
     while (g_hash_table_iter_next (&iter, (gpointer) &key, (gpointer) &value)) {
-        host_data_remove_peer (value, peer);
-        if (value->peers == NULL) {
+        korva_upnp_host_data_remove_peer (value, peer);
+        if (!korva_upnp_host_data_has_peers (value)) {
             char *id, *uri;
+            GFile *file;
 
-            id = host_data_get_id (value);
+            id = korva_upnp_host_data_get_id (value);
             g_hash_table_remove (self->priv->id_map, id);
             g_free (id);
 
-            uri = g_file_get_uri (value->file);
+            file = korva_upnp_host_data_get_file (value);
+            uri = g_file_get_uri (file);
             g_debug ("File '%s' no longer shared to any peer, removing…",
                      uri);
             g_free (uri);
+            g_object_unref (file);
 
             g_hash_table_iter_remove (&iter);
         }
@@ -747,25 +615,27 @@ korva_upnp_file_server_unhost_file_for_peer (KorvaUPnPFileServer *self,
                                              GFile               *file,
                                              const char          *peer)
 {
-    HostData *data;
+    KorvaUPnPHostData *data;
 
     data = g_hash_table_lookup (self->priv->host_data, file);
     if (data == NULL) {
         return;
     }
 
-    host_data_remove_peer (data, peer);
-    if (data->peers == NULL) {
+    korva_upnp_host_data_remove_peer (data, peer);
+    if (!korva_upnp_host_data_has_peers (data)) {
         char *id, *uri;
 
-        id = host_data_get_id (data);
+        id = korva_upnp_host_data_get_id (data);
         g_hash_table_remove (self->priv->id_map, id);
         g_free (id);
 
-        uri = g_file_get_uri (data->file);
+        file = korva_upnp_host_data_get_file (data);
+        uri = g_file_get_uri (file);
         g_debug ("File '%s' no longer shared to any peer, removing…",
                  uri);
         g_free (uri);
+        g_object_unref (file);
 
         g_hash_table_remove (self->priv->host_data, file);
     }

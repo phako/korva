@@ -1,7 +1,7 @@
 SUBDIRS=upnp
 
 noinst_LIBRARIES=libkorva-core.a
-libkorva_core_a_CFLAGS=$(GIO_CFLAGS) -I $(srcdir)/../dbus $(COVERAGE_CFLAGS)
+libkorva_core_a_CFLAGS=$(GIO_CFLAGS) -I $(srcdir)/../dbus $(COVERAGE_CFLAGS) -DICON_PATH='"$(datadir)/korva/icons"'
 libkorva_core_a_SOURCES = korva-device.c \
 	korva-device.h \
 	korva-device-lister.c \

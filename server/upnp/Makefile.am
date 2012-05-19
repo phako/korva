@@ -8,7 +8,8 @@ libkorva_upnp_backend_a_SOURCES=\
 	korva-upnp-file-server.h \
 	korva-upnp-metadata-query.c \
 	korva-upnp-metadata-query.h \
-	korva-upnp-constants-private.h
+	korva-upnp-constants-private.h \
+	korva-upnp-host-data.h \
+	korva-upnp-host-data.c
 
 libkorva_upnp_backend_a_CFLAGS = -I$(srcdir)/.. $(GUPNP_CFLAGS) $(TRACKER_CFLAGS) $(COVERAGE_CFLAGS)
-
