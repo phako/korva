@@ -58,6 +58,10 @@ AS_IF([test "x$enable_coverage" != "xno"],
   ]
 )
 
+dnl Fix compilation for included GLib components
+AC_DEFINE([GIO_COMPILATION],[],[Needed for compiling included GLib components])
+CFLAGS="${CFLAGS} -include config.h"
+
 AC_CONFIG_FILES([
 Makefile
 dbus/Makefile
