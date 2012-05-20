@@ -51,7 +51,8 @@ GQuark korva_upnp_device_error_quark ();
 enum _KorvaUPnPDeviceError {
     INVALID_DEVICE_TYPE,
     MISSING_SERVICE,
-    TIMEOUT
+    TIMEOUT,
+    CREATE_FAILED
 };
 
 struct _KorvaUPnPDeviceClass {

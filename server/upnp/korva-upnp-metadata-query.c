@@ -201,7 +201,15 @@ korva_upnp_metadata_query_on_file_query_info_async (GObject      *source,
                              g_variant_new_string (g_file_info_get_display_name (info)));
     }
 
+    value = g_hash_table_lookup (self->priv->params, "UPnPClass");
+    if (value == NULL) {
+        g_hash_table_insert (self->priv->params,
+                             g_strdup ("UPnPClass"),
+                             g_variant_new_string ("object.item.audioItem"));
+    }
+
     g_task_return_boolean (self->priv->result, TRUE);
+
 out:
     g_clear_object (&info);
 

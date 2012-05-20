@@ -180,6 +180,11 @@ korva_upnp_device_drop_current_file (KorvaUPnPDevice *self);
 static void
 korva_upnp_device_get_upload_profiles (KorvaUPnPDevice *self);
 
+static void
+korva_upnp_device_on_create_object (GUPnPServiceProxy       *proxy,
+                                    GUPnPServiceProxyAction *action,
+                                    gpointer                 user_data);
+
 /* GAsyncInitable */
 static void
 korva_upnp_device_init_async (GAsyncInitable     *initable,
@@ -242,6 +247,7 @@ korva_upnp_device_on_media_query (GUPnPServiceProxy       *proxy,
                                   gpointer                 user_data);
 
 
+    char                      *import_uri;
 enum Properties {
     PROP_0,
     PROP_PROXY
@@ -1536,7 +1542,8 @@ korva_upnp_device_on_host_file_async (GObject      *source,
     GUPnPDIDLLiteObject *object;
     GUPnPDIDLLiteResource *resource, *compat_resource;
     GUPnPProtocolInfo *protocol_info;
-    const char *title, *content_type, *dlna_profile = NULL;
+    const char *title, *content_type, *dlna_profile = NULL, *upnp_class = NULL,
+               *container;
     GVariant *value;
     guint64 size;
 
@@ -1561,14 +1568,29 @@ korva_upnp_device_on_host_file_async (GObject      *source,
         dlna_profile = g_variant_get_string (value, NULL);
     }
 
+    value = g_hash_table_lookup (params, "UPnPClass");
+    if (value != NULL) {
+        upnp_class = g_variant_get_string (value, NULL);
+    }
+
     writer = gupnp_didl_lite_writer_new (NULL);
     object = GUPNP_DIDL_LITE_OBJECT (gupnp_didl_lite_writer_add_item (writer));
     gupnp_didl_lite_object_set_title (object, title);
-    gupnp_didl_lite_object_set_id (object, "1");
-    gupnp_didl_lite_object_set_parent_id (object, "-1");
-    gupnp_didl_lite_object_set_restricted (object, TRUE);
+    if (data->device->priv->device_type == DEVICE_TYPE_SERVER) {
+        gupnp_didl_lite_object_set_id (object, "");
+        container = g_hash_table_lookup (data->device->priv->upload_capabilities, upnp_class);
+        gupnp_didl_lite_object_set_parent_id (object, container);
+        gupnp_didl_lite_object_set_restricted (object, FALSE);
+    } else {
+        gupnp_didl_lite_object_set_id (object, "1");
+        gupnp_didl_lite_object_set_parent_id (object, "-1");
+        gupnp_didl_lite_object_set_restricted (object, TRUE);
+    }
+    gupnp_didl_lite_object_set_upnp_class (object, upnp_class);
     resource = gupnp_didl_lite_object_add_resource (object);
-    gupnp_didl_lite_resource_set_uri (resource, data->uri);
+    if (data->device->priv->device_type == DEVICE_TYPE_PLAYER) {
+        gupnp_didl_lite_resource_set_uri (resource, data->uri);
+    }
     gupnp_didl_lite_resource_set_size64 (resource, size);
     protocol_info = gupnp_protocol_info_new_from_string ("http-get:*:*:DLNA.ORG_CI=0;DLNA.ORG_OP=01", NULL);
     gupnp_protocol_info_set_mime_type (protocol_info, content_type);
@@ -1588,7 +1610,7 @@ korva_upnp_device_on_host_file_async (GObject      *source,
         g_set_error_literal (&error,
                              KORVA_CONTROLLER1_ERROR,
                              KORVA_CONTROLLER1_ERROR_NOT_COMPATIBLE,
-                             "The file is not compatible with the selected renderer");
+                             "The file is not compatible with the selected device");
 
         g_task_return_error (data->result, error);
         korva_upnp_file_server_unhost_file_for_peer (KORVA_UPNP_FILE_SERVER (source),
@@ -1599,15 +1621,27 @@ korva_upnp_device_on_host_file_async (GObject      *source,
     }
     g_object_unref (compat_resource);
 
-    proxy = g_hash_table_lookup (data->device->priv->services, AV_TRANSPORT);
-    gupnp_service_proxy_begin_action (proxy,
-                                      "SetAVTransportURI",
-                                      korva_upnp_device_on_set_av_transport_uri,
-                                      user_data,
-                                      "InstanceID", G_TYPE_STRING, "0",
-                                      "CurrentURI", G_TYPE_STRING, data->uri,
-                                      "CurrentURIMetaData", G_TYPE_STRING, data->meta_data,
-                                      NULL);
+    if (data->device->priv->device_type == DEVICE_TYPE_SERVER) {
+        proxy = g_hash_table_lookup (data->device->priv->services, CONTENT_DIRECTORY);
+
+        gupnp_service_proxy_begin_action (proxy,
+                                          "CreateObject",
+                                          korva_upnp_device_on_create_object,
+                                          user_data,
+                                          "ContainerID", G_TYPE_STRING, container,
+                                          "Elements", G_TYPE_STRING, data->meta_data,
+                                          NULL);
+    } else {
+        proxy = g_hash_table_lookup (data->device->priv->services, AV_TRANSPORT);
+        gupnp_service_proxy_begin_action (proxy,
+                                          "SetAVTransportURI",
+                                          korva_upnp_device_on_set_av_transport_uri,
+                                          user_data,
+                                          "InstanceID", G_TYPE_STRING, "0",
+                                          "CurrentURI", G_TYPE_STRING, data->uri,
+                                          "CurrentURIMetaData", G_TYPE_STRING, data->meta_data,
+                                          NULL);
+    }
 
     return;
 out:
@@ -1625,6 +1659,147 @@ korva_upnp_device_update_ip_address (KorvaUPnPDevice *self)
     location = soup_uri_new (gupnp_device_info_get_location (self->priv->info));
     self->priv->ip_address = g_strdup (soup_uri_get_host (location));
     soup_uri_free (location);
+}
+
+static void
+create_object_on_object_available (GUPnPDIDLLiteParser *parser,
+                                          GUPnPDIDLLiteItem *item,
+                                          gpointer user_data)
+{
+    GUPnPDIDLLiteItem **result = (GUPnPDIDLLiteItem **) user_data;
+
+    if (*result == NULL) {
+        *result = g_object_ref (item);
+    }
+}
+
+static void
+korva_upnp_device_on_import_resource (GUPnPServiceProxy       *proxy,
+                                      GUPnPServiceProxyAction *action,
+                                      gpointer                 user_data)
+{
+    GError *error = NULL;
+    HostPathData *data = (HostPathData *) user_data;
+    GSimpleAsyncResult *result = data->result;
+
+    gupnp_service_proxy_end_action (proxy, action, &error, NULL);
+    if (error != NULL) {
+        KorvaUPnPFileServer *server;
+
+        if (error->code == 602 || error->code == 401) {
+            g_debug ("%s does not implement 'ImportResource', using HTTP POST ...",
+                     data->device->priv->udn);
+            data->device->priv->has_import_resource = FALSE;
+            /* TODO: Use HTTP POST */
+        }
+        server = korva_upnp_file_server_get_default ();
+        korva_upnp_file_server_unhost_file_for_peer (server,
+                                                     data->file,
+                                                     data->device->priv->ip_address);
+        g_object_unref (server);
+
+        g_simple_async_result_take_error (result, error);
+    }
+
+    data->device->priv->current_uri = g_strdup (data->uri);
+    data->device->priv->current_file = data->file;
+    data->file = NULL;
+
+    host_path_data_free (data);
+    g_simple_async_result_complete_in_idle (result);
+    g_object_unref (result);
+}
+
+static void
+korva_upnp_device_on_create_object (GUPnPServiceProxy       *proxy,
+                                    GUPnPServiceProxyAction *action,
+                                    gpointer                 user_data)
+{
+    GError *error = NULL;
+    HostPathData *data = (HostPathData *) user_data;
+    GSimpleAsyncResult *result = data->result;
+    char *didl = NULL;
+    const char *import_uri = NULL;
+    GUPnPDIDLLiteItem *item = NULL;
+    GList *resources;
+    GUPnPDIDLLiteParser *parser;
+
+    gupnp_service_proxy_end_action (proxy,
+                                    action,
+                                    &error,
+                                    "Result", G_TYPE_STRING, &didl,
+                                    NULL);
+    if (error != NULL) {
+        if (error->code == 602 || error->code == 401) {
+            g_debug ("%s does not implement 'CreateObject'. Device does not support uplaod",
+                     data->device->priv->udn);
+            /* TODO: Invalidate device */
+        }
+        goto out;
+    }
+
+    if (didl == NULL) {
+        goto out;
+    }
+
+    parser = gupnp_didl_lite_parser_new ();
+    g_signal_connect (G_OBJECT (parser), "item-available",
+                      G_CALLBACK (create_object_on_object_available),
+                      &item);
+    gupnp_didl_lite_parser_parse_didl (parser, didl, &error);
+    if (error != NULL) {
+        goto out;
+    }
+
+    resources = gupnp_didl_lite_object_get_resources (GUPNP_DIDL_LITE_OBJECT (item));
+    if (resources == NULL) {
+        g_debug ("%s", didl);
+        error = g_error_new_literal (KORVA_UPNP_DEVICE_ERROR,
+                                     CREATE_FAILED,
+                                     "Created object did not have a resource");
+
+        goto out;
+    }
+
+    import_uri = gupnp_didl_lite_resource_get_import_uri (GUPNP_DIDL_LITE_RESOURCE (resources->data));
+    g_list_free_full (resources, g_object_unref);
+    if (import_uri == NULL) {
+        error = g_error_new_literal (KORVA_UPNP_DEVICE_ERROR,
+                                     CREATE_FAILED,
+                                     "Created object did not have an import URI");
+
+        goto out;
+    }
+
+    if (data->device->priv->has_import_resource) {
+        gupnp_service_proxy_begin_action (proxy,
+                                          "ImportResource",
+                                          korva_upnp_device_on_import_resource,
+                                          data,
+                                          "SourceURI", G_TYPE_STRING, data->uri,
+                                          "DestinationURI", G_TYPE_STRING, import_uri,
+                                          NULL);
+    } else {
+        /* TODO: HTTP Post */
+    }
+
+    return;
+out:
+    g_simple_async_result_take_error (result, error);
+
+    if (data->device->priv->has_import_resource) {
+        KorvaUPnPFileServer *server;
+
+        server = korva_upnp_file_server_get_default ();
+        korva_upnp_file_server_unhost_file_for_peer (server,
+                                                     data->file,
+                                                     data->device->priv->ip_address);
+        g_object_unref (server);
+    }
+
+    host_path_data_free (data);
+    g_simple_async_result_complete_in_idle (result);
+    g_object_unref (result);
 }
 
 static void
@@ -1652,6 +1827,17 @@ korva_upnp_device_push_async (KorvaDevice        *device,
     self = KORVA_UPNP_DEVICE (device);
     result = g_task_new (device, cancellable, callback, user_data);
 
+     if (self->priv->device_type != DEVICE_TYPE_PLAYER &&
+         !self->priv->has_import_resource) {
+        error = g_error_new_literal (KORVA_CONTROLLER1_ERROR,
+                                     KORVA_CONTROLLER1_ERROR_INVALID_ARGS,
+                                     "'Push' to this server devices does not work yet");
+
+        g_simple_async_result_take_error (result, error);
+
+        goto out;
+    }
+
     params = g_hash_table_new_full (g_str_hash,
                                     g_str_equal,
                                     g_free,
@@ -1670,17 +1856,6 @@ korva_upnp_device_push_async (KorvaDevice        *device,
                              korva_device_get_uid (device));
 
         g_simple_async_result_take_error (result, error);
-
-        goto out;
-    }
-
-    if (self->priv->device_type != DEVICE_TYPE_PLAYER) {
-        error = g_error_new_literal (KORVA_CONTROLLER1_ERROR,
-                                     KORVA_CONTROLLER1_ERROR_INVALID_ARGS,
-                                     "'Push' to server devices does not work yet");
-
-        g_task_return_error (result, error);
-        g_object_unref (result);
 
         goto out;
     }
