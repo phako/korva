@@ -944,6 +944,7 @@ korva_upnp_device_on_media_query (GUPnPServiceProxy       *proxy,
             (error->code == 602 || error->code == 401)) {
             g_debug ("%s does not implement 'Search', doing recursive 'Browse'...",
                      self->priv->udn);
+            self->priv->has_search = FALSE;
             /* Optional operation not implemented; why is it in the SCDP then... */
             media_query_data_free (data);
             data = media_query_data_new (QUERY_TYPE_BROWSE, self);
