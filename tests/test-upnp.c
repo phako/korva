@@ -536,6 +536,7 @@ test_upnp_fileserver_http_server_content_features (HostFileTestData *data, gcons
 typedef struct {
     GMainLoop *loop;
     MockDMR *dmr;
+    GUPnPDeviceProxy *proxy;
     KorvaUPnPDevice *device;
     GUPnPControlPoint *cp;
     gboolean init_result;
@@ -564,8 +565,9 @@ device_setup_on_proxy_available (GUPnPControlPoint *cp,
 {
     UPnPDeviceData *data = (UPnPDeviceData *) user_data;
 
+    data->proxy = g_object_ref (proxy);
     data->device = g_object_new (KORVA_TYPE_UPNP_DEVICE,
-                                 "proxy", g_object_ref (proxy),
+                                 "proxy", data->proxy,
                                  NULL);
     g_async_initable_init_async (G_ASYNC_INITABLE (data->device),
                                  G_PRIORITY_DEFAULT,
@@ -705,13 +707,10 @@ test_upnp_device (UPnPDeviceData *data, gconstpointer user_data)
 static void
 test_upnp_device_multiple_proxies (UPnPDeviceData *data, gconstpointer user_data)
 {
-    GUPnPDeviceProxy *proxy;
-
-    g_object_get (data->device, "proxy", &proxy, NULL);
-    g_assert (proxy != NULL);
-    korva_upnp_device_add_proxy (data->device, proxy);
-    g_assert (!korva_upnp_device_remove_proxy (data->device, proxy));
-    g_assert (korva_upnp_device_remove_proxy (data->device, proxy));
+    g_assert (data->proxy != NULL);
+    korva_upnp_device_add_proxy (data->device, data->proxy);
+    g_assert (!korva_upnp_device_remove_proxy (data->device, data->proxy));
+    g_assert (korva_upnp_device_remove_proxy (data->device, data->proxy));
 }
 
 static void

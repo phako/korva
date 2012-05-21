@@ -92,26 +92,6 @@ korva_upnp_metadata_query_set_property (GObject *object, guint prop_id, const GV
 }
 
 static void
-korva_upnp_metadata_query_get_property (GObject *object, guint prop_id, GValue *value, GParamSpec *pspec)
-{
-    g_return_if_fail (KORVA_IS_UPNP_METADATA_QUERY (object));
-    KorvaUPnPMetadataQuery *self = KORVA_UPNP_METADATA_QUERY (object);
-
-    switch (prop_id)
-    {
-    case PROP_FILE:
-        g_value_set_object (value, self->priv->file);
-        break;
-    case PROP_PARAMS:
-        g_value_set_boxed (value, self->priv->params);
-        break;
-    default:
-        G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
-        break;
-    }
-}
-
-static void
 korva_upnp_metadata_query_class_init (KorvaUPnPMetadataQueryClass *klass)
 {
     GObjectClass* object_class = G_OBJECT_CLASS (klass);
@@ -120,7 +100,6 @@ korva_upnp_metadata_query_class_init (KorvaUPnPMetadataQueryClass *klass)
 
     object_class->finalize = korva_upnp_metadata_query_finalize;
     object_class->set_property = korva_upnp_metadata_query_set_property;
-    object_class->get_property = korva_upnp_metadata_query_get_property;
 
     g_object_class_install_property (object_class,
                                      PROP_FILE,
@@ -128,7 +107,6 @@ korva_upnp_metadata_query_class_init (KorvaUPnPMetadataQueryClass *klass)
                                                           "file",
                                                           "file",
                                                           G_TYPE_FILE,
-                                                          G_PARAM_READABLE |
                                                           G_PARAM_WRITABLE |
                                                           G_PARAM_CONSTRUCT_ONLY |
                                                           G_PARAM_STATIC_NAME |
@@ -141,7 +119,6 @@ korva_upnp_metadata_query_class_init (KorvaUPnPMetadataQueryClass *klass)
                                                           "params",
                                                           "params",
                                                           G_TYPE_HASH_TABLE,
-                                                          G_PARAM_READABLE |
                                                           G_PARAM_WRITABLE |
                                                           G_PARAM_CONSTRUCT |
                                                           G_PARAM_STATIC_NAME |

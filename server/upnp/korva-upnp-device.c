@@ -289,23 +289,6 @@ korva_upnp_device_set_property (GObject      *obj,
 }
 
 static void
-korva_upnp_device_get_property (GObject      *obj,
-                                guint         property_id,
-                                GValue *value,
-                                GParamSpec   *pspec)
-{
-    KorvaUPnPDevice *self = KORVA_UPNP_DEVICE (obj);
-
-    switch (property_id) {
-        case PROP_PROXY:
-            g_value_set_object (value, self->priv->proxy);
-            break;
-        default:
-            G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, property_id, pspec);
-    }
-}
-
-static void
 korva_upnp_device_class_init (KorvaUPnPDeviceClass *klass)
 {
     GObjectClass *object_class = G_OBJECT_CLASS (klass);
@@ -324,7 +307,6 @@ korva_upnp_device_class_init (KorvaUPnPDeviceClass *klass)
     object_class->dispose = korva_upnp_device_dispose;
     object_class->finalize = korva_upnp_device_finalize;
     object_class->set_property = korva_upnp_device_set_property;
-    object_class->get_property = korva_upnp_device_get_property;
 
     g_object_class_install_property (object_class,
                                      PROP_PROXY,
@@ -333,7 +315,7 @@ korva_upnp_device_class_init (KorvaUPnPDeviceClass *klass)
                                                           "proxy",
                                                           GUPNP_TYPE_DEVICE_PROXY,
                                                           G_PARAM_CONSTRUCT_ONLY |
-                                                          G_PARAM_READWRITE |
+                                                          G_PARAM_WRITABLE |
                                                           G_PARAM_STATIC_BLURB |
                                                           G_PARAM_STATIC_NAME |
                                                           G_PARAM_STATIC_NICK));

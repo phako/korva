@@ -64,12 +64,6 @@ korva_upnp_host_data_set_property (GObject      *object,
                                    const GValue *value,
                                    GParamSpec   *pspec);
 
-static void
-korva_upnp_host_data_get_property (GObject      *object,
-                                   guint         property_id,
-                                   GValue       *value,
-                                   GParamSpec   *pspec);
-
 /* KorvaUPnPHostData private functions */
 static gboolean
 korva_upnp_host_data_on_timeout (gpointer user_data);
@@ -82,7 +76,6 @@ korva_upnp_host_data_class_init (KorvaUPnPHostDataClass *klass)
     g_type_class_add_private (klass, sizeof (KorvaUPnPHostDataPrivate));
 
     object_class->constructed = korva_upnp_host_data_constructed;
-    object_class->get_property = korva_upnp_host_data_get_property;
     object_class->set_property = korva_upnp_host_data_set_property;
     object_class->dispose = korva_upnp_host_data_dispose;
     object_class->finalize = korva_upnp_host_data_finalize;
@@ -93,7 +86,7 @@ korva_upnp_host_data_class_init (KorvaUPnPHostDataClass *klass)
                                                           "file",
                                                           "file",
                                                           G_TYPE_FILE,
-                                                          G_PARAM_READWRITE |
+                                                          G_PARAM_WRITABLE |
                                                           G_PARAM_CONSTRUCT_ONLY |
                                                           G_PARAM_STATIC_BLURB |
                                                           G_PARAM_STATIC_NAME |
@@ -105,7 +98,7 @@ korva_upnp_host_data_class_init (KorvaUPnPHostDataClass *klass)
                                                          "meta-data",
                                                          "meta-data",
                                                          G_TYPE_HASH_TABLE,
-                                                         G_PARAM_READWRITE |
+                                                         G_PARAM_WRITABLE |
                                                          G_PARAM_CONSTRUCT_ONLY |
                                                          G_PARAM_STATIC_BLURB |
                                                          G_PARAM_STATIC_NAME |
@@ -117,7 +110,7 @@ korva_upnp_host_data_class_init (KorvaUPnPHostDataClass *klass)
                                                           "address",
                                                           "address",
                                                           NULL,
-                                                          G_PARAM_READWRITE |
+                                                          G_PARAM_WRITABLE |
                                                           G_PARAM_CONSTRUCT_ONLY |
                                                           G_PARAM_STATIC_BLURB |
                                                           G_PARAM_STATIC_NAME |
@@ -204,18 +197,6 @@ korva_upnp_host_data_set_property (GObject      *object,
         case PROP_ADDRESS:
             self->priv->peers = g_list_prepend (self->priv->peers, g_value_dup_string (value));
             break;
-        default:
-            G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
-    }
-}
-
-static void
-korva_upnp_host_data_get_property (GObject      *object,
-                                   guint         property_id,
-                                   GValue       *value,
-                                   GParamSpec   *pspec)
-{
-    switch (property_id) {
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
     }
