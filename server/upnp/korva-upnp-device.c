@@ -1075,6 +1075,7 @@ korva_upnp_device_on_host_file_async (GObject      *source,
     gupnp_didl_lite_object_set_title (object, title);
     gupnp_didl_lite_object_set_id (object, "1");
     gupnp_didl_lite_object_set_parent_id (object, "-1");
+    gupnp_didl_lite_object_set_restricted (object, TRUE);
     resource = gupnp_didl_lite_object_add_resource (object);
     gupnp_didl_lite_resource_set_uri (resource, data->uri);
     gupnp_didl_lite_resource_set_size64 (resource, size);
