@@ -112,6 +112,9 @@ korva_upnp_device_on_get_transport_info (GUPnPServiceProxy       *proxy,
                                          GUPnPServiceProxyAction *action,
                                          gpointer                 user_data);
 
+static void
+korva_upnp_device_drop_current_file (KorvaUPnPDevice *self);
+
 /* GAsyncInitable */
 static void
 korva_upnp_device_init_async (GAsyncInitable      *initable,
@@ -788,23 +791,9 @@ korva_upnp_device_on_last_change (GUPnPServiceProxy *proxy,
     if (uri != NULL &&
         self->priv->current_uri != NULL &&
         g_strcmp0 (uri, self->priv->current_uri) != 0) {
-        KorvaUPnPFileServer *server;
 
         g_debug ("Device has been modified externally.");
-        server = korva_upnp_file_server_get_default ();
-        korva_upnp_file_server_unhost_file_for_peer (server,
-                                                     self->priv->current_file,
-                                                     self->priv->ip_address);
-        g_object_unref (server);
-
-        g_free (self->priv->current_uri);
-        self->priv->current_uri = NULL;
-
-        g_free (self->priv->current_tag);
-        self->priv->current_tag = NULL;
-
-        g_object_unref (self->priv->current_file);
-        self->priv->current_file = NULL;
+        korva_upnp_device_drop_current_file (self);
     }
 }
 
@@ -1020,19 +1009,7 @@ korva_upnp_device_on_set_av_transport_uri (GUPnPServiceProxy       *proxy,
 
     /* This was called from Unshare. We're done now */
     if (data->unshare) {
-        KorvaUPnPFileServer *server = korva_upnp_file_server_get_default ();
-        korva_upnp_file_server_unhost_file_for_peer (server,
-                                                     data->device->priv->current_file,
-                                                     data->device->priv->ip_address);
-        g_object_unref (server);
-        g_free (data->device->priv->current_tag);
-        data->device->priv->current_tag = NULL;
-
-        g_free (data->device->priv->current_uri);
-        data->device->priv->current_uri = NULL;
-
-        g_object_unref (data->device->priv->current_file);
-        data->device->priv->current_file = NULL;
+        korva_upnp_device_drop_current_file (data->device);
 
         goto out;
     }
@@ -1059,6 +1036,30 @@ out:
     host_path_data_free (data);
     g_simple_async_result_complete_in_idle (result);
     g_object_unref (result);
+}
+
+static void
+korva_upnp_device_drop_current_file (KorvaUPnPDevice *self)
+{
+    KorvaUPnPFileServer *server;
+
+    server = korva_upnp_file_server_get_default ();
+    if (self->priv->current_tag != NULL) {
+        korva_upnp_file_server_unhost_file_for_peer (server,
+                                                     self->priv->current_file,
+                                                     self->priv->ip_address);
+
+        g_free (self->priv->current_tag);
+        self->priv->current_tag = NULL;
+
+        g_free (self->priv->current_uri);
+        self->priv->current_uri = NULL;
+
+        g_object_unref (self->priv->current_file);
+        self->priv->current_file = NULL;
+    }
+
+    g_object_unref (server);
 }
 
 static void
@@ -1235,21 +1236,7 @@ korva_upnp_device_push_async (KorvaDevice         *device,
                                                g_free);
     g_free (raw_tag);
 
-    if (self->priv->current_tag != NULL) {
-        korva_upnp_file_server_unhost_file_for_peer (server,
-                                                     self->priv->current_file,
-                                                     self->priv->ip_address);
-
-        g_free (self->priv->current_tag);
-        self->priv->current_tag = NULL;
-
-        g_free (self->priv->current_uri);
-        self->priv->current_uri = NULL;
-
-        g_object_unref (self->priv->current_file);
-        self->priv->current_file = NULL;
-    }
-
+    korva_upnp_device_drop_current_file (self);
     korva_upnp_file_server_host_file_async (server,
                                             file,
                                             params,
