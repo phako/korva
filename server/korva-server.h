@@ -16,7 +16,7 @@
 
     You should have received a copy of the GNU Lesser General Public License
     along with Korva.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ */
 
 #ifndef __KORVA_SERVER_H__
 #define __KORVA_SERVER_H__
@@ -45,7 +45,7 @@ typedef struct _KorvaServer KorvaServer;
 typedef struct _KorvaServerClass KorvaServerClass;
 
 struct _KorvaServer {
-    GObject parent;
+    GObject             parent;
 
     KorvaServerPrivate *priv;
 };

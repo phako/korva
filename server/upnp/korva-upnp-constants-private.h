@@ -16,7 +16,7 @@
 
     You should have received a copy of the GNU Lesser General Public License
     along with Korva.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ */
 #ifndef _KORVA_UPNP_CONSTANTS_PRIVATE_H_
 #define _KORVA_UPNP_CONSTANTS_PRIVATE_H_
 

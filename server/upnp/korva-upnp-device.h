@@ -16,7 +16,7 @@
 
     You should have received a copy of the GNU Lesser General Public License
     along with Korva.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ */
 
 #ifndef __KORVA_UPNP_DEVICE_H__
 #define __KORVA_UPNP_DEVICE_H__
@@ -60,7 +60,7 @@ struct _KorvaUPnPDeviceClass {
 };
 
 struct _KorvaUPnPDevice {
-    GObject parent;
+    GObject                 parent;
 
     KorvaUPnPDevicePrivate *priv;
 };

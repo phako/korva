@@ -16,7 +16,7 @@
 
     You should have received a copy of the GNU Lesser General Public License
     along with Korva.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ */
 
 #define G_LOG_DOMAIN "Korva-Device-Lister"
 
@@ -73,7 +73,7 @@ korva_device_lister_default_init (KorvaDeviceListerInterface *g_iface)
  *
  * Returns: (transfer container) (element-type KorvaDevice) (allow-none): A list of devices or %NULL if none is available
  */
-GList*
+GList *
 korva_device_lister_get_devices (KorvaDeviceLister *self)
 {
     return KORVA_DEVICE_LISTER_GET_INTERFACE (self)->get_devices (self);

@@ -16,7 +16,7 @@
 
     You should have received a copy of the GNU Lesser General Public License
     along with Korva.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ */
 
 #define G_LOG_DOMAIN "Korva-Server"
 
@@ -41,12 +41,13 @@ struct _KorvaBackend {
 typedef struct _KorvaBackend KorvaBackend;
 
 static void
-korva_backend_free (KorvaBackend *backend) {
+korva_backend_free (KorvaBackend *backend)
+{
     g_object_unref (backend->lister);
     g_free (backend);
 }
 
-G_DEFINE_TYPE(KorvaServer, korva_server, G_TYPE_OBJECT);
+G_DEFINE_TYPE (KorvaServer, korva_server, G_TYPE_OBJECT);
 
 /* forward declarations */
 
@@ -104,7 +105,7 @@ korva_server_on_device_available (KorvaDeviceLister *source,
 static void
 korva_server_on_device_unavailable (KorvaDeviceLister *source,
                                     const char        *uid,
-                                    gpointer user_data);
+                                    gpointer           user_data);
 
 struct _KorvaServerPrivate {
     GMainLoop        *loop;
@@ -199,7 +200,7 @@ korva_server_class_init (KorvaServerClass *klass)
     g_type_class_add_private (klass, sizeof (KorvaServerPrivate));
 }
 
-KorvaServer*
+KorvaServer *
 korva_server_new (void)
 {
     KorvaServer *self;
@@ -231,6 +232,7 @@ korva_server_on_bus_aquired  (GDBusConnection *connection,
     KorvaController1 *controller;
 
     KorvaServer *self = KORVA_SERVER (user_data);
+
     controller = korva_controller1_skeleton_new ();
     self->priv->dbus_controller = controller;
 
@@ -252,7 +254,7 @@ korva_server_on_bus_aquired  (GDBusConnection *connection,
                       G_CALLBACK (korva_server_on_handle_unshare),
                       user_data);
 
-    g_dbus_interface_skeleton_export (G_DBUS_INTERFACE_SKELETON(controller),
+    g_dbus_interface_skeleton_export (G_DBUS_INTERFACE_SKELETON (controller),
                                       connection,
                                       "/org/jensge/Korva",
                                       &error);
@@ -306,14 +308,15 @@ serialize_device_list (gpointer data, gpointer user_data)
 }
 
 static void
-serialize_device_list_backend (KorvaBackend *backend,
+serialize_device_list_backend (KorvaBackend    *backend,
                                GVariantBuilder *builder)
 {
     GList *devices;
 
     devices = korva_device_lister_get_devices (backend->lister);
-    if (devices != NULL)
+    if (devices != NULL) {
         g_list_foreach (devices, serialize_device_list, builder);
+    }
 }
 
 /* Controller1 interface callbacks */
@@ -333,7 +336,7 @@ korva_server_on_handle_get_devices (KorvaController1      *iface,
     builder = g_variant_builder_new (G_VARIANT_TYPE_ARRAY);
     it = self->priv->backends;
     while (it) {
-        KorvaBackend *backend = (KorvaBackend *)it->data;
+        KorvaBackend *backend = (KorvaBackend *) it->data;
         if (korva_device_lister_get_device_count (backend->lister) > 0) {
             devices = TRUE;
             serialize_device_list_backend (backend, builder);
@@ -354,7 +357,7 @@ korva_server_on_handle_get_devices (KorvaController1      *iface,
 }
 
 typedef struct {
-    const char *uid;
+    const char  *uid;
     KorvaDevice *device;
 } FindDeviceData;
 
@@ -415,7 +418,7 @@ korva_server_on_handle_get_device_info (KorvaController1      *iface,
 }
 
 typedef struct {
-    KorvaServer *self;
+    KorvaServer           *self;
     GDBusMethodInvocation *invocation;
 } PushAsyncData;
 
@@ -563,8 +566,8 @@ korva_server_on_handle_unshare (KorvaController1      *iface,
 
 static void
 korva_server_on_device_available (KorvaDeviceLister *source,
-                                  KorvaDevice *device,
-                                  gpointer user_data)
+                                  KorvaDevice       *device,
+                                  gpointer           user_data)
 {
     KorvaServer *self = KORVA_SERVER (user_data);
 
@@ -575,8 +578,8 @@ korva_server_on_device_available (KorvaDeviceLister *source,
 
 static void
 korva_server_on_device_unavailable (KorvaDeviceLister *source,
-                                    const char *uid,
-                                    gpointer user_data)
+                                    const char        *uid,
+                                    gpointer           user_data)
 {
     KorvaServer *self = KORVA_SERVER (user_data);
 
@@ -589,7 +592,7 @@ static void
 idle_collector (gpointer data, gpointer user_data)
 {
     KorvaBackend *backend = (KorvaBackend *) data;
-    gboolean *is_idle = (gboolean *)user_data;
+    gboolean *is_idle = (gboolean *) user_data;
 
     /* already found busy back-end */
     if (!(*is_idle)) {

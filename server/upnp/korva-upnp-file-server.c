@@ -16,7 +16,7 @@
 
     You should have received a copy of the GNU Lesser General Public License
     along with Korva.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ */
 
 #define G_LOG_DOMAIN "Korva-UPnP-File-Server"
 
@@ -44,10 +44,10 @@ struct _KorvaUPnPFileServerPrivate {
 };
 
 typedef struct _ServeData {
-    SoupServer *server;
-    GMappedFile *file;
-    goffset start;
-    goffset end;
+    SoupServer        *server;
+    GMappedFile       *file;
+    goffset            start;
+    goffset            end;
     KorvaUPnPHostData *host_data;
 } ServeData;
 
@@ -96,7 +96,7 @@ korva_upnp_file_server_on_finished (SoupMessage *msg,
     if (data->host_data != NULL) {
         korva_upnp_host_data_start_timeout (data->host_data);
         g_object_remove_weak_pointer (G_OBJECT (data->host_data),
-                                      (gpointer *)(&data->host_data));
+                                      (gpointer *) (&data->host_data));
     }
 
     g_mapped_file_unref (data->file);
@@ -109,12 +109,12 @@ static void print_header (const char *name, const char *value, gpointer user_dat
 }
 
 static void
-korva_upnp_file_server_handle_request (SoupServer *server,
-                                       SoupMessage *msg,
-                                       const char *path,
-                                       GHashTable *query,
+korva_upnp_file_server_handle_request (SoupServer        *server,
+                                       SoupMessage       *msg,
+                                       const char        *path,
+                                       GHashTable        *query,
                                        SoupClientContext *client,
-                                       gpointer user_data)
+                                       gpointer           user_data)
 {
     KorvaUPnPFileServer *self = KORVA_UPNP_FILE_SERVER (user_data);
     GMatchInfo *info;
@@ -209,7 +209,7 @@ korva_upnp_file_server_handle_request (SoupServer *server,
                                            NULL);
 
     content_features = soup_message_headers_get_one (msg->request_headers,
-                                                      "getContentFeatures.dlna.org");
+                                                     "getContentFeatures.dlna.org");
     if (content_features != NULL && atol (content_features) == 1) {
         const GVariant *value;
 
@@ -344,7 +344,7 @@ korva_upnp_file_server_finalize (GObject *object)
     G_OBJECT_CLASS (korva_upnp_file_server_parent_class)->finalize (object);
 }
 
-static GObject*
+static GObject *
 korva_upnp_file_server_constructor (GType                  type,
                                     guint                  n_construct_params,
                                     GObjectConstructParam *construct_params)
@@ -368,7 +368,7 @@ korva_upnp_file_server_constructor (GType                  type,
 static void
 korva_upnp_file_server_class_init (KorvaUPnPFileServerClass *klass)
 {
-    GObjectClass* object_class = G_OBJECT_CLASS (klass);
+    GObjectClass *object_class = G_OBJECT_CLASS (klass);
 
     object_class->constructor = korva_upnp_file_server_constructor;
     object_class->finalize = korva_upnp_file_server_finalize;
@@ -377,7 +377,7 @@ korva_upnp_file_server_class_init (KorvaUPnPFileServerClass *klass)
     g_type_class_add_private (klass, sizeof (KorvaUPnPFileServerPrivate));
 }
 
-KorvaUPnPFileServer*
+KorvaUPnPFileServer *
 korva_upnp_file_server_get_default (void)
 {
     return g_object_new (KORVA_TYPE_UPNP_FILE_SERVER, NULL);
@@ -385,14 +385,14 @@ korva_upnp_file_server_get_default (void)
 
 typedef struct {
     GHashTable *params;
-    char *uri;
+    char       *uri;
 } HostFileResult;
 
 typedef struct {
-    KorvaUPnPHostData *data;
+    KorvaUPnPHostData   *data;
     KorvaUPnPFileServer *self;
-    char *iface;
-    GSimpleAsyncResult *result;
+    char                *iface;
+    GSimpleAsyncResult  *result;
 } QueryMetaData;
 
 static void
@@ -413,7 +413,7 @@ korva_upnp_file_server_on_host_data_timeout (KorvaUPnPFileServer *self,
 }
 
 static void
-korva_upnp_file_server_on_metadata_query_run_done (GObject *sender,
+korva_upnp_file_server_on_metadata_query_run_done (GObject      *sender,
                                                    GAsyncResult *res,
                                                    gpointer      user_data)
 {
@@ -435,7 +435,7 @@ korva_upnp_file_server_on_metadata_query_run_done (GObject *sender,
             if (code == G_IO_ERROR_NOT_FOUND) {
                 error = g_error_new_literal (KORVA_CONTROLLER1_ERROR,
                                              KORVA_CONTROLLER1_ERROR_FILE_NOT_FOUND,
-                                             "File not found"); 
+                                             "File not found");
             } else {
                 error = g_error_new_literal (KORVA_CONTROLLER1_ERROR,
                                              KORVA_CONTROLLER1_ERROR_NOT_ACCESSIBLE,
@@ -483,12 +483,12 @@ out:
 
 void
 korva_upnp_file_server_host_file_async (KorvaUPnPFileServer *self,
-                                        GFile *file,
-                                        GHashTable *params,
-                                        const char *iface,
-                                        const char *peer,
-                                        GAsyncReadyCallback callback,
-                                        gpointer user_data)
+                                        GFile               *file,
+                                        GHashTable          *params,
+                                        const char          *iface,
+                                        const char          *peer,
+                                        GAsyncReadyCallback  callback,
+                                        gpointer             user_data)
 {
     KorvaUPnPHostData *data;
     GSimpleAsyncResult *result;
@@ -537,15 +537,15 @@ korva_upnp_file_server_host_file_async (KorvaUPnPFileServer *self,
 }
 
 char *
-korva_upnp_file_server_host_file_finish (KorvaUPnPFileServer  *self,
-                                         GAsyncResult         *res,
-                                         GHashTable          **params,
-                                         GError              **error)
+korva_upnp_file_server_host_file_finish (KorvaUPnPFileServer *self,
+                                         GAsyncResult        *res,
+                                         GHashTable         **params,
+                                         GError             **error)
 {
     GSimpleAsyncResult *result;
     HostFileResult *result_data;
 
-       
+
     *params = NULL;
 
     if (!g_simple_async_result_is_valid (res,
@@ -558,9 +558,9 @@ korva_upnp_file_server_host_file_finish (KorvaUPnPFileServer  *self,
     if (g_simple_async_result_propagate_error (result, error)) {
         return NULL;
     }
-     result_data = (HostFileResult *) g_simple_async_result_get_op_res_gpointer (result);
+    result_data = (HostFileResult *) g_simple_async_result_get_op_res_gpointer (result);
     *params = result_data->params;
-   
+
 
     return result_data->uri;
 }
@@ -573,14 +573,14 @@ korva_upnp_file_server_idle (KorvaUPnPFileServer *self)
 
 void
 korva_upnp_file_server_unhost_by_peer (KorvaUPnPFileServer *self,
-                                       const char *peer)
+                                       const char          *peer)
 {
     GHashTableIter iter;
     KorvaUPnPHostData *value;
     char *key;
 
     g_hash_table_iter_init (&iter, self->priv->host_data);
-    while (g_hash_table_iter_next (&iter, (gpointer) &key, (gpointer) &value)) {
+    while (g_hash_table_iter_next (&iter, (gpointer) & key, (gpointer) & value)) {
         korva_upnp_host_data_remove_peer (value, peer);
         if (!korva_upnp_host_data_has_peers (value)) {
             char *id, *uri;

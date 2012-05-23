@@ -16,7 +16,7 @@
 
     You should have received a copy of the GNU Lesser General Public License
     along with Korva.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ */
 
 #define G_LOG_DOMAIN "Korva-UPnP-Device-Lister"
 
@@ -52,7 +52,7 @@ G_DEFINE_TYPE_EXTENDED (KorvaUPnPDeviceLister,
 
 /* KorvaDeviceLister interface */
 static GList *
-korva_upnp_device_lister_get_devices (KorvaDeviceLister *self);
+korva_upnp_device_lister_get_devices (KorvaDeviceLister * self);
 
 static KorvaDevice *
 korva_upnp_device_lister_get_device_info (KorvaDeviceLister *self, const char *uid);
@@ -84,7 +84,7 @@ static void
 korva_upnp_device_lister_iface_init (gpointer g_iface,
                                      gpointer iface_data)
 {
-    KorvaDeviceListerInterface *iface = (KorvaDeviceListerInterface*) g_iface;
+    KorvaDeviceListerInterface *iface = (KorvaDeviceListerInterface *) g_iface;
 
     iface->get_devices = korva_upnp_device_lister_get_devices;
     iface->get_device_info = korva_upnp_device_lister_get_device_info;
@@ -144,7 +144,7 @@ korva_upnp_device_lister_dispose (GObject *object)
         self->priv->server = NULL;
     }
 
-	G_OBJECT_CLASS (korva_upnp_device_lister_parent_class)->dispose (object);
+    G_OBJECT_CLASS (korva_upnp_device_lister_parent_class)->dispose (object);
 }
 
 static void
@@ -179,7 +179,7 @@ korva_upnp_device_lister_get_devices (KorvaDeviceLister *lister)
 
 static KorvaDevice *
 korva_upnp_device_lister_get_device_info (KorvaDeviceLister *lister,
-                                          const char *uid)
+                                          const char        *uid)
 {
     KorvaUPnPDeviceLister *self;
 

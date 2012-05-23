@@ -16,7 +16,7 @@
 
     You should have received a copy of the GNU Lesser General Public License
     along with Korva.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ */
 
 #define G_LOG_DOMAIN "Korva-UPnP-File-Server"
 
@@ -178,7 +178,7 @@ korva_upnp_host_data_finalize (GObject *object)
         g_free (self->priv->protocol_info);
         self->priv->protocol_info = NULL;
     }
-    
+
     G_OBJECT_CLASS (korva_upnp_host_data_parent_class)->finalize (object);
 }
 
@@ -195,7 +195,7 @@ korva_upnp_host_data_dispose (GObject *object)
         g_hash_table_unref (self->priv->meta_data);
         self->priv->meta_data = NULL;
     }
-    
+
     G_OBJECT_CLASS (korva_upnp_host_data_parent_class)->dispose (object);
 }
 

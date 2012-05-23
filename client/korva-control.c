@@ -16,7 +16,7 @@
 
     You should have received a copy of the GNU Lesser General Public License
     along with Korva.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ */
 
 #include <stdlib.h>
 #include <string.h>
@@ -40,8 +40,8 @@ static KorvaControlMode mode = KORVA_CONTROL_MODE_NONE;
 static gboolean
 parse_mode (const char *option_name,
             const char *value,
-            gpointer data,
-            GError **error)
+            gpointer    data,
+            GError    **error)
 {
     if (mode != KORVA_CONTROL_MODE_NONE) {
         g_set_error_literal (error,
@@ -53,9 +53,9 @@ parse_mode (const char *option_name,
 
     if (g_ascii_strcasecmp (value, "push") == 0) {
         mode = KORVA_CONTROL_MODE_PUSH;
-    } else  if (g_ascii_strcasecmp (value, "list") == 0) {
+    } else if (g_ascii_strcasecmp (value, "list") == 0) {
         mode = KORVA_CONTROL_MODE_LIST;
-    } else  if (g_ascii_strcasecmp (value, "unshare") == 0) {
+    } else if (g_ascii_strcasecmp (value, "unshare") == 0) {
         mode = KORVA_CONTROL_MODE_UNSHARE;
     } else {
         g_set_error (error,
@@ -73,8 +73,8 @@ parse_mode (const char *option_name,
 static gboolean
 set_list_mode (const char *option_name,
                const char *value,
-               gpointer data,
-               GError **error)
+               gpointer    data,
+               GError    **error)
 {
     if (mode != KORVA_CONTROL_MODE_NONE) {
         g_set_error_literal (error,
@@ -91,11 +91,11 @@ set_list_mode (const char *option_name,
 
 static GOptionEntry entries[] =
 {
-    { "list", 'l', G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK, set_list_mode, "Show available devices; short for --action=list", NULL },
-    { "action", 'a', 0, G_OPTION_ARG_CALLBACK, parse_mode, "ACTION to perform (push, unshare, list)", "ACTION" },
-    { "file", 'f', 0, G_OPTION_ARG_FILENAME, &file, "Path to a FILE", "FILE" },
-    { "device", 'd', 0, G_OPTION_ARG_STRING, &device, "UID of a device", "UID" },
-    { "tag", 't', 0, G_OPTION_ARG_STRING, &tag, "TAG of a previously done push operation", "TAG" },
+    { "list",   'l', G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK, set_list_mode, "Show available devices; short for --action=list", NULL     },
+    { "action", 'a', 0,                    G_OPTION_ARG_CALLBACK, parse_mode,    "ACTION to perform (push, unshare, list)",         "ACTION" },
+    { "file",   'f', 0,                    G_OPTION_ARG_FILENAME, &file,         "Path to a FILE",                                  "FILE"   },
+    { "device", 'd', 0,                    G_OPTION_ARG_STRING,   &device,       "UID of a device",                                 "UID"    },
+    { "tag",    't', 0,                    G_OPTION_ARG_STRING,   &tag,          "TAG of a previously done push operation",         "TAG"    },
     { NULL }
 };
 
@@ -179,20 +179,20 @@ G_GNUC_NORETURN static void usage (GOptionContext *context)
 }
 
 #define DEFAULT_OPTION_SUMMARY \
-"  korva-control --list | --action=list\n" \
-"  korva-control --action=push --device=<UID> --file=<PATH>\n" \
-"  korva-control --action=unshare --tag=<TAG>"
+    "  korva-control --list | --action=list\n" \
+    "  korva-control --action=push --device=<UID> --file=<PATH>\n" \
+    "  korva-control --action=unshare --tag=<TAG>"
 
 #define PUSH_OPTION_SUMMARY \
-"  korva-push --device=<UID> --file=<PATH>"
+    "  korva-push --device=<UID> --file=<PATH>"
 
 #define UNSHARE_OPTION_SUMMARY \
-"  korva-unshare --tag=<TAG>"
+    "  korva-unshare --tag=<TAG>"
 
 #define LIST_OPTION_SUMMARY \
-"  korva-list"
+    "  korva-list"
 
-int main(int argc, char *argv[])
+int main (int argc, char *argv[])
 {
     GOptionContext *context;
     GError *error = NULL;

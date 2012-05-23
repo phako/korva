@@ -16,7 +16,7 @@
 
     You should have received a copy of the GNU Lesser General Public License
     along with Korva.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ */
 
 #ifndef _KORVA_UPN_PFILE_SERVER_H_
 #define _KORVA_UPN_PFILE_SERVER_H_
@@ -37,14 +37,12 @@ typedef struct _KorvaUPnPFileServerClass KorvaUPnPFileServerClass;
 typedef struct _KorvaUPnPFileServer KorvaUPnPFileServer;
 typedef struct _KorvaUPnPFileServerPrivate KorvaUPnPFileServerPrivate;
 
-struct _KorvaUPnPFileServerClass
-{
+struct _KorvaUPnPFileServerClass {
     GObjectClass parent_class;
 };
 
-struct _KorvaUPnPFileServer
-{
-    GObject parent_instance;
+struct _KorvaUPnPFileServer {
+    GObject                     parent_instance;
 
     KorvaUPnPFileServerPrivate *priv;
 };
@@ -57,25 +55,25 @@ korva_upnp_file_server_get_default (void);
 
 void
 korva_upnp_file_server_host_file_async (KorvaUPnPFileServer *self,
-                                        GFile *file,
-                                        GHashTable *params,
-                                        const char *iface,
-                                        const char *peer,
-                                        GAsyncReadyCallback callback,
-                                        gpointer user_data);
+                                        GFile               *file,
+                                        GHashTable          *params,
+                                        const char          *iface,
+                                        const char          *peer,
+                                        GAsyncReadyCallback  callback,
+                                        gpointer             user_data);
 
 char *
-korva_upnp_file_server_host_file_finish (KorvaUPnPFileServer  *self,
-                                         GAsyncResult         *result,
-                                         GHashTable          **params,
-                                         GError              **error);
+korva_upnp_file_server_host_file_finish (KorvaUPnPFileServer *self,
+                                         GAsyncResult        *result,
+                                         GHashTable         **params,
+                                         GError             **error);
 
 gboolean
 korva_upnp_file_server_idle (KorvaUPnPFileServer *self);
 
 void
 korva_upnp_file_server_unhost_by_peer (KorvaUPnPFileServer *self,
-                                       const char *peer);
+                                       const char          *peer);
 
 void
 korva_upnp_file_server_unhost_file_for_peer (KorvaUPnPFileServer *self,

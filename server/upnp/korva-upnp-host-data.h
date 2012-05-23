@@ -16,7 +16,7 @@
 
     You should have received a copy of the GNU Lesser General Public License
     along with Korva.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ */
 
 #ifndef __KORVA_UPNP_HOST_DATA_H__
 #define __KORVA_UPNP_HOST_DATA_H__
@@ -56,7 +56,7 @@ GType korva_upnp_host_data_get_type (void);
  * to any device in #KORVA_UPNP_FILE_SERVER_DEFAULT_TIMEOUT seconds
  */
 struct _KorvaUPnPHostData {
-    GObject parent;
+    GObject                   parent;
 
     KorvaUPnPHostDataPrivate *priv;
 };

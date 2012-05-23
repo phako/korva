@@ -16,14 +16,13 @@
 
     You should have received a copy of the GNU Lesser General Public License
     along with Korva.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ */
 
 #include <korva-error.h>
 
 #include "korva-upnp-metadata-query.h"
 
-enum
-{
+enum {
     PROP_0,
     PROP_FILE,
     PROP_PARAMS
@@ -40,7 +39,7 @@ G_DEFINE_TYPE (KorvaUPnPMetadataQuery, korva_upnp_metadata_query, G_TYPE_OBJECT)
 
 /* Forward declarations */
 static void
-korva_upnp_metadata_query_on_file_query_info_async (GObject         *source,
+korva_upnp_metadata_query_on_file_query_info_async (GObject      *source,
                                                     GAsyncResult *res,
                                                     gpointer      user_data);
 
@@ -77,24 +76,23 @@ korva_upnp_metadata_query_set_property (GObject *object, guint prop_id, const GV
 
     g_return_if_fail (KORVA_IS_UPNP_METADATA_QUERY (object));
 
-    switch (prop_id)
-    {
-    case PROP_FILE:
-        self->priv->file = g_value_dup_object (value);
-        break;
-    case PROP_PARAMS:
-        self->priv->params = g_value_dup_boxed (value);
-        break;
-    default:
-        G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
-        break;
+    switch (prop_id) {
+        case PROP_FILE:
+            self->priv->file = g_value_dup_object (value);
+            break;
+        case PROP_PARAMS:
+            self->priv->params = g_value_dup_boxed (value);
+            break;
+        default:
+            G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+            break;
     }
 }
 
 static void
 korva_upnp_metadata_query_class_init (KorvaUPnPMetadataQueryClass *klass)
 {
-    GObjectClass* object_class = G_OBJECT_CLASS (klass);
+    GObjectClass *object_class = G_OBJECT_CLASS (klass);
 
     g_type_class_add_private (klass, sizeof (KorvaUPnPMetadataQueryPrivate));
 
@@ -116,24 +114,24 @@ korva_upnp_metadata_query_class_init (KorvaUPnPMetadataQueryClass *klass)
     g_object_class_install_property (object_class,
                                      PROP_PARAMS,
                                      g_param_spec_boxed ("params",
-                                                          "params",
-                                                          "params",
-                                                          G_TYPE_HASH_TABLE,
-                                                          G_PARAM_WRITABLE |
-                                                          G_PARAM_CONSTRUCT |
-                                                          G_PARAM_STATIC_NAME |
-                                                          G_PARAM_STATIC_NICK |
-                                                          G_PARAM_STATIC_BLURB));
+                                                         "params",
+                                                         "params",
+                                                         G_TYPE_HASH_TABLE,
+                                                         G_PARAM_WRITABLE |
+                                                         G_PARAM_CONSTRUCT |
+                                                         G_PARAM_STATIC_NAME |
+                                                         G_PARAM_STATIC_NICK |
+                                                         G_PARAM_STATIC_BLURB));
 }
 
 
-KorvaUPnPMetadataQuery*
+KorvaUPnPMetadataQuery *
 korva_upnp_metadata_query_new (GFile *file, GHashTable *params)
 {
     return KORVA_UPNP_METADATA_QUERY (g_object_new (KORVA_TYPE_UPNP_METADATA_QUERY,
-                                                      "file", file,
+                                                    "file", file,
                                                     "params", params,
-                                                      NULL));
+                                                    NULL));
 }
 
 void
@@ -146,9 +144,9 @@ korva_upnp_metadata_query_run_async (KorvaUPnPMetadataQuery *self, GAsyncReadyCa
     self->priv->cancellable = cancellable;
 
     g_file_query_info_async (self->priv->file,
-                             G_FILE_ATTRIBUTE_STANDARD_CONTENT_TYPE","
-                             G_FILE_ATTRIBUTE_STANDARD_SIZE","
-                             G_FILE_ATTRIBUTE_STANDARD_DISPLAY_NAME","
+                             G_FILE_ATTRIBUTE_STANDARD_CONTENT_TYPE ","
+                             G_FILE_ATTRIBUTE_STANDARD_SIZE ","
+                             G_FILE_ATTRIBUTE_STANDARD_DISPLAY_NAME ","
                              G_FILE_ATTRIBUTE_ACCESS_CAN_READ,
                              G_FILE_QUERY_INFO_NONE,
                              G_PRIORITY_DEFAULT_IDLE,
@@ -177,16 +175,16 @@ korva_upnp_metadata_query_run_finish (KorvaUPnPMetadataQuery *self, GAsyncResult
 }
 
 static void
-korva_upnp_metadata_query_on_file_query_info_async (GObject         *source,
+korva_upnp_metadata_query_on_file_query_info_async (GObject      *source,
                                                     GAsyncResult *res,
                                                     gpointer      user_data)
 {
     KorvaUPnPMetadataQuery *self = KORVA_UPNP_METADATA_QUERY (user_data);
-    GError                 *error = NULL;
-    GVariant               *value;
-    GFileInfo              *info;
-    gboolean                can_read;
-    goffset                 size;
+    GError *error = NULL;
+    GVariant *value;
+    GFileInfo *info;
+    gboolean can_read;
+    goffset size;
 
     info = g_file_query_info_finish (self->priv->file, res, &error);
     if (info == NULL) {
@@ -194,7 +192,7 @@ korva_upnp_metadata_query_on_file_query_info_async (GObject         *source,
 
         goto out;
     }
-    
+
     can_read = g_file_info_get_attribute_boolean (info, G_FILE_ATTRIBUTE_ACCESS_CAN_READ);
     if (!can_read) {
         g_simple_async_result_take_error (self->priv->result,
@@ -231,7 +229,7 @@ out:
     if (info != NULL) {
         g_object_unref (info);
     }
-    
+
     g_simple_async_result_complete_in_idle (self->priv->result);
     g_object_unref (self->priv->result);
 }
