@@ -220,6 +220,37 @@ on_pause (GUPnPService *service,
 }
 
 static void
+on_get_transport_info (GUPnPService *service,
+                       GUPnPServiceAction *action,
+                       MockDMR *self)
+{
+    GValue instance_id;
+
+
+    if (self->priv->fault == MOCK_DMR_FAULT_GET_TRANSPORT_INFO_FAIL) {
+        gupnp_service_action_return_error (action, 701, "Deliberately fail");
+
+        return;
+    }
+
+    memset (&instance_id, 0, sizeof (GValue));
+
+	g_value_init (&instance_id, G_TYPE_INT);
+
+	gupnp_service_action_get_value (action, "InstanceID", &instance_id);
+
+    g_assert_cmpint (g_value_get_int (&instance_id), ==, 0);
+
+    gupnp_service_action_set (action,
+                              "CurrentTransportState", G_TYPE_STRING, self->priv->state,
+                              "CurrentTransportStatus", G_TYPE_STRING, "Ok",
+                              "CurrentSpeed", G_TYPE_STRING, "1",
+                              NULL);
+
+    gupnp_service_action_return (action);
+}
+
+static void
 on_set_av_transport_uri (GUPnPService *service,
                          GUPnPServiceAction *action,
                          gpointer user_data)
@@ -337,6 +368,11 @@ mock_dmr_constructed (GObject *object)
 		                  "action-invoked::Stop",
 		                  G_CALLBACK (on_stop),
 		                  self);
+
+        g_signal_connect (self->priv->av_transport,
+                          "action-invoked::GetTransportInfo",
+                          G_CALLBACK (on_get_transport_info),
+                          self);
 
 		g_signal_connect (self->priv->av_transport,
 		                  "action-invoked::SetAVTransportURI",

@@ -107,6 +107,11 @@ korva_upnp_device_on_stop (GUPnPServiceProxy       *proxy,
 static void
 korva_upnp_device_update_ip_address (KorvaUPnPDevice *self);
 
+static void
+korva_upnp_device_on_get_transport_info (GUPnPServiceProxy       *proxy,
+                                         GUPnPServiceProxyAction *action,
+                                         gpointer                 user_data);
+
 /* GAsyncInitable */
 static void
 korva_upnp_device_init_async (GAsyncInitable      *initable,
@@ -485,6 +490,7 @@ korva_upnp_device_introspect_renderer (KorvaUPnPDevice *self)
 {
     GUPnPDeviceInfo *info;
     GUPnPServiceInfo *service;
+    GUPnPServiceProxy *proxy;
 
     info = GUPNP_DEVICE_INFO (self->priv->proxy);
     g_debug ("Starting introspection of rendering device %s (%s)",
@@ -540,7 +546,48 @@ korva_upnp_device_introspect_renderer (KorvaUPnPDevice *self)
                          (char *)CONNECTION_MANAGER,
                          GUPNP_SERVICE_PROXY (service));
 
-    gupnp_service_proxy_begin_action (GUPNP_SERVICE_PROXY (service),
+    proxy = g_hash_table_lookup (self->priv->services, AV_TRANSPORT);
+    gupnp_service_proxy_begin_action (proxy,
+                                      "GetTransportInfo",
+                                      korva_upnp_device_on_get_transport_info,
+                                      self,
+                                      "InstanceID", G_TYPE_UINT, 0,
+                                      NULL);
+}
+
+static void
+korva_upnp_device_on_get_transport_info (GUPnPServiceProxy       *proxy,
+                                         GUPnPServiceProxyAction *action,
+                                         gpointer                 user_data)
+{
+    GUPnPServiceProxy *cm_proxy;
+    GError *error = NULL;
+    KorvaUPnPDevice *self = KORVA_UPNP_DEVICE (user_data);
+
+    gupnp_service_proxy_end_action (proxy,
+                                    action,
+                                    &error,
+                                    "CurrentTransportState", G_TYPE_STRING, &(self->priv->state),
+                                    NULL);
+    if (error != NULL) {
+        GError *inner_error;
+
+        inner_error = g_error_new (KORVA_UPNP_DEVICE_ERROR,
+                                   MISSING_SERVICE,
+                                   "Call to 'GetTransportInfo' on device %s failed: %s",
+                                   self->priv->udn,
+                                   error->message);
+        g_error_free (error);
+
+        korva_upnp_device_introspection_finish (self, inner_error);
+
+        return;
+    }
+
+    g_debug ("Device %s has state %s", self->priv->udn, self->priv->state);
+
+    cm_proxy = g_hash_table_lookup (self->priv->services, CONNECTION_MANAGER);
+    gupnp_service_proxy_begin_action (cm_proxy,
                                       "GetProtocolInfo",
                                       korva_upnp_device_on_get_protocol_info,
                                       self,

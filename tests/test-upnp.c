@@ -646,7 +646,8 @@ test_upnp_device (UPnPDeviceData *data, gconstpointer user_data)
 	
 	if (fault == MOCK_DMR_FAULT_PROTOCOL_INFO_CALL_INVALID ||
 	    fault == MOCK_DMR_FAULT_NO_AV_TRANSPORT ||
-	    fault == MOCK_DMR_FAULT_NO_CONNECTION_MANAGER) {
+	    fault == MOCK_DMR_FAULT_NO_CONNECTION_MANAGER ||
+        fault == MOCK_DMR_FAULT_GET_TRANSPORT_INFO_FAIL) {
 		g_assert (!data->init_result);
 		g_assert (data->init_error != NULL);
 		g_assert (data->init_error->domain == KORVA_UPNP_DEVICE_ERROR);
@@ -858,14 +859,8 @@ test_upnp_device_share_ops_fail (UPnPDeviceData *data, gconstpointer user_data)
 	GFile *file;
 	char *uri;
 	KorvaUPnPFileServer *server;
-    guint timeout_id;
     int fault = GPOINTER_TO_INT (user_data);
 
-    /* Wait for the initial events so we get the player's state */
-    timeout_id = g_timeout_add_seconds (2, (GSourceFunc) g_main_loop_quit, data->loop);
-    g_main_loop_run (data->loop);
-    g_source_remove (timeout_id);
-    
 	/* create server instance here to make sure the device uses the same server */
 	server = korva_upnp_file_server_get_default ();
     g_assert (korva_upnp_file_server_idle (server));
@@ -1023,6 +1018,13 @@ int main(int argc, char *argv[])
 	g_test_add ("/korva/server/upnp/device/protocol_info_invalid",
                 UPnPDeviceData,
                 GINT_TO_POINTER (MOCK_DMR_FAULT_PROTOCOL_INFO_CALL_INVALID),
+                test_upnp_device_setup,
+                test_upnp_device,
+                test_upnp_device_teardown);
+
+    g_test_add ("/korva/server/upnp/device/transport-info-fail",
+                UPnPDeviceData,
+                GINT_TO_POINTER (MOCK_DMR_FAULT_GET_TRANSPORT_INFO_FAIL),
                 test_upnp_device_setup,
                 test_upnp_device,
                 test_upnp_device_teardown);
