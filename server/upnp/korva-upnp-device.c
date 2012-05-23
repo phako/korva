@@ -903,15 +903,13 @@ korva_upnp_device_on_play (GUPnPServiceProxy       *proxy,
 
     gupnp_service_proxy_end_action (proxy, action, &error, NULL);
     if (error != NULL) {
-       if (!data->unshare) {
-            KorvaUPnPFileServer *server;
+        KorvaUPnPFileServer *server;
 
-            server = korva_upnp_file_server_get_default ();
-            korva_upnp_file_server_unhost_file_for_peer (server,
-                                                         data->file,
-                                                         data->device->priv->ip_address);
-            g_object_unref (server);
-        }
+        server = korva_upnp_file_server_get_default ();
+        korva_upnp_file_server_unhost_file_for_peer (server,
+                                                     data->file,
+                                                     data->device->priv->ip_address);
+        g_object_unref (server);
 
         g_simple_async_result_take_error (result, error);
     }
