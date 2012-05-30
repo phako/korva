@@ -18,6 +18,10 @@
     along with Korva.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
 #include <stdlib.h>
 #include <string.h>
 
@@ -89,13 +93,25 @@ set_list_mode (const char *option_name,
     return TRUE;
 }
 
+G_GNUC_NORETURN static gboolean
+show_version (const char *option_name,
+              const char *value,
+              gpointer    data,
+              GError    **error)
+{
+    g_print ("korva-control %s\n", PACKAGE_VERSION);
+
+    exit (0);
+}
+
 static GOptionEntry entries[] =
 {
-    { "list",   'l', G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK, set_list_mode, "Show available devices; short for --action=list", NULL     },
-    { "action", 'a', 0,                    G_OPTION_ARG_CALLBACK, parse_mode,    "ACTION to perform (push, unshare, list)",         "ACTION" },
-    { "file",   'f', 0,                    G_OPTION_ARG_FILENAME, &file,         "Path to a FILE",                                  "FILE"   },
-    { "device", 'd', 0,                    G_OPTION_ARG_STRING,   &device,       "UID of a device",                                 "UID"    },
-    { "tag",    't', 0,                    G_OPTION_ARG_STRING,   &tag,          "TAG of a previously done push operation",         "TAG"    },
+    { "list",    'l', G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK, set_list_mode, "Show available devices; short for --action=list", NULL     },
+    { "action",  'a', 0,                    G_OPTION_ARG_CALLBACK, parse_mode,    "ACTION to perform (push, unshare, list)",         "ACTION" },
+    { "file",    'f', 0,                    G_OPTION_ARG_FILENAME, &file,         "Path to a FILE",                                  "FILE"   },
+    { "device",  'd', 0,                    G_OPTION_ARG_STRING,   &device,       "UID of a device",                                 "UID"    },
+    { "tag",     't', 0,                    G_OPTION_ARG_STRING,   &tag,          "TAG of a previously done push operation",         "TAG"    },
+    { "version", 0,   G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK, show_version,  "Show version number",                             NULL     },
     { NULL }
 };
 
