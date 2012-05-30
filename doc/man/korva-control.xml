@@ -1,0 +1,155 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!-- This document was created with Syntext Serna Free. --><!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+]>
+<refentry>
+  <refentryinfo>
+    <title>korva-control</title>
+    <productname>korva</productname>
+    <authorgroup>
+      <author>
+        <firstname>Jens</firstname>
+        <surname>Georg</surname>
+        <contrib>Developer</contrib>
+        <address>
+          <email>jensg@openismus.com</email>
+        </address>
+      </author>
+    </authorgroup>
+  </refentryinfo>
+  <refmeta>
+    <refentrytitle>korva-control</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+  <refnamediv>
+    <refname>korva-control</refname>
+    <refpurpose>Control the Korva D-Bus media pushing service</refpurpose>
+  </refnamediv>
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>korva-control</command>
+      <arg choice="plain">
+          <option>--action=<replaceable>ACTION</replaceable></option>
+      </arg>
+      <arg choice="req">OPTIONS</arg>
+  </cmdsynopsis>
+  <cmdsynopsis><command>korva-list</command></cmdsynopsis>
+    <cmdsynopsis>
+        <command>korva-push</command>
+        <arg choice="plain"><option>--file=<replaceable>FILE</replaceable></option></arg>
+        <arg choice="plain"><option>--device=<replaceable>UUID</replaceable></option></arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+        <command>korva-unshare</command>
+        <arg choice="plain"><option>--tag=<replaceable>TAG</replaceable></option></arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+  <refsect1 id="description">
+    <title>DESCRIPTION</title>
+    <para><command>korva-control</command> can be used to share and unshare files on remote devices or to show a list of available remove devices.</para>
+  </refsect1>
+  <refsect1 id="options">
+    <title>OPTIONS</title>
+    <para>The program follows the usual GNU command line syntax,
+      with long options starting with two dashes (`-&apos;).  A summary of
+      options is included below.</para>
+    <variablelist>
+<!-- Use the variablelist.term.separator and the
+           variablelist.term.break.after parameters to
+           control the term elements. -->      <varlistentry>
+        <term>
+          <option>-h</option>
+        </term>
+        <term>
+          <option>--help</option>
+        </term>
+        <listitem>
+          <para>Show summary of options.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>
+          <option>-a <replaceable>ACTION</replaceable></option>
+        </term>
+        <term>
+          <option>--action=<replaceable>ACTION</replaceable></option>
+        </term>
+        <listitem>
+          <para>Set the operation mode of <command>korva-control</command>. Allowed values for <replaceable>ACTION</replaceable> are <constant>list</constant>, <constant>push</constant> and <constant>unshare</constant>. </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>
+          <option>-l</option>
+        </term>
+        <term>
+          <option>--list</option>
+        </term>
+        <listitem>
+          <para>Synonym for --action=list</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>
+          <option>--version</option>
+        </term>
+        <listitem>
+          <para>Show version of program.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>
+          <option>-f <replaceable>PATH</replaceable></option>
+        </term>
+        <term>
+          <option>--file=<replaceable>PATH</replaceable></option>
+        </term>
+        <listitem>
+          <para>File to show or upload to remote device. Only valid if <option>--action=push</option></para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>
+          <option>-d <replaceable>UUID</replaceable></option>
+        </term>
+        <term>
+          <option>--device=<replaceable>UUID</replaceable></option>
+        </term>
+        <listitem>
+          <para>UUID of the target device. To get the UUID of a device, call <command>korva-control</command> <option>-l</option>. Only valid if <option>--action=push</option>.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>
+          <option>-t <replaceable>TAG</replaceable></option>
+        </term>
+        <term>
+          <option>--tag=<replaceable>TAG</replaceable></option>
+        </term>
+        <listitem>
+          <para>A hash which identifies the device and the file. This is returned by calling <command>korva-contral</command> <option>-a push</option>. Only valid if <option>--action=unshare</option>.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+  <refsect1>
+    <title>Examples</title>
+    <example>
+      <title>Show available devices</title>
+      <programlisting>korva-control -l
+
+Device:
+    UID: uuid:70e24575-b687-4d7b-821d-037fc873bb7c
+    DisplayName: Audio/Video playback</programlisting>
+    </example>
+    <example>
+      <title>Push a file to a device</title>
+      <programlisting>korva-control --action=push --device=uuid:70e24575-b687-4d7b-821d-037fc873bb7c --file=/home/user/Video/BigBuckBunny.avi
+
+Pushed /home/user/Video/BigBuckBunny.avi to uuid:70e24575-b687-4d7b-821d-037fc873bb7c. The ID is 79a6f3bbdc423f4457a2011907824e32</programlisting>
+    </example>
+    <example>
+      <title>Stop sharing of a previously shared file</title>
+      <programlisting>korva-control --action=unshare --tag=79a6f3bbdc423f4457a2011907824e32</programlisting>
+    </example>
+  </refsect1>
+</refentry>

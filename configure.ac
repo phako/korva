@@ -54,6 +54,9 @@ AS_IF([test "x$enable_coverage" != "xno"],
   ]
 )
 
+AC_PATH_PROG([XSLTPROC], [xsltproc])
+AM_CONDITIONAL([HAVE_XSLTPROC], [test x"$XSLTPROC" != x])
+
 AC_CONFIG_FILES([
 Makefile
 dbus/Makefile
@@ -62,5 +65,6 @@ server/upnp/Makefile
 client/Makefile
 data/Makefile
 tests/Makefile
+doc/man/Makefile
 ])
 AC_OUTPUT
