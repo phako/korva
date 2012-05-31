@@ -16,7 +16,7 @@
 
     You should have received a copy of the GNU Lesser General Public License
     along with Korva.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ */
 
 #define G_LOG_DOMAIN "Korva-Device"
 
@@ -82,10 +82,10 @@ korva_device_serialize (KorvaDevice *self)
  * @user_data: user data
  */
 void
-korva_device_push_async (KorvaDevice         *self,
-                         GVariant            *source,
-                         GAsyncReadyCallback  callback,
-                         gpointer             user_data)
+korva_device_push_async (KorvaDevice        *self,
+                         GVariant           *source,
+                         GAsyncReadyCallback callback,
+                         gpointer            user_data)
 {
     KORVA_DEVICE_GET_INTERFACE (self)->push_async (self,
                                                    source,
@@ -105,9 +105,9 @@ korva_device_push_async (KorvaDevice         *self,
  * @returns: A tag identifying this transfer nor %NULL on error
  */
 char *
-korva_device_push_finish (KorvaDevice   *self,
-                          GAsyncResult  *result,
-                          GError       **error)
+korva_device_push_finish (KorvaDevice  *self,
+                          GAsyncResult *result,
+                          GError      **error)
 {
     return KORVA_DEVICE_GET_INTERFACE (self)->push_finish (self,
                                                            result,
@@ -115,18 +115,18 @@ korva_device_push_finish (KorvaDevice   *self,
 }
 
 void
-korva_device_unshare_async (KorvaDevice         *self,
-                            const char          *tag,
-                            GAsyncReadyCallback  callback,
-                            gpointer             user_data)
+korva_device_unshare_async (KorvaDevice        *self,
+                            const char         *tag,
+                            GAsyncReadyCallback callback,
+                            gpointer            user_data)
 {
     KORVA_DEVICE_GET_INTERFACE (self)->unshare_async (self, tag, callback, user_data);
 }
 
 gboolean
-korva_device_unshare_finish (KorvaDevice   *self,
-                             GAsyncResult  *result,
-                             GError       **error)
+korva_device_unshare_finish (KorvaDevice  *self,
+                             GAsyncResult *result,
+                             GError      **error)
 {
     return KORVA_DEVICE_GET_INTERFACE (self)->unshare_finish (self, result, error);
 }

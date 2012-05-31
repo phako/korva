@@ -59,6 +59,9 @@ AS_IF([test "x$enable_coverage" != "xno"],
   ]
 )
 
+AC_PATH_PROG([XSLTPROC], [xsltproc])
+AM_CONDITIONAL([HAVE_XSLTPROC], [test x"$XSLTPROC" != x])
+
 dnl Fix compilation for included GLib components
 AC_DEFINE([GIO_COMPILATION],[],[Needed for compiling included GLib components])
 CFLAGS="${CFLAGS} -include config.h"
@@ -72,6 +75,7 @@ client/Makefile
 data/Makefile
 libgupnp-av/Makefile
 tests/Makefile
+doc/man/Makefile
 provider/Makefile
 ])
 AC_OUTPUT

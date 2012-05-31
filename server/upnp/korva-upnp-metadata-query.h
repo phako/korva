@@ -16,7 +16,7 @@
 
     You should have received a copy of the GNU Lesser General Public License
     along with Korva.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ */
 
 #ifndef _KORVA_UPNP_METADATA_QUERY_H_
 #define _KORVA_UPNP_METADATA_QUERY_H_
@@ -37,33 +37,31 @@ typedef struct _KorvaUPnPMetadataQueryClass KorvaUPnPMetadataQueryClass;
 typedef struct _KorvaUPnPMetadataQuery KorvaUPnPMetadataQuery;
 typedef struct _KorvaUPnPMetadataQueryPrivate KorvaUPnPMetadataQueryPrivate;
 
-struct _KorvaUPnPMetadataQueryClass
-{
+struct _KorvaUPnPMetadataQueryClass {
     GObjectClass parent_class;
 };
 
-struct _KorvaUPnPMetadataQuery
-{
-    GObject parent_instance;
+struct _KorvaUPnPMetadataQuery {
+    GObject                        parent_instance;
 
     KorvaUPnPMetadataQueryPrivate *priv;
 };
 
 GType korva_upnp_metadata_query_get_type (void) G_GNUC_CONST;
 
-KorvaUPnPMetadataQuery*
+KorvaUPnPMetadataQuery *
 korva_upnp_metadata_query_new (GFile *file, GHashTable *params, int version);
 
 void
 korva_upnp_metadata_query_run_async (KorvaUPnPMetadataQuery *query,
                                      GAsyncReadyCallback     callback,
-                                     GCancellable            *cancellable,
-                                     gpointer                 user_data);
+                                     GCancellable           *cancellable,
+                                     gpointer                user_data);
 
 gboolean
-korva_upnp_metadata_query_run_finish (KorvaUPnPMetadataQuery  *query,
-                                      GAsyncResult            *res,
-                                      GError                 **error);
+korva_upnp_metadata_query_run_finish (KorvaUPnPMetadataQuery *query,
+                                      GAsyncResult           *res,
+                                      GError                **error);
 
 G_END_DECLS
 

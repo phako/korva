@@ -16,14 +16,14 @@
 
     You should have received a copy of the GNU Lesser General Public License
     along with Korva.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ */
 
 #define G_LOG_DOMAIN "Korva-Server"
 
 #include "korva-server.h"
 #include "korva-icon-cache.h"
 
-int main(int argc, char *argv[])
+int main (int argc, char *argv[])
 {
     g_debug ("Starting korva...");
     g_type_init ();

@@ -16,7 +16,7 @@
 
     You should have received a copy of the GNU Lesser General Public License
     along with Korva.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ */
 #ifndef __KORVA_ERROR_H__
 #define __KORVA_ERROR_H__
 

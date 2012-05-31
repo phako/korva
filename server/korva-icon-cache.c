@@ -16,7 +16,7 @@
 
     You should have received a copy of the GNU Lesser General Public License
     along with Korva.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ */
 
 #define G_LOG_DOMAIN "Korva-Icon-Cache"
 
@@ -33,6 +33,7 @@ void
 korva_icon_cache_init (void)
 {
     const char *cache_dir = g_get_user_cache_dir ();
+
     cache_path = g_build_filename (cache_dir, "korva", "icons", NULL);
     g_mkdir_with_parents (cache_path, 0700);
     user_icon_cache = g_file_new_for_path (cache_path);
@@ -63,7 +64,7 @@ korva_icon_cache_get_default (KorvaDeviceType type)
 {
     char *uri;
     GFile *file;
-    
+
     switch (type) {
         case DEVICE_TYPE_SERVER:
             file = g_file_get_child (default_icon_path, "network-server.png");

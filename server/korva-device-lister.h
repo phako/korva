@@ -16,7 +16,7 @@
 
     You should have received a copy of the GNU Lesser General Public License
     along with Korva.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ */
 
 #ifndef __KORVA_DEVICE_LISTER_H__
 #define __KORVA_DEVICE_LISTER_H__
@@ -48,19 +48,19 @@ typedef struct _KorvaDeviceListerInterface KorvaDeviceListerInterface;
 struct _KorvaDeviceListerInterface {
     GTypeInterface parent;
 
-    GList*       (*get_devices) (KorvaDeviceLister *self);
-    KorvaDevice* (*get_device_info) (KorvaDeviceLister *self, const char *uid);
-    gint         (*get_device_count) (KorvaDeviceLister *self);
-    gboolean     (*idle) (KorvaDeviceLister *self);
+    GList        * (*get_devices)(KorvaDeviceLister * self);
+    KorvaDevice  * (*get_device_info)(KorvaDeviceLister * self, const char *uid);
+    gint           (*get_device_count)(KorvaDeviceLister *self);
+    gboolean       (*idle)(KorvaDeviceLister *self);
 
     /* signals */
-    void (*device_available) (KorvaDevice *device);
-    void (*device_unavailable) (const char *uid);
+    void           (*device_available)(KorvaDevice *device);
+    void           (*device_unavailable)(const char *uid);
 };
 
 G_END_DECLS
 
-GList*
+GList *
 korva_device_lister_get_devices (KorvaDeviceLister *self);
 
 KorvaDevice *

@@ -16,7 +16,7 @@
 
     You should have received a copy of the GNU Lesser General Public License
     along with Korva.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ */
 
 #include <string.h>
 
@@ -56,14 +56,14 @@ test_upnp_fileserver_single_instance (void)
 }
 
 typedef struct {
-    GMainLoop *loop;
-    char *result_uri;
-    char *in_uri;
+    GMainLoop           *loop;
+    char                *result_uri;
+    char                *in_uri;
     KorvaUPnPFileServer *server;
-    GFile *in_file;
-    GHashTable *in_params;
-    GHashTable *result_params;
-    GError *result_error;
+    GFile               *in_file;
+    GHashTable          *in_params;
+    GHashTable          *result_params;
+    GError              *result_error;
 } HostFileTestData;
 
 static void
@@ -71,9 +71,9 @@ test_host_file_setup (HostFileTestData *data, gconstpointer user_data)
 {
     memset (data, 0, sizeof (HostFileTestData));
 
-    data->in_file = g_file_new_for_commandline_arg (TEST_DATA_DIR"/test-upnp-image.jpg");
+    data->in_file = g_file_new_for_commandline_arg (TEST_DATA_DIR "/test-upnp-image.jpg");
     data->in_uri = g_file_get_uri (data->in_file);
-    
+
     data->in_params = g_hash_table_new_full (g_str_hash,
                                              (GEqualFunc) g_str_equal,
                                              g_free,
@@ -98,9 +98,9 @@ test_host_file_teardown (HostFileTestData *data, gconstpointer user_data)
 }
 
 static void
-test_upnp_fileserver_host_file_on_host_file (GObject *source,
+test_upnp_fileserver_host_file_on_host_file (GObject      *source,
                                              GAsyncResult *res,
-                                             gpointer user_data)
+                                             gpointer      user_data)
 {
     HostFileTestData *data = (HostFileTestData *) user_data;
     KorvaUPnPFileServer *server = KORVA_UPNP_FILE_SERVER (source);
@@ -109,7 +109,7 @@ test_upnp_fileserver_host_file_on_host_file (GObject *source,
                                                                 res,
                                                                 &(data->result_params),
                                                                 &(data->result_error));
-    
+
     g_main_loop_quit (data->loop);
 }
 
@@ -243,7 +243,7 @@ test_upnp_fileserver_host_file_error (HostFileTestData *data, gconstpointer user
     g_assert (data->result_uri == NULL);
     g_assert (data->result_error != NULL);
     g_assert_cmpint (data->result_error->code, ==, KORVA_CONTROLLER1_ERROR_FILE_NOT_FOUND);
-    g_assert (data->result_params == NULL);    
+    g_assert (data->result_params == NULL);
 
     g_free (uri);
 }
@@ -277,11 +277,11 @@ test_upnp_file_server_host_file_no_access (HostFileTestData *data, gconstpointer
     g_assert (data->result_uri == NULL);
     g_assert (data->result_error != NULL);
     g_assert_cmpint (data->result_error->code, ==, KORVA_CONTROLLER1_ERROR_NOT_ACCESSIBLE);
-    g_assert (data->result_params == NULL);    
+    g_assert (data->result_params == NULL);
 
     close (fd);
     g_remove (template);
-    
+
     g_free (uri);
     g_free (template);
 }
@@ -289,7 +289,7 @@ test_upnp_file_server_host_file_no_access (HostFileTestData *data, gconstpointer
 static void
 test_upnp_fileserver_host_file_timeout (HostFileTestData *data, gconstpointer user_data)
 {
-    if (!g_test_slow()) {
+    if (!g_test_slow ()) {
         return;
     }
 
@@ -311,7 +311,7 @@ test_upnp_fileserver_host_file_timeout (HostFileTestData *data, gconstpointer us
                            data->loop);
     g_main_loop_run (data->loop);
 
-    g_assert (korva_upnp_file_server_idle (data->server)); 
+    g_assert (korva_upnp_file_server_idle (data->server));
 }
 
 static void
@@ -534,20 +534,21 @@ test_upnp_fileserver_http_server_content_features (HostFileTestData *data, gcons
 }
 
 typedef struct {
-    GMainLoop *loop;
-    MockDMR *dmr;
-    KorvaUPnPDevice *device;
+    GMainLoop         *loop;
+    MockDMR           *dmr;
+    GUPnPDeviceProxy  *proxy;
+    KorvaUPnPDevice   *device;
     GUPnPControlPoint *cp;
-    gboolean init_result;
-    GError *init_error;
-	GError *result_error;
-	char *result_tag;
+    gboolean           init_result;
+    GError            *init_error;
+    GError            *result_error;
+    char              *result_tag;
 } UPnPDeviceData;
 
 static void
-device_setup_on_device_init (GObject *object,
+device_setup_on_device_init (GObject      *object,
                              GAsyncResult *result,
-                             gpointer user_data)
+                             gpointer      user_data)
 {
     UPnPDeviceData *data = (UPnPDeviceData *) user_data;
 
@@ -559,51 +560,52 @@ device_setup_on_device_init (GObject *object,
 
 static void
 device_setup_on_proxy_available (GUPnPControlPoint *cp,
-                                 GUPnPDeviceProxy *proxy,
-                                 gpointer user_data)
+                                 GUPnPDeviceProxy  *proxy,
+                                 gpointer           user_data)
 {
     UPnPDeviceData *data = (UPnPDeviceData *) user_data;
 
+    data->proxy = g_object_ref (proxy);
     data->device = g_object_new (KORVA_TYPE_UPNP_DEVICE,
-                                 "proxy", g_object_ref (proxy),
+                                 "proxy", data->proxy,
                                  NULL);
     g_async_initable_init_async (G_ASYNC_INITABLE (data->device),
                                  G_PRIORITY_DEFAULT,
                                  NULL,
                                  device_setup_on_device_init,
                                  data);
-}                                
+}
 
 static gboolean
-test_device_fatal_handler (const gchar *log_domain,
+test_device_fatal_handler (const gchar   *log_domain,
                            GLogLevelFlags log_level,
-                           const gchar *message,
-                           gpointer user_data)
+                           const gchar   *message,
+                           gpointer       user_data)
 {
-	if (log_domain == NULL && ((log_level & G_LOG_LEVEL_WARNING) == G_LOG_LEVEL_WARNING)) {
-		return FALSE;
-	}
+    if (log_domain == NULL && ((log_level & G_LOG_LEVEL_WARNING) == G_LOG_LEVEL_WARNING)) {
+        return FALSE;
+    }
 
-	return TRUE;
+    return TRUE;
 }
 
 static void
 test_upnp_device_setup (UPnPDeviceData *data, gconstpointer user_data)
 {
     GUPnPContext *context;
-	int dmr_fault = GPOINTER_TO_INT (user_data);
+    int dmr_fault = GPOINTER_TO_INT (user_data);
 
     memset (data, 0, sizeof (UPnPDeviceData));
 
     data->loop = g_main_loop_new (NULL, FALSE);
     data->dmr = mock_dmr_new (dmr_fault);
-	if (dmr_fault == MOCK_DMR_FAULT_PROTOCOL_INFO_CALL_INVALID ||
-	    dmr_fault == MOCK_DMR_FAULT_PROTOCOL_INFO_CALL_ERROR) {
-		mock_dmr_set_protocol_info (data->dmr, NULL, NULL);
-		g_test_log_set_fatal_handler (test_device_fatal_handler, NULL);
-	} else {
-		mock_dmr_set_protocol_info (data->dmr, NULL, "*:*:*:*,http-get:*:image/jpeg:*");
-	}
+    if (dmr_fault == MOCK_DMR_FAULT_PROTOCOL_INFO_CALL_INVALID ||
+        dmr_fault == MOCK_DMR_FAULT_PROTOCOL_INFO_CALL_ERROR) {
+        mock_dmr_set_protocol_info (data->dmr, NULL, NULL);
+        g_test_log_set_fatal_handler (test_device_fatal_handler, NULL);
+    } else {
+        mock_dmr_set_protocol_info (data->dmr, NULL, "*:*:*:*,http-get:*:image/jpeg:*");
+    }
     context = gupnp_device_info_get_context (GUPNP_DEVICE_INFO (data->dmr));
     data->cp = gupnp_control_point_new (context, MOCK_DMR_UDN);
     gssdp_resource_browser_set_active (GSSDP_RESOURCE_BROWSER (data->cp), TRUE);
@@ -636,29 +638,30 @@ test_upnp_device (UPnPDeviceData *data, gconstpointer user_data)
     GVariantIter iter;
     guint found_keys = 0;
     char *key;
-	int fault = GPOINTER_TO_INT (user_data);
+    int fault = GPOINTER_TO_INT (user_data);
 
-	if (fault == MOCK_DMR_FAULT_NO_AV_TRANSPORT) {
-		g_main_loop_run (data->loop);
-	}
-	
-	if (fault == MOCK_DMR_FAULT_PROTOCOL_INFO_CALL_INVALID ||
-	    fault == MOCK_DMR_FAULT_NO_AV_TRANSPORT ||
-	    fault == MOCK_DMR_FAULT_NO_CONNECTION_MANAGER) {
-		g_assert (!data->init_result);
-		g_assert (data->init_error != NULL);
-		g_assert (data->init_error->domain == KORVA_UPNP_DEVICE_ERROR);
-		g_assert_cmpint (data->init_error->code, ==, MISSING_SERVICE);
+    if (fault == MOCK_DMR_FAULT_NO_AV_TRANSPORT) {
+        g_main_loop_run (data->loop);
+    }
 
-		return;
-	} else if (fault == MOCK_DMR_FAULT_PROTOCOL_INFO_CALL_ERROR) {
-		g_assert (!data->init_result);
-		g_assert (data->init_error != NULL);
-		g_assert (data->init_error->domain == GUPNP_CONTROL_ERROR);
-		g_assert_cmpint (data->init_error->code, ==, 501);
+    if (fault == MOCK_DMR_FAULT_PROTOCOL_INFO_CALL_INVALID ||
+        fault == MOCK_DMR_FAULT_NO_AV_TRANSPORT ||
+        fault == MOCK_DMR_FAULT_NO_CONNECTION_MANAGER ||
+        fault == MOCK_DMR_FAULT_GET_TRANSPORT_INFO_FAIL) {
+        g_assert (!data->init_result);
+        g_assert (data->init_error != NULL);
+        g_assert (data->init_error->domain == KORVA_UPNP_DEVICE_ERROR);
+        g_assert_cmpint (data->init_error->code, ==, MISSING_SERVICE);
 
-		return;
-	}
+        return;
+    } else if (fault == MOCK_DMR_FAULT_PROTOCOL_INFO_CALL_ERROR) {
+        g_assert (!data->init_result);
+        g_assert (data->init_error != NULL);
+        g_assert (data->init_error->domain == GUPNP_CONTROL_ERROR);
+        g_assert_cmpint (data->init_error->code, ==, 501);
+
+        return;
+    }
 
     g_assert (data->init_result);
     g_assert (data->init_error == NULL);
@@ -667,7 +670,7 @@ test_upnp_device (UPnPDeviceData *data, gconstpointer user_data)
 
     info = korva_device_serialize (KORVA_DEVICE (data->device));
 
-    g_assert_cmpstr ((const char *)g_variant_get_type (info), ==, (const char *)G_VARIANT_TYPE_VARDICT);
+    g_assert_cmpstr ((const char *) g_variant_get_type (info), ==, (const char *) G_VARIANT_TYPE_VARDICT);
     g_variant_iter_init (&iter, info);
 
     /* Check the mandatory keys */
@@ -695,9 +698,9 @@ test_upnp_device (UPnPDeviceData *data, gconstpointer user_data)
         }
     }
 
-	/* check that we get the default icon as the DMR doesn't have one */
-	g_assert_cmpstr (korva_device_get_icon_uri (KORVA_DEVICE (data->device)), ==,
-	                 korva_icon_cache_get_default (DEVICE_TYPE_PLAYER));
+    /* check that we get the default icon as the DMR doesn't have one */
+    g_assert_cmpstr (korva_device_get_icon_uri (KORVA_DEVICE (data->device)), ==,
+                     korva_icon_cache_get_default (DEVICE_TYPE_PLAYER));
 
     g_assert_cmpint (found_keys & KEY_ALL, ==, KEY_ALL);
 }
@@ -705,204 +708,195 @@ test_upnp_device (UPnPDeviceData *data, gconstpointer user_data)
 static void
 test_upnp_device_multiple_proxies (UPnPDeviceData *data, gconstpointer user_data)
 {
-    GUPnPDeviceProxy *proxy;
-
-    g_object_get (data->device, "proxy", &proxy, NULL);
-    g_assert (proxy != NULL);
-    korva_upnp_device_add_proxy (data->device, proxy);
-    g_assert (!korva_upnp_device_remove_proxy (data->device, proxy));
-    g_assert (korva_upnp_device_remove_proxy (data->device, proxy));
+    g_assert (data->proxy != NULL);
+    korva_upnp_device_add_proxy (data->device, data->proxy);
+    g_assert (!korva_upnp_device_remove_proxy (data->device, data->proxy));
+    g_assert (korva_upnp_device_remove_proxy (data->device, data->proxy));
 }
 
 static void
-on_test_upnp_device_share_push_async (GObject *source,
+on_test_upnp_device_share_push_async (GObject      *source,
                                       GAsyncResult *res,
-                                      gpointer user_data)
+                                      gpointer      user_data)
 {
-	UPnPDeviceData *data = (UPnPDeviceData *) user_data;
-	
-	data->result_tag = korva_device_push_finish (KORVA_DEVICE (source),
-	                                             res,
-	                                             &(data->result_error));
-	g_main_loop_quit (data->loop);
+    UPnPDeviceData *data = (UPnPDeviceData *) user_data;
+
+    data->result_tag = korva_device_push_finish (KORVA_DEVICE (source),
+                                                 res,
+                                                 &(data->result_error));
+    g_main_loop_quit (data->loop);
 }
 
 static void
-on_test_upnp_device_share_unshare_async (GObject *source,
+on_test_upnp_device_share_unshare_async (GObject      *source,
                                          GAsyncResult *res,
-                                         gpointer user_data)
+                                         gpointer      user_data)
 {
-	UPnPDeviceData *data = (UPnPDeviceData *) user_data;
-	
-	korva_device_unshare_finish (KORVA_DEVICE (source),
-	                             res,
-	                             &(data->result_error));
+    UPnPDeviceData *data = (UPnPDeviceData *) user_data;
 
-	g_main_loop_quit (data->loop);
+    korva_device_unshare_finish (KORVA_DEVICE (source),
+                                 res,
+                                 &(data->result_error));
+
+    g_main_loop_quit (data->loop);
 }
 
 static void
 test_upnp_device_share (UPnPDeviceData *data, gconstpointer user_data)
 {
-	GVariantBuilder *source;
-	GFile *file;
-	char *uri;
-	KorvaUPnPFileServer *server;
+    GVariantBuilder *source;
+    GFile *file;
+    char *uri;
+    KorvaUPnPFileServer *server;
 
-	/* create server instance here to make sure the device uses the same server */
-	server = korva_upnp_file_server_get_default ();
+    /* create server instance here to make sure the device uses the same server */
+    server = korva_upnp_file_server_get_default ();
     g_assert (korva_upnp_file_server_idle (server));
-	
-    file = g_file_new_for_commandline_arg (TEST_DATA_DIR"/test-upnp-image.jpg");
+
+    file = g_file_new_for_commandline_arg (TEST_DATA_DIR "/test-upnp-image.jpg");
     uri = g_file_get_uri (file);
 
-	source = g_variant_builder_new (G_VARIANT_TYPE_VARDICT);
-	g_variant_builder_add (source, "{sv}", "URI", g_variant_new_string (uri));
-	korva_device_push_async (KORVA_DEVICE (data->device), 
-	                         g_variant_builder_end (source),
-	                         on_test_upnp_device_share_push_async,
-	                         data);
-	
-	g_main_loop_run (data->loop);
+    source = g_variant_builder_new (G_VARIANT_TYPE_VARDICT);
+    g_variant_builder_add (source, "{sv}", "URI", g_variant_new_string (uri));
+    korva_device_push_async (KORVA_DEVICE (data->device),
+                             g_variant_builder_end (source),
+                             on_test_upnp_device_share_push_async,
+                             data);
 
-	g_assert (data->result_error == NULL);
-	g_assert (data->result_tag != NULL);
-	g_assert (!korva_upnp_file_server_idle (server));
+    g_main_loop_run (data->loop);
 
-	korva_device_unshare_async (KORVA_DEVICE (data->device),
-	                            data->result_tag,
-	                            on_test_upnp_device_share_unshare_async,
-	                            data);
+    g_assert (data->result_error == NULL);
+    g_assert (data->result_tag != NULL);
+    g_assert (!korva_upnp_file_server_idle (server));
 
-	g_main_loop_run (data->loop);
+    korva_device_unshare_async (KORVA_DEVICE (data->device),
+                                data->result_tag,
+                                on_test_upnp_device_share_unshare_async,
+                                data);
 
-	g_assert (data->result_error == NULL);
-	g_assert (korva_upnp_file_server_idle (server));
-    
-	korva_device_unshare_async (KORVA_DEVICE (data->device),
-	                            "ThisIsAnInvalidTag",
-	                            on_test_upnp_device_share_unshare_async,
-	                            data);
+    g_main_loop_run (data->loop);
 
-	g_main_loop_run (data->loop);
+    g_assert (data->result_error == NULL);
+    g_assert (korva_upnp_file_server_idle (server));
 
-	g_assert (data->result_error != NULL);
+    korva_device_unshare_async (KORVA_DEVICE (data->device),
+                                "ThisIsAnInvalidTag",
+                                on_test_upnp_device_share_unshare_async,
+                                data);
+
+    g_main_loop_run (data->loop);
+
+    g_assert (data->result_error != NULL);
     g_assert_cmpint (data->result_error->domain, ==, KORVA_CONTROLLER1_ERROR);
-    g_assert_cmpint (data->result_error->code, ==, KORVA_CONTROLLER1_ERROR_NO_SUCH_TRANSFER);    
+    g_assert_cmpint (data->result_error->code, ==, KORVA_CONTROLLER1_ERROR_NO_SUCH_TRANSFER);
 
-	g_object_unref (server);
-	g_free (uri);
+    g_object_unref (server);
+    g_free (uri);
 }
 
 static void
 test_upnp_device_share_transport_locked (UPnPDeviceData *data, gconstpointer user_data)
 {
-	GVariantBuilder *source;
-	GFile *file;
-	char *uri;
-	KorvaUPnPFileServer *server;
+    GVariantBuilder *source;
+    GFile *file;
+    char *uri;
+    KorvaUPnPFileServer *server;
 
-	/* create server instance here to make sure the device uses the same server */
-	server = korva_upnp_file_server_get_default ();
+    /* create server instance here to make sure the device uses the same server */
+    server = korva_upnp_file_server_get_default ();
     g_assert (korva_upnp_file_server_idle (server));
 
-    file = g_file_new_for_commandline_arg (TEST_DATA_DIR"/test-upnp-image.jpg");
+    file = g_file_new_for_commandline_arg (TEST_DATA_DIR "/test-upnp-image.jpg");
     uri = g_file_get_uri (file);
 
-	source = g_variant_builder_new (G_VARIANT_TYPE_VARDICT);
-	g_variant_builder_add (source, "{sv}", "URI", g_variant_new_string (uri));
-	korva_device_push_async (KORVA_DEVICE (data->device), 
-	                         g_variant_builder_end (source),
-	                         on_test_upnp_device_share_push_async,
-	                         data);
-	
-	g_main_loop_run (data->loop);
-	
-	g_assert (data->result_error == NULL);
-	g_assert (data->result_tag != NULL);
-	g_assert (!korva_upnp_file_server_idle (server));
+    source = g_variant_builder_new (G_VARIANT_TYPE_VARDICT);
+    g_variant_builder_add (source, "{sv}", "URI", g_variant_new_string (uri));
+    korva_device_push_async (KORVA_DEVICE (data->device),
+                             g_variant_builder_end (source),
+                             on_test_upnp_device_share_push_async,
+                             data);
 
-	korva_device_unshare_async (KORVA_DEVICE (data->device),
-	                            data->result_tag,
-	                            on_test_upnp_device_share_unshare_async,
-	                            data);
+    g_main_loop_run (data->loop);
 
-	g_main_loop_run (data->loop);
+    g_assert (data->result_error == NULL);
+    g_assert (data->result_tag != NULL);
+    g_assert (!korva_upnp_file_server_idle (server));
 
-	g_assert (data->result_error == NULL);
-	g_assert (korva_upnp_file_server_idle (server));
+    korva_device_unshare_async (KORVA_DEVICE (data->device),
+                                data->result_tag,
+                                on_test_upnp_device_share_unshare_async,
+                                data);
 
-	/* Check that we don't get stuck in an endless loop when the transport
-	 * doesn't get unlocked
-	 */
-	mock_dmr_set_fault (data->dmr, MOCK_DMR_FAULT_TRANSPORT_LOCKED);
+    g_main_loop_run (data->loop);
 
-	source = g_variant_builder_new (G_VARIANT_TYPE_VARDICT);
-	g_variant_builder_add (source, "{sv}", "URI", g_variant_new_string (uri));
-	korva_device_push_async (KORVA_DEVICE (data->device), 
-	                         g_variant_builder_end (source),
-	                         on_test_upnp_device_share_push_async,
-	                         data);
-	
-	g_main_loop_run (data->loop);
-	
-	g_assert (data->result_error != NULL);
-	g_print ("%s\n", data->result_error->message);
-	g_assert (data->result_tag == NULL);
+    g_assert (data->result_error == NULL);
+    g_assert (korva_upnp_file_server_idle (server));
+
+    /* Check that we don't get stuck in an endless loop when the transport
+     * doesn't get unlocked
+     */
+    mock_dmr_set_fault (data->dmr, MOCK_DMR_FAULT_TRANSPORT_LOCKED);
+
+    source = g_variant_builder_new (G_VARIANT_TYPE_VARDICT);
+    g_variant_builder_add (source, "{sv}", "URI", g_variant_new_string (uri));
+    korva_device_push_async (KORVA_DEVICE (data->device),
+                             g_variant_builder_end (source),
+                             on_test_upnp_device_share_push_async,
+                             data);
+
+    g_main_loop_run (data->loop);
+
+    g_assert (data->result_error != NULL);
+    g_print ("%s\n", data->result_error->message);
+    g_assert (data->result_tag == NULL);
     g_object_unref (server);
 }
 
 static void
 test_upnp_device_share_ops_fail (UPnPDeviceData *data, gconstpointer user_data)
 {
-	GVariantBuilder *source;
-	GFile *file;
-	char *uri;
-	KorvaUPnPFileServer *server;
-    guint timeout_id;
+    GVariantBuilder *source;
+    GFile *file;
+    char *uri;
+    KorvaUPnPFileServer *server;
     int fault = GPOINTER_TO_INT (user_data);
 
-    /* Wait for the initial events so we get the player's state */
-    timeout_id = g_timeout_add_seconds (2, (GSourceFunc) g_main_loop_quit, data->loop);
-    g_main_loop_run (data->loop);
-    g_source_remove (timeout_id);
-    
-	/* create server instance here to make sure the device uses the same server */
-	server = korva_upnp_file_server_get_default ();
+    /* create server instance here to make sure the device uses the same server */
+    server = korva_upnp_file_server_get_default ();
     g_assert (korva_upnp_file_server_idle (server));
-	
-    file = g_file_new_for_commandline_arg (TEST_DATA_DIR"/test-upnp-image.jpg");
+
+    file = g_file_new_for_commandline_arg (TEST_DATA_DIR "/test-upnp-image.jpg");
     uri = g_file_get_uri (file);
 
-	source = g_variant_builder_new (G_VARIANT_TYPE_VARDICT);
-	g_variant_builder_add (source, "{sv}", "URI", g_variant_new_string (uri));
-	korva_device_push_async (KORVA_DEVICE (data->device), 
-	                         g_variant_builder_end (source),
-	                         on_test_upnp_device_share_push_async,
-	                         data);
-	
-	g_main_loop_run (data->loop);
+    source = g_variant_builder_new (G_VARIANT_TYPE_VARDICT);
+    g_variant_builder_add (source, "{sv}", "URI", g_variant_new_string (uri));
+    korva_device_push_async (KORVA_DEVICE (data->device),
+                             g_variant_builder_end (source),
+                             on_test_upnp_device_share_push_async,
+                             data);
+
+    g_main_loop_run (data->loop);
 
     if (fault == MOCK_DMR_FAULT_PLAY_FAIL) {
         g_assert (korva_upnp_file_server_idle (server));
-    	g_assert (data->result_error != NULL);
-    	g_assert (data->result_tag == NULL);
+        g_assert (data->result_error != NULL);
+        g_assert (data->result_tag == NULL);
     } else {
         g_assert (!korva_upnp_file_server_idle (server));
-    	g_assert (data->result_error == NULL);
-    	g_assert (data->result_tag != NULL);
+        g_assert (data->result_error == NULL);
+        g_assert (data->result_tag != NULL);
     }
 
     if (fault == MOCK_DMR_FAULT_STOP_FAIL) {
-	    korva_device_unshare_async (KORVA_DEVICE (data->device),
-	                                data->result_tag,
-	                                on_test_upnp_device_share_unshare_async,
-	                                data);
+        korva_device_unshare_async (KORVA_DEVICE (data->device),
+                                    data->result_tag,
+                                    on_test_upnp_device_share_unshare_async,
+                                    data);
 
-	    g_main_loop_run (data->loop);
+        g_main_loop_run (data->loop);
 
         g_assert (korva_upnp_file_server_idle (server));
-    	g_assert (data->result_error != NULL);
+        g_assert (data->result_error != NULL);
     }
 
     g_object_unref (server);
@@ -911,38 +905,38 @@ test_upnp_device_share_ops_fail (UPnPDeviceData *data, gconstpointer user_data)
 static void
 test_upnp_device_share_not_compatible (UPnPDeviceData *data, gconstpointer user_data)
 {
-	GVariantBuilder *source;
-	GFile *file;
-	char *uri;
-	KorvaUPnPFileServer *server;
+    GVariantBuilder *source;
+    GFile *file;
+    char *uri;
+    KorvaUPnPFileServer *server;
 
-	/* create server instance here to make sure the device uses the same server */
+    /* create server instance here to make sure the device uses the same server */
     mock_dmr_set_protocol_info (data->dmr, "", "");
-	server = korva_upnp_file_server_get_default ();
+    server = korva_upnp_file_server_get_default ();
     g_assert (korva_upnp_file_server_idle (server));
-	
-    file = g_file_new_for_commandline_arg (TEST_DATA_DIR"/test-upnp-image.jpg");
+
+    file = g_file_new_for_commandline_arg (TEST_DATA_DIR "/test-upnp-image.jpg");
     uri = g_file_get_uri (file);
 
-	source = g_variant_builder_new (G_VARIANT_TYPE_VARDICT);
-	g_variant_builder_add (source, "{sv}", "URI", g_variant_new_string (uri));
-	korva_device_push_async (KORVA_DEVICE (data->device), 
-	                         g_variant_builder_end (source),
-	                         on_test_upnp_device_share_push_async,
-	                         data);
-	
-	g_main_loop_run (data->loop);
-	
-	g_assert (data->result_error != NULL);
-	g_assert (data->result_tag == NULL);
+    source = g_variant_builder_new (G_VARIANT_TYPE_VARDICT);
+    g_variant_builder_add (source, "{sv}", "URI", g_variant_new_string (uri));
+    korva_device_push_async (KORVA_DEVICE (data->device),
+                             g_variant_builder_end (source),
+                             on_test_upnp_device_share_push_async,
+                             data);
+
+    g_main_loop_run (data->loop);
+
+    g_assert (data->result_error != NULL);
+    g_assert (data->result_tag == NULL);
     g_assert_cmpint (data->result_error->domain, ==, KORVA_CONTROLLER1_ERROR);
-    g_assert_cmpint (data->result_error->code, ==, KORVA_CONTROLLER1_ERROR_NOT_COMPATIBLE); 
-	g_assert (korva_upnp_file_server_idle (server));
+    g_assert_cmpint (data->result_error->code, ==, KORVA_CONTROLLER1_ERROR_NOT_COMPATIBLE);
+    g_assert (korva_upnp_file_server_idle (server));
 
     g_object_unref (server);
 }
 
-int main(int argc, char *argv[])
+int main (int argc, char *argv[])
 {
     g_type_init ();
     korva_icon_cache_init ();
@@ -1019,11 +1013,18 @@ int main(int argc, char *argv[])
                 GINT_TO_POINTER (MOCK_DMR_FAULT_PROTOCOL_INFO_CALL_ERROR),
                 test_upnp_device_setup,
                 test_upnp_device,
-                test_upnp_device_teardown);	
+                test_upnp_device_teardown);
 
-	g_test_add ("/korva/server/upnp/device/protocol_info_invalid",
+    g_test_add ("/korva/server/upnp/device/protocol_info_invalid",
                 UPnPDeviceData,
                 GINT_TO_POINTER (MOCK_DMR_FAULT_PROTOCOL_INFO_CALL_INVALID),
+                test_upnp_device_setup,
+                test_upnp_device,
+                test_upnp_device_teardown);
+
+    g_test_add ("/korva/server/upnp/device/transport-info-fail",
+                UPnPDeviceData,
+                GINT_TO_POINTER (MOCK_DMR_FAULT_GET_TRANSPORT_INFO_FAIL),
                 test_upnp_device_setup,
                 test_upnp_device,
                 test_upnp_device_teardown);
@@ -1035,55 +1036,55 @@ int main(int argc, char *argv[])
                 test_upnp_device_multiple_proxies,
                 test_upnp_device_teardown);
 
-/*	g_test_add ("/korva/server/upnp/device/no-avtransport",
+/*    g_test_add ("/korva/server/upnp/device/no-avtransport",
                 UPnPDeviceData,
-	            GINT_TO_POINTER (MOCK_DMR_FAULT_NO_AV_TRANSPORT),
+                GINT_TO_POINTER (MOCK_DMR_FAULT_NO_AV_TRANSPORT),
                 test_upnp_device_setup,
                 test_upnp_device,
-                test_upnp_device_teardown);	
+                test_upnp_device_teardown);
 
-	g_test_add ("/korva/server/upnp/device/no-connectionmanager",
+    g_test_add ("/korva/server/upnp/device/no-connectionmanager",
                 UPnPDeviceData,
-	            GINT_TO_POINTER (MOCK_DMR_FAULT_NO_CONNECTION_MANAGER),
+                GINT_TO_POINTER (MOCK_DMR_FAULT_NO_CONNECTION_MANAGER),
                 test_upnp_device_setup,
                 test_upnp_device,
-                test_upnp_device_teardown);	
-	*/
+                test_upnp_device_teardown);
+ */
 
-	g_test_add ("/korva/server/upnp/device/share",
-	            UPnPDeviceData,
-	            NULL,
+    g_test_add ("/korva/server/upnp/device/share",
+                UPnPDeviceData,
+                NULL,
                 test_upnp_device_setup,
                 test_upnp_device_share,
-                test_upnp_device_teardown);	
+                test_upnp_device_teardown);
 
-	g_test_add ("/korva/server/upnp/device/share/transport-locked",
-	            UPnPDeviceData,
-	            GINT_TO_POINTER (MOCK_DMR_FAULT_TRANSPORT_LOCKED_ONCE),
+    g_test_add ("/korva/server/upnp/device/share/transport-locked",
+                UPnPDeviceData,
+                GINT_TO_POINTER (MOCK_DMR_FAULT_TRANSPORT_LOCKED_ONCE),
                 test_upnp_device_setup,
                 test_upnp_device_share_transport_locked,
-                test_upnp_device_teardown);	
+                test_upnp_device_teardown);
 
     g_test_add ("/korva/server/upnp/device/share/play-fail",
-	            UPnPDeviceData,
-	            GINT_TO_POINTER (MOCK_DMR_FAULT_PLAY_FAIL),
+                UPnPDeviceData,
+                GINT_TO_POINTER (MOCK_DMR_FAULT_PLAY_FAIL),
                 test_upnp_device_setup,
                 test_upnp_device_share_ops_fail,
-                test_upnp_device_teardown);	
+                test_upnp_device_teardown);
 
     g_test_add ("/korva/server/upnp/device/share/stop-fail",
-	            UPnPDeviceData,
-	            GINT_TO_POINTER (MOCK_DMR_FAULT_STOP_FAIL),
+                UPnPDeviceData,
+                GINT_TO_POINTER (MOCK_DMR_FAULT_STOP_FAIL),
                 test_upnp_device_setup,
                 test_upnp_device_share_ops_fail,
-                test_upnp_device_teardown);	
+                test_upnp_device_teardown);
 
     g_test_add ("/korva/server/upnp/device/share/not-compatible",
-	            UPnPDeviceData,
-	            GINT_TO_POINTER (MOCK_DMR_FAULT_EMPTY_PROTOCOL_INFO),
+                UPnPDeviceData,
+                GINT_TO_POINTER (MOCK_DMR_FAULT_EMPTY_PROTOCOL_INFO),
                 test_upnp_device_setup,
                 test_upnp_device_share_not_compatible,
-                test_upnp_device_teardown);	
+                test_upnp_device_teardown);
 
     g_test_run ();
 
