@@ -20,6 +20,8 @@
 
 #define G_LOG_DOMAIN "Korva-UPnP-File-Server"
 
+#include <string.h>
+
 #include <libgupnp-av/gupnp-av.h>
 
 #include "korva-upnp-constants-private.h"
@@ -33,6 +35,7 @@ struct _KorvaUPnPHostDataPrivate {
     char       *protocol_info;
     GList      *peers;
     uint        timeout_id;
+    char       *extension;
 };
 
 enum KorvaUPnPHostDataProperties {
@@ -67,6 +70,9 @@ korva_upnp_host_data_set_property (GObject      *object,
 /* KorvaUPnPHostData private functions */
 static gboolean
 korva_upnp_host_data_on_timeout (gpointer user_data);
+
+static const char *
+korva_upnp_host_data_get_extension (KorvaUPnPHostData *self);
 
 static void
 korva_upnp_host_data_class_init (KorvaUPnPHostDataClass *klass)
@@ -177,6 +183,11 @@ korva_upnp_host_data_finalize (GObject *object)
     if (self->priv->protocol_info != NULL) {
         g_free (self->priv->protocol_info);
         self->priv->protocol_info = NULL;
+    }
+
+    if (self->priv->extension != NULL) {
+        g_free (self->priv->extension);
+        self->priv->extension = NULL;
     }
 
     G_OBJECT_CLASS (korva_upnp_host_data_parent_class)->finalize (object);
@@ -355,19 +366,23 @@ korva_upnp_host_data_get_id (KorvaUPnPHostData *self)
  * @iface: IP address of the network interface the HTTP server is running on.
  * @port: TCP port the HTTP server is listening on.
  *
- * Returns: (transfer full): A new string containing the id. Free after use.
+ * Returns: (transfer full): A new string containing the uri. Free after use.
  */
 char *
 korva_upnp_host_data_get_uri (KorvaUPnPHostData *self, const char *iface, guint port)
 {
     char *hash, *result;
+    const char *ext;
 
     hash = korva_upnp_host_data_get_id (self);
 
-    result = g_strdup_printf ("http://%s:%u/item/%s",
+    ext = korva_upnp_host_data_get_extension (self);
+
+    result = g_strdup_printf ("http://%s:%u/item/%s.%s",
                               iface,
                               port,
-                              hash);
+                              hash,
+                              ext);
 
     g_free (hash);
 
@@ -563,4 +578,108 @@ gboolean
 korva_upnp_host_data_has_peers (KorvaUPnPHostData *self)
 {
     return self->priv->peers != NULL;
+}
+
+/**
+ * korva_upnp_host_data_get_extension:
+ *
+ * Get the file extension for the current file.
+ *
+ * @self:  An instance of #KorvaUPnPHostData
+ * Returns: (transfer none): The extension associated with the file.
+ */
+static const char *
+korva_upnp_host_data_get_extension (KorvaUPnPHostData *self)
+{
+    GVariant *value;
+    const char *dlna_profile, *content_type, *ext;
+    char *path = NULL;
+
+    if (self->priv->extension != NULL) {
+        goto out;
+    }
+
+    path = g_file_get_path (self->priv->file);
+    ext = g_strrstr (path, ".");
+    if (!(ext == NULL || *ext == '\0' || strlen (++ext) > 4)) {
+        self->priv->extension = g_strdup (ext);
+
+        goto out;
+    }
+
+    value = g_hash_table_lookup (self->priv->meta_data, "DLNAProfile");
+    if (value != NULL) {
+        dlna_profile = g_variant_get_string (value, NULL);
+        /* Images */
+        if (g_strstr_len (dlna_profile, -1, "JPEG") != NULL) {
+            self->priv->extension = g_strdup ("jpg");
+        } else if (g_strstr_len (dlna_profile, -1, "PNG") != NULL) {
+            self->priv->extension = g_strdup ("png");
+        } else if (g_strstr_len (dlna_profile, -1, "GIF") != NULL) {
+            self->priv->extension = g_strdup ("gif");
+        } else if (g_strstr_len (dlna_profile, -1, "_MP4_") != NULL) {
+            self->priv->extension = g_strdup ("mp4");
+        } else if (g_strstr_len (dlna_profile, -1, "MP3") != NULL) {
+            self->priv->extension = g_strdup ("mp3");
+        } else if (g_strstr_len (dlna_profile, -1, "_ISO") != NULL) {
+            self->priv->extension = g_strdup ("m4a");
+        } else if (g_strstr_len (dlna_profile, -1, "ADTS") != NULL) {
+            self->priv->extension = g_strdup ("adts");
+        } else if (g_strstr_len (dlna_profile, -1, "WMV") != NULL) {
+            self->priv->extension = g_strdup ("wmv");
+        } else if (g_strstr_len (dlna_profile, -1, "WMA") != NULL) {
+            self->priv->extension = g_strdup ("wma");
+        } else if (g_strstr_len (dlna_profile, -1, "_TS_") != NULL ||
+                   g_strstr_len (dlna_profile, -1, "_PS_") != NULL) {
+            self->priv->extension = g_strdup ("mpg");
+        } else if (g_strstr_len (dlna_profile, -1, "MKV") != NULL) {
+            self->priv->extension = g_strdup ("mkv");
+        }
+
+        if (self->priv->extension != NULL) {
+            goto out;
+        }
+    }
+
+    value = g_hash_table_lookup (self->priv->meta_data, "ContentType");
+    if (value != NULL) {
+        content_type = g_variant_get_string (value, NULL);
+        if (g_strcmp0 (content_type, "application/ogg") == 0 ||
+            g_strstr_len (content_type, -1, "+ogg") != NULL) {
+            self->priv->extension = g_strdup ("ogg");
+        } else if (g_strcmp0 (content_type, "audio/ogg") == 0) {
+            self->priv->extension = g_strdup ("oga");
+        } else if (g_strcmp0 (content_type, "video/ogg") == 0) {
+            self->priv->extension = g_strdup ("ogv");
+        } else if (g_strcmp0 (content_type, "audio/x-matroska") == 0) {
+            self->priv->extension = g_strdup ("mka");
+        } else if (g_strcmp0 (content_type, "video/x-matroska") == 0) {
+            self->priv->extension = g_strdup ("mkv");
+        } else if (g_strcmp0 (content_type, "video/webm") == 0) {
+            self->priv->extension = g_strdup ("webm");
+        } else if (g_strcmp0 (content_type, "image/jpeg") == 0) {
+            self->priv->extension = g_strdup ("jpg");
+        } else if (g_strcmp0 (content_type, "image/png") == 0) {
+            self->priv->extension = g_strdup ("png");
+        } else if (g_strcmp0 (content_type, "image/gif") == 0) {
+            self->priv->extension = g_strdup ("gif");
+        } else if (g_strcmp0 (content_type, "audio/mpeg") == 0) {
+            /* Could be anything, but let's use MP3 */
+            self->priv->extension = g_strdup ("mp3");
+        } else if (g_strrstr (content_type, "/mp4") != NULL) {
+            self->priv->extension = g_strdup ("mp4");
+        }
+
+        if (self->priv->extension != NULL) {
+            goto out;
+        }
+    }
+    self->priv->extension = g_strdup ("dat");
+
+out:
+    if (path != NULL) {
+        g_free (path);
+    }
+
+    return self->priv->extension;
 }
