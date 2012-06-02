@@ -165,7 +165,11 @@ korva_control_push (KorvaController1 *controller, const char *path, const char *
     char *out_tag;
     GError *error = NULL;
 
-    source = g_file_parse_name (path);
+    if (g_str_has_prefix (path, "~")) {
+        source = g_file_parse_name (path);
+    } else {
+        source = g_file_new_for_commandline_arg (path);
+    }
     builder = g_variant_builder_new (G_VARIANT_TYPE_ARRAY);
     g_variant_builder_add (builder, "{sv}", "URI", g_variant_new_string (g_file_get_uri (source)));
 
