@@ -1098,7 +1098,7 @@ korva_upnp_device_on_host_file_async (GObject      *source,
         dlna_profile = g_variant_get_string (value, NULL);
     }
 
-    writer = gupnp_didl_lite_writer_new ("en");
+    writer = gupnp_didl_lite_writer_new (NULL);
     object = GUPNP_DIDL_LITE_OBJECT (gupnp_didl_lite_writer_add_item (writer));
     gupnp_didl_lite_object_set_title (object, title);
     gupnp_didl_lite_object_set_id (object, "1");
