@@ -64,6 +64,11 @@ AM_CONDITIONAL([HAVE_XSLTPROC], [test x"$XSLTPROC" != x])
 
 dnl Fix compilation for included GLib components
 AC_DEFINE([GIO_COMPILATION],[],[Needed for compiling included GLib components])
+
+dnl Define variant type from 2.30
+AC_DEFINE([G_VARIANT_TYPE_VARDICT],[((const GVariantType *) "a{sv}")],[Port from GLib 2.30])
+
+dnl Force include config.h
 CFLAGS="${CFLAGS} -include config.h"
 
 AC_CONFIG_FILES([

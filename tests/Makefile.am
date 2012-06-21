@@ -1,4 +1,4 @@
-check_PROGRAMS=test-upnp
+noinst_PROGRAMS=test-upnp
 
 TESTS=$(check_PROGRAMS)
 

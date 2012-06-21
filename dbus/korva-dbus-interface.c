@@ -164,6 +164,7 @@ g_dbus_gvariant_to_gvalue (GVariant  *value,
 }
 
 
+#undef G_OS_UNIX
 #ifdef G_OS_UNIX
 #  include <gio/gunixfdlist.h>
 #endif
