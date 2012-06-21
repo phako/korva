@@ -2,4 +2,4 @@ opt/korva/lib/korva/korva
 opt/korva/bin/korva-control
 usr/share/dbus-1/services/pushup.service
 usr/lib/share-ui/plugins/libpushup_play.so
-opt/korva/share/korva/icons/icon-l-pushup_play.png
+usr/share/themes/blanco/meegotouch/icons/icon-l-pushup_play.png
