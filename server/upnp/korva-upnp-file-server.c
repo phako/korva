@@ -33,6 +33,9 @@
 #include "korva-upnp-metadata-query.h"
 #include "korva-upnp-host-data.h"
 
+/* A valid path consists of /item/md5 and an optional 4 character extension */
+#define KORVA_PATH_REGEX "^/item/([0-9a-fA-F]{32})(\\.[a-zA-Z0-9]{0,4})?$"
+
 G_DEFINE_TYPE (KorvaUPnPFileServer, korva_upnp_file_server, G_TYPE_OBJECT);
 
 struct _KorvaUPnPFileServerPrivate {
@@ -304,7 +307,7 @@ korva_upnp_file_server_init (KorvaUPnPFileServer *self)
                                                 (GEqualFunc) g_str_equal,
                                                 g_free,
                                                 g_object_unref);
-    self->priv->path_regex = g_regex_new ("^/item/([0-9a-fA-F]{32})$",
+    self->priv->path_regex = g_regex_new (KORVA_PATH_REGEX,
                                           G_REGEX_OPTIMIZE,
                                           G_REGEX_MATCH_NEWLINE_ANY,
                                           NULL);
