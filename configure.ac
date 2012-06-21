@@ -28,7 +28,7 @@ CFLAGS="${CFLAGS} -Wpointer-arith -Wwrite-strings -Winline -Wformat-nonliteral"
 CFLAGS="${CFLAGS} -Wcast-align -Wformat-security -Wswitch-enum"
 CFLAGS="${CFLAGS} -Wswitch-default"
 
-PKG_CHECK_MODULES([GIO], [gio-2.0 >= 2.28 libffi])
+PKG_CHECK_MODULES([GIO], [gio-2.0 >= 2.28])
 PKG_CHECK_MODULES([GUPNP], [gupnp-1.0 >= 0.15.0])
 PKG_CHECK_MODULES([SHAREUI], [share-ui-plugin mdatauri QtCore QtGui QtNetwork meegotouch])
 PKG_CHECK_MODULES([TRACKER], [tracker-sparql-0.10])
