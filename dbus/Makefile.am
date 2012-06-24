@@ -9,6 +9,8 @@ libkorva_dbus_a_SOURCES = gdbusinterface.h \
 						  gdbusobjectskeleton.h \
 						  korva-dbus-interface.c \
 						  korva-dbus-interface.h \
+						  tui.c \
+						  tui.h \
 						  $(BUILT_SOURCES)
 
 libkorva_dbus_a_CFLAGS = $(GIO_CFLAGS) -I $(srcdir)/.. -w $(COVERAGE_CFLAGS)

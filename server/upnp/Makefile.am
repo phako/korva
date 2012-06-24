@@ -13,3 +13,4 @@ libkorva_upnp_backend_a_SOURCES=\
 	korva-upnp-host-data.c
 
 libkorva_upnp_backend_a_CFLAGS = -I$(srcdir)/.. $(GUPNP_CFLAGS) $(TRACKER_CFLAGS) $(COVERAGE_CFLAGS)
+libkorva_upnp_backend_a_CFLAGS += -I$(top_srcdir)/dbus

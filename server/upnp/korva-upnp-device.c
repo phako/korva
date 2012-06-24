@@ -26,6 +26,8 @@
 #include <korva-error.h>
 #include <korva-icon-cache.h>
 
+#include <tui.h>
+
 #include "korva-upnp-device.h"
 #include "korva-upnp-file-server.h"
 
@@ -191,12 +193,24 @@ struct _KorvaUPnPDevicePrivate {
     char                      *current_tag;
     char                      *current_uri;
     GFile                     *current_file;
+    char                      *current_tid;
+    TransferUi                *tui;
 };
 
 enum Properties {
     PROP_0,
     PROP_PROXY
 };
+
+static void
+korva_upnp_device_on_transfer_cancelled (KorvaUPnPDevice *self, const char *tid, gpointer user_data)
+{
+    if (g_strcmp0 (tid, self->priv->current_tid) == 0 && user_data == self->priv->tui) {
+        transfer_ui_cancelled (self->priv->tui, tid, NULL);
+
+        korva_upnp_device_unshare_async (KORVA_DEVICE (self), self->priv->current_tag, NULL, NULL);
+    }
+}
 
 static void
 korva_upnp_device_init (KorvaUPnPDevice *self)
@@ -211,6 +225,8 @@ korva_upnp_device_init (KorvaUPnPDevice *self)
     self->priv->session = soup_session_async_new ();
     self->priv->last_change_parser = gupnp_last_change_parser_new ();
     self->priv->state = g_strdup (AV_STATE_UNKNOWN);
+    self->priv->tui = transfer_ui_create ();
+    g_signal_connect_swapped (self->priv->tui, "cancel", G_CALLBACK (korva_upnp_device_on_transfer_cancelled), self);
 }
 
 static void
@@ -248,6 +264,14 @@ korva_upnp_device_dispose (GObject *obj)
         self->priv->current_file = NULL;
     }
 
+    if (self->priv->tui != NULL) {
+        if (self->priv->current_tid != NULL) {
+            transfer_ui_cancelled (self->priv->tui, self->priv->current_tid, NULL);
+        }
+        g_object_unref (self->priv->tui);
+        self->priv->tui = NULL;
+    }
+
     G_OBJECT_CLASS (korva_upnp_device_parent_class)->dispose (obj);
 }
 
@@ -274,6 +298,11 @@ korva_upnp_device_finalize (GObject *obj)
     if (self->priv->current_uri != NULL) {
         g_free (self->priv->current_uri);
         self->priv->current_uri = NULL;
+    }
+
+    if (self->priv->current_tid != NULL) {
+        g_free (self->priv->current_tid);
+        self->priv->current_tid = NULL;
     }
 
     G_OBJECT_CLASS (korva_upnp_device_parent_class)->finalize (obj);
@@ -1055,9 +1084,49 @@ korva_upnp_device_drop_current_file (KorvaUPnPDevice *self)
 
         g_object_unref (self->priv->current_file);
         self->priv->current_file = NULL;
+
+        if (self->priv->current_tid != NULL) {
+            transfer_ui_done (self->priv->tui, self->priv->current_tid, NULL);
+            g_free (self->priv->current_tid);
+            self->priv->current_tid = NULL;
+        }
     }
 
     g_object_unref (server);
+}
+
+static void
+create_transfer_ui_entry (KorvaUPnPDevice *self, GHashTable *params)
+{
+    GVariant *value;
+    GHashTable *ht;
+    char *title;
+    GVariantBuilder *builder;
+
+
+    if (self->priv->current_tid != NULL) {
+        transfer_ui_done (self->priv->tui, self->priv->current_tid, NULL);
+    }
+
+    value = g_hash_table_lookup (params, "Title");
+    title = g_strdup_printf ("Sharing \"%s\" with \"%s\"", g_variant_get_string (value, NULL),  self->priv->friendly_name);
+
+    self->priv->current_tid = transfer_ui_register_transient_transfer (self->priv->tui,
+                                                                       title,
+                                                                       0, NULL);
+    ht = g_hash_table_new_full (g_str_hash, g_str_equal, NULL, (GFreeFunc) g_variant_unref);
+    builder = g_variant_builder_new (G_VARIANT_TYPE_ARRAY);
+    g_variant_builder_add_value (builder, g_hash_table_lookup (params, "URI"));
+    g_variant_builder_add_value (builder, g_variant_ref (g_hash_table_lookup (params, "ContentType")));
+    g_hash_table_insert (ht, (char *) "setCancelButtonText", g_variant_new_string ("Unshare"));
+    g_hash_table_insert (ht, (char *) "setThumbnailForFile", g_variant_builder_end (builder));
+
+    transfer_ui_set_values (self->priv->tui, self->priv->current_tid, ht, NULL);
+    transfer_ui_started (self->priv->tui, self->priv->current_tid, 0.0, NULL);
+
+    g_hash_table_unref (ht);
+
+    g_free (title);
 }
 
 static void
@@ -1135,6 +1204,8 @@ korva_upnp_device_on_host_file_async (GObject      *source,
         goto out;
     }
     g_object_unref (compat_resource);
+
+    create_transfer_ui_entry (data->device, params);
 
     proxy = g_hash_table_lookup (data->device->priv->services, AV_TRANSPORT);
     gupnp_service_proxy_begin_action (proxy,
@@ -1268,14 +1339,19 @@ korva_upnp_device_push_finish (KorvaDevice  *device,
         return NULL;
     }
 
+    self = KORVA_UPNP_DEVICE (device);
+
     result = (GSimpleAsyncResult *) res;
     if (g_simple_async_result_propagate_error (result, error)) {
+        transfer_ui_cancelled (self->priv->tui, self->priv->current_tid, NULL);
+
         return NULL;
     }
 
     tag = g_strdup (g_simple_async_result_get_op_res_gpointer (result));
-    self = KORVA_UPNP_DEVICE (device);
     self->priv->current_tag = g_strdup (tag);
+
+    transfer_ui_started (self->priv->tui, self->priv->current_tid, 0.0, NULL);
 
     return tag;
 }

@@ -12,6 +12,7 @@ test_upnp_LDADD=$(TRACKER_LIBS) \
 				$(top_builddir)/server/upnp/libkorva-upnp-backend.a \
 				$(top_builddir)/libgupnp-av/libgupnp-av-1.0.a \
 				$(top_builddir)/server/libkorva-core.a $(GUPNP_LIBS) $(COVERAGE_LIBS)
+test_upnp_LDADD+= $(top_builddir)/dbus/libkorva-dbus.a
 if ENABLE_COVERAGE
 
 TRACE_FILE=$(builddir)/korva.coverage
