@@ -20,6 +20,8 @@
 
 #include <tracker-sparql.h>
 
+#include <korva-error.h>
+
 #include "korva-upnp-metadata-query.h"
 
 #define ITEM_QUERY \
@@ -72,6 +74,15 @@ static void
 korva_upnp_metadata_query_on_cursor_next (GObject *source,
                                           GAsyncResult *res,
                                           gpointer user_data);
+
+
+void
+korva_upnp_metadata_query_run_fallback (KorvaUPnPMetadataQuery *self);
+
+static void
+korva_upnp_metadata_query_on_file_query_info_async (GObject      *source,
+                                                    GAsyncResult *res,
+                                                    gpointer      user_data);
 
 static void
 korva_upnp_metadata_query_init (KorvaUPnPMetadataQuery *self)
@@ -230,6 +241,88 @@ korva_upnp_metadata_query_new (GFile *file, GHashTable *params, int version)
 }
 
 void
+korva_upnp_metadata_query_run_fallback (KorvaUPnPMetadataQuery *self)
+{
+    g_file_query_info_async (self->priv->file,
+                             G_FILE_ATTRIBUTE_STANDARD_CONTENT_TYPE ","
+                             G_FILE_ATTRIBUTE_STANDARD_SIZE ","
+                             G_FILE_ATTRIBUTE_STANDARD_DISPLAY_NAME ","
+                             G_FILE_ATTRIBUTE_ACCESS_CAN_READ,
+                             G_FILE_QUERY_INFO_NONE,
+                             G_PRIORITY_DEFAULT_IDLE,
+                             self->priv->cancellable,
+                             korva_upnp_metadata_query_on_file_query_info_async,
+                             self);
+}
+
+static void
+korva_upnp_metadata_query_on_file_query_info_async (GObject      *source,
+                                                    GAsyncResult *res,
+                                                    gpointer      user_data)
+{
+    KorvaUPnPMetadataQuery *self = KORVA_UPNP_METADATA_QUERY (user_data);
+    GError *error = NULL;
+    GVariant *value;
+    GFileInfo *info;
+    gboolean can_read;
+    goffset size;
+
+    info = g_file_query_info_finish (self->priv->file, res, &error);
+    if (info == NULL) {
+        g_simple_async_result_take_error (self->priv->result, error);
+
+        goto out;
+    }
+
+    can_read = g_file_info_get_attribute_boolean (info, G_FILE_ATTRIBUTE_ACCESS_CAN_READ);
+    if (!can_read) {
+        g_simple_async_result_take_error (self->priv->result,
+                                          g_error_new_literal (KORVA_CONTROLLER1_ERROR,
+                                                               KORVA_CONTROLLER1_ERROR_NOT_ACCESSIBLE,
+                                                               "Can not read file"));
+
+        goto out;
+    }
+
+    value = g_hash_table_lookup (self->priv->params, "Size");
+
+    size = g_file_info_get_size (info);
+    g_hash_table_replace (self->priv->params,
+                          g_strdup ("Size"),
+                          g_variant_new_uint64 (size));
+
+    value = g_hash_table_lookup (self->priv->params, "ContentType");
+    if (value == NULL) {
+        const char *content_type = g_file_info_get_content_type (info);
+        g_hash_table_insert (self->priv->params,
+                             g_strdup ("ContentType"),
+                             g_variant_new_string (content_type));
+    }
+
+    value = g_hash_table_lookup (self->priv->params, "Title");
+    if (value == NULL) {
+        g_hash_table_insert (self->priv->params,
+                             g_strdup ("Title"),
+                             g_variant_new_string (g_file_info_get_display_name (info)));
+    }
+
+    value = g_hash_table_lookup (self->priv->params, "UPnPClass");
+    if (value == NULL) {
+        g_hash_table_insert (self->priv->params,
+                             g_strdup ("UPnPClass"),
+                             g_variant_new_string ("object.item.audioItem"));
+    }
+
+out:
+    if (info != NULL) {
+        g_object_unref (info);
+    }
+
+    g_simple_async_result_complete_in_idle (self->priv->result);
+    g_object_unref (self->priv->result);
+}
+
+void
 korva_upnp_metadata_query_run_async (KorvaUPnPMetadataQuery *self, GAsyncReadyCallback callback, GCancellable *cancellable, gpointer user_data)
 {
     self->priv->result = g_simple_async_result_new (G_OBJECT (self),
@@ -273,9 +366,7 @@ korva_upnp_metadata_query_on_sparql_connection_get (GObject      *source,
 
     self->priv->connection = tracker_sparql_connection_get_finish (res, &error);
     if (self->priv->connection == NULL) {
-        g_simple_async_result_take_error (self->priv->result, error);
-        g_simple_async_result_complete_in_idle (self->priv->result);
-        g_object_unref (self->priv->result);
+        korva_upnp_metadata_query_run_fallback (self);
 
         return;
     }
@@ -307,9 +398,7 @@ korva_upnp_metadata_query_on_query_async (GObject *source,
                                                      &error);
 
     if (cursor == NULL) {
-        g_simple_async_result_take_error (self->priv->result, error);
-        g_simple_async_result_complete_in_idle (self->priv->result);
-        g_object_unref (self->priv->result);
+        korva_upnp_metadata_query_run_fallback (self);
 
         return;
     }
