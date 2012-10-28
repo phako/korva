@@ -39,6 +39,7 @@ typedef enum {
 static char *file = NULL;
 static char *device = NULL;
 static char *tag = NULL;
+static char *given_title = NULL;
 static KorvaControlMode mode = KORVA_CONTROL_MODE_NONE;
 
 static gboolean
@@ -111,6 +112,7 @@ static GOptionEntry entries[] =
     { "file",    'f', 0,                    G_OPTION_ARG_FILENAME, &file,         "Path to a FILE",                                  "FILE"   },
     { "device",  'd', 0,                    G_OPTION_ARG_STRING,   &device,       "UID of a device",                                 "UID"    },
     { "tag",     't', 0,                    G_OPTION_ARG_STRING,   &tag,          "TAG of a previously done push operation",         "TAG"    },
+    { "title",   'n', 0,                    G_OPTION_ARG_STRING,   &given_title,  "TITLE of the FILE",                               "TITLE"  },
     { "version", 0,   G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK, show_version,  "Show version number",                             NULL     },
     { NULL }
 };
@@ -158,7 +160,7 @@ korva_control_list_devices (KorvaController1 *proxy)
 }
 
 static void
-korva_control_push (KorvaController1 *controller, const char *path, const char *uid)
+korva_control_push (KorvaController1 *controller, const char *path, const char *uid, const char *title)
 {
     GFile *source;
     GVariantBuilder *builder;
@@ -172,6 +174,9 @@ korva_control_push (KorvaController1 *controller, const char *path, const char *
     }
     builder = g_variant_builder_new (G_VARIANT_TYPE_ARRAY);
     g_variant_builder_add (builder, "{sv}", "URI", g_variant_new_string (g_file_get_uri (source)));
+    if (title != NULL) {
+        g_variant_builder_add (builder, "{sv}", "Title", g_variant_new_string (title));
+    }
 
     korva_controller1_call_push_sync (controller,
                                       g_variant_builder_end (builder),
@@ -200,7 +205,7 @@ G_GNUC_NORETURN static void usage (GOptionContext *context)
 
 #define DEFAULT_OPTION_SUMMARY \
     "  korva-control --list | --action=list\n" \
-    "  korva-control --action=push --device=<UID> --file=<PATH>\n" \
+    "  korva-control --action=push --device=<UID> --file=<PATH> [--title=<TITLE>]\n" \
     "  korva-control --action=unshare --tag=<TAG>"
 
 #define PUSH_OPTION_SUMMARY \
@@ -266,7 +271,7 @@ int main (int argc, char *argv[])
             if (file == NULL || device == NULL) {
                 usage (context);
             }
-            korva_control_push (controller, file, device);
+            korva_control_push (controller, file, device, given_title);
 
             break;
         case KORVA_CONTROL_MODE_UNSHARE:
