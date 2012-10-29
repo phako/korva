@@ -117,7 +117,7 @@ static GOptionEntry entries[] =
     { NULL }
 };
 
-static void
+static int
 korva_control_list_devices (KorvaController1 *proxy)
 {
     GVariant *devices, *dict, *value;
@@ -133,7 +133,7 @@ korva_control_list_devices (KorvaController1 *proxy)
         g_print ("Could not get device list: %s\n", error->message);
         g_error_free (error);
 
-        return;
+        return 1;
     }
 
     outer = g_variant_iter_new (devices);
@@ -157,9 +157,11 @@ korva_control_list_devices (KorvaController1 *proxy)
     }
 
     g_variant_iter_free (outer);
+
+    return 0;
 }
 
-static void
+static int
 korva_control_push (KorvaController1 *controller, const char *path, const char *uid, const char *title)
 {
     GFile *source;
@@ -191,8 +193,12 @@ korva_control_push (KorvaController1 *controller, const char *path, const char *
                  error->message);
 
         g_error_free (error);
+
+        return 1;
     } else {
         g_print ("Pushed %s to %s. The ID is %s\n", file, device, out_tag);
+
+        return 0;
     }
 }
 
@@ -223,6 +229,7 @@ int main (int argc, char *argv[])
     GError *error = NULL;
     KorvaController1 *controller;
     char *basename;
+    int mode_ret;
 
     g_type_init ();
     context = g_option_context_new ("- control a korva server");
@@ -262,16 +269,17 @@ int main (int argc, char *argv[])
         exit (1);
     }
 
+    mode_ret = 0;
     switch (mode) {
         case KORVA_CONTROL_MODE_LIST:
-            korva_control_list_devices (controller);
+            mode_ret = korva_control_list_devices (controller);
 
             break;
         case KORVA_CONTROL_MODE_PUSH:
             if (file == NULL || device == NULL) {
                 usage (context);
             }
-            korva_control_push (controller, file, device, given_title);
+            mode_ret = korva_control_push (controller, file, device, given_title);
 
             break;
         case KORVA_CONTROL_MODE_UNSHARE:
@@ -286,6 +294,7 @@ int main (int argc, char *argv[])
                          error->message);
 
                 g_error_free (error);
+                mode_ret = 1;
             }
 
             break;
@@ -300,5 +309,5 @@ int main (int argc, char *argv[])
 
     g_object_unref (controller);
 
-    return 0;
+    return mode_ret;
 }
