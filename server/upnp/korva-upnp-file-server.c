@@ -48,7 +48,7 @@ struct _KorvaUPnPFileServerPrivate {
 
 typedef struct _ServeData {
     SoupServer        *server;
-    GMappedFile       *file;
+    GInputStream      *stream;
     goffset            start;
     goffset            end;
     KorvaUPnPHostData *host_data;
@@ -59,10 +59,10 @@ korva_upnp_file_server_on_wrote_chunk (SoupMessage *msg,
                                        gpointer     user_data)
 {
     ServeData *data = (ServeData *) user_data;
-    SoupBuffer *buffer;
     int chunk_size;
     char *file_buffer;
-
+    GError *error = NULL;
+    gsize bytes_read;
 
     soup_server_pause_message (data->server, msg);
 
@@ -75,14 +75,16 @@ korva_upnp_file_server_on_wrote_chunk (SoupMessage *msg,
         return;
     }
 
-    file_buffer = g_mapped_file_get_contents (data->file) + data->start;
+    file_buffer = g_malloc0 (chunk_size);
+    g_input_stream_read_all (data->stream,
+                             (void *) file_buffer,
+                             chunk_size,
+                             &bytes_read,
+                             NULL,
+                             &error);
 
-    buffer = soup_buffer_new_with_owner (file_buffer,
-                                         chunk_size,
-                                         data->file,
-                                         NULL);
     data->start += chunk_size;
-    soup_message_body_append_buffer (msg->response_body, buffer);
+    soup_message_body_append (msg->response_body, SOUP_MEMORY_TAKE, file_buffer, chunk_size);
 
     soup_server_unpause_message (data->server, msg);
 }
@@ -102,7 +104,8 @@ korva_upnp_file_server_on_finished (SoupMessage *msg,
                                       (gpointer *) (&data->host_data));
     }
 
-    g_mapped_file_unref (data->file);
+    g_input_stream_close (data->stream, NULL, NULL);
+    g_object_unref (data->stream);
     g_slice_free (ServeData, data);
 }
 
@@ -121,7 +124,7 @@ korva_upnp_file_server_handle_request (SoupServer        *server,
 {
     KorvaUPnPFileServer *self = KORVA_UPNP_FILE_SERVER (user_data);
     GMatchInfo *info;
-    char *id, *file_path;
+    char *id;
     GFile *file;
     KorvaUPnPHostData *data;
     ServeData *serve_data;
@@ -242,10 +245,8 @@ korva_upnp_file_server_handle_request (SoupServer        *server,
     soup_message_headers_set_encoding (msg->response_headers, SOUP_ENCODING_CONTENT_LENGTH);
     soup_message_body_set_accumulate (msg->response_body, FALSE);
 
-    file_path = g_file_get_path (file);
-    serve_data->file = g_mapped_file_new (file_path, FALSE, &error);
+    serve_data->stream = G_INPUT_STREAM (g_file_read (file, NULL, &error));
     serve_data->server = server;
-    g_free (file_path);
     if (error != NULL) {
         g_warning ("Failed to MMAP file %s: %s",
                    path,
@@ -258,6 +259,7 @@ korva_upnp_file_server_handle_request (SoupServer        *server,
 
         goto out;
     }
+    g_seekable_seek (G_SEEKABLE (serve_data->stream), serve_data->start, G_SEEK_SET, NULL, NULL);
 
     /* Drop timeout until the message is done */
     korva_upnp_host_data_cancel_timeout (data);
