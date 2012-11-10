@@ -31,3 +31,6 @@ korva_LDADD=libkorva-core.a $(GIO_LIBS) $(COVERAGE_LIBS) \
 	$(top_builddir)/dbus/libkorva-dbus.a \
 	$(GUPNP_LIBS) \
 	$(TRACKER_LIBS)
+
+korva_CFLAGS = $(AM_CFLAGS) $(GSTREAMER_CFLAGS)
+korva_LDADD += $(GSTREAMER_LIBS)

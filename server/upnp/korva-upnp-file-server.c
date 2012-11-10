@@ -25,6 +25,7 @@
 #include <gio/gio.h>
 #include <libsoup/soup.h>
 #include <libgupnp-av/gupnp-av.h>
+#include <gst/gst.h>
 
 #include <korva-error.h>
 
@@ -36,6 +37,11 @@
 /* A valid path consists of /item/md5 and an optional 4 character extension */
 #define KORVA_PATH_REGEX "^/item/([0-9a-fA-F]{32})(\\.[a-zA-Z0-9]{0,4})?$"
 
+#define S16BE_CAPS "audio/x-raw-int,width=16,depth=16,channels=2,endianness=4321,rate=44100,signed=true"
+
+#define DEVICE_AUDIO_PIPELINE \
+    "pulsesrc device=sink.hw0.monitor ! audioconvert ! " S16BE_CAPS " ! multifdsink name=sink"
+
 G_DEFINE_TYPE (KorvaUPnPFileServer, korva_upnp_file_server, G_TYPE_OBJECT);
 
 struct _KorvaUPnPFileServerPrivate {
@@ -45,6 +51,9 @@ struct _KorvaUPnPFileServerPrivate {
     guint       port;
     GRegex     *path_regex;
     int         version;
+
+    GstElement *pipeline;
+    GFile      *system_audio;
 };
 
 typedef struct _ServeData {
@@ -53,6 +62,8 @@ typedef struct _ServeData {
     goffset            start;
     goffset            end;
     KorvaUPnPHostData *host_data;
+    int fd;
+    GstElement *sink;
 } ServeData;
 
 static void
@@ -115,6 +126,13 @@ korva_upnp_file_server_on_finished (SoupMessage *msg,
 static void print_header (const char *name, const char *value, gpointer user_data)
 {
     g_debug ("    %s: %s", name, value);
+}
+
+static void
+on_wrote_header (SoupMessage *msg, gpointer user_data)
+{
+    ServeData *data = (ServeData *) user_data;
+    g_signal_emit_by_name (data->sink, "add", data->fd);
 }
 
 static void
@@ -211,8 +229,10 @@ korva_upnp_file_server_handle_request (SoupServer        *server,
         soup_message_set_status (msg, SOUP_STATUS_OK);
     }
 
-    soup_message_headers_set_content_length (msg->response_headers,
-                                             serve_data->end - serve_data->start + 1);
+    if ((guint64) size < G_MAXUINT64) {
+        soup_message_headers_set_content_length (msg->response_headers,
+                                                 serve_data->end - serve_data->start + 1);
+    }
     soup_message_headers_set_content_type (msg->response_headers,
                                            korva_upnp_host_data_get_content_type (data),
                                            NULL);
@@ -243,6 +263,29 @@ korva_upnp_file_server_handle_request (SoupServer        *server,
         g_slice_free (ServeData, serve_data);
 
         goto out;
+    }
+
+    if (g_file_equal (file, self->priv->system_audio)) {
+        SoupSocket *remote;
+
+        soup_message_headers_set_encoding (msg->response_headers,
+                                           SOUP_ENCODING_EOF);
+        g_signal_connect (msg,
+                          "wrote-headers",
+                          G_CALLBACK (on_wrote_header),
+                          serve_data);
+
+        if (korva_upnp_host_data_get_peer_count (data) == 1) {
+            gst_element_set_state (self->priv->pipeline, GST_STATE_PLAYING);
+        }
+
+        serve_data->sink = gst_bin_get_by_name (GST_BIN (self->priv->pipeline), "sink");
+        remote = soup_client_context_get_socket (client);
+        serve_data->fd = soup_socket_get_fd (remote);
+
+        soup_server_unpause_message (server, msg);
+
+        return;
     }
 
     soup_message_headers_set_encoding (msg->response_headers, SOUP_ENCODING_CONTENT_LENGTH);
@@ -292,6 +335,7 @@ static void
 korva_upnp_file_server_init (KorvaUPnPFileServer *self)
 {
     GFile *file;
+    GError *error = NULL;
 
     self->priv = G_TYPE_INSTANCE_GET_PRIVATE (self,
                                               KORVA_TYPE_UPNP_FILE_SERVER,
@@ -318,6 +362,15 @@ korva_upnp_file_server_init (KorvaUPnPFileServer *self)
     file = g_file_new_for_path ("/usr/bin/rygel");
     self->priv->version = g_file_query_exists (file, NULL) ? 12 : 10;
     g_object_unref (file);
+
+    self->priv->pipeline = gst_parse_launch (DEVICE_AUDIO_PIPELINE, &error);
+    if (error != NULL) {
+        g_debug ("Could not create audio-pipeline: %s", error->message);
+        g_error_free (error);
+        self->priv->pipeline = NULL;
+    } else {
+        self->priv->system_audio = g_file_new_for_uri ("korva://system-audio");
+    }
 }
 
 static void
@@ -517,6 +570,18 @@ korva_upnp_file_server_host_file_async (KorvaUPnPFileServer *self,
 
     data = g_hash_table_lookup (self->priv->host_data, file);
     if (data == NULL) {
+        if (g_file_equal (file, self->priv->system_audio) && self->priv->pipeline == NULL) {
+            GError *error;
+
+            error = g_error_new_literal (KORVA_CONTROLLER1_ERROR,
+                                         KORVA_CONTROLLER1_ERROR_NOT_ACCESSIBLE,
+                                         "Can not access device audio");
+            g_simple_async_result_take_error (result, error);
+            g_simple_async_result_complete_in_idle (result);
+            g_object_unref (result);
+
+            return;
+        }
         QueryMetaData *query_data;
 
         query_data = g_slice_new0 (QueryMetaData);

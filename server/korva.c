@@ -20,6 +20,8 @@
 
 #define G_LOG_DOMAIN "Korva-Server"
 
+#include <gst/gst.h>
+
 #include "korva-server.h"
 #include "korva-icon-cache.h"
 
@@ -27,6 +29,7 @@ int main (int argc, char *argv[])
 {
     g_debug ("Starting korva...");
     g_type_init ();
+    gst_init (&argc, &argv);
     korva_icon_cache_init ();
 
     KorvaServer *server = korva_server_new ();

@@ -594,8 +594,16 @@ korva_upnp_host_data_get_extension (KorvaUPnPHostData *self)
     GVariant *value;
     const char *dlna_profile, *content_type, *ext;
     char *path = NULL;
+    GFile *file;
 
     if (self->priv->extension != NULL) {
+        goto out;
+    }
+
+    file = g_file_new_for_uri ("korva://system-audio");
+    if (g_file_equal (file, self->priv->file)) {
+        self->priv->extension = g_strdup ("lpcm");
+
         goto out;
     }
 
@@ -677,9 +685,17 @@ korva_upnp_host_data_get_extension (KorvaUPnPHostData *self)
     self->priv->extension = g_strdup ("dat");
 
 out:
+    g_object_unref (file);
     if (path != NULL) {
         g_free (path);
     }
 
     return self->priv->extension;
+}
+
+
+int
+korva_upnp_host_data_get_peer_count (KorvaUPnPHostData *self)
+{
+    return g_list_length (self->priv->peers);
 }

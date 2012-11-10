@@ -325,15 +325,47 @@ out:
 void
 korva_upnp_metadata_query_run_async (KorvaUPnPMetadataQuery *self, GAsyncReadyCallback callback, GCancellable *cancellable, gpointer user_data)
 {
+    GFile *file;
+
+    file = g_file_new_for_uri ("korva://system-audio");
+
     self->priv->result = g_simple_async_result_new (G_OBJECT (self),
                                                     callback,
                                                     user_data,
                                                     (gpointer) korva_upnp_metadata_query_run_async);
+    /* Add meta-data for the stream */
+    if (g_file_equal (file, self->priv->file)) {
+        g_hash_table_insert (self->priv->params,
+                             g_strdup ("ContentType"),
+                             g_variant_new_string ("audio/L16;rate=44100;channels=2"));
+        g_hash_table_insert (self->priv->params,
+                             g_strdup ("UPnPClass"),
+                             g_variant_new_string ("object.item.audioItem"));
+        g_hash_table_insert (self->priv->params,
+                             g_strdup ("Title"),
+                             g_variant_new_string ("Audio on N9"));
+        g_hash_table_insert (self->priv->params,
+                             g_strdup ("DLNAProfile"),
+                             g_variant_new_string ("LPCM"));
+        g_hash_table_insert (self->priv->params,
+                             g_strdup ("Size"),
+                             g_variant_new_uint64 (G_MAXUINT64));
+
+        g_simple_async_result_complete_in_idle (self->priv->result);
+        g_object_unref (self->priv->result);
+
+        goto out;
+    }
+
+
+
     self->priv->cancellable = cancellable;
 
     tracker_sparql_connection_get_async (cancellable,
                                          korva_upnp_metadata_query_on_sparql_connection_get,
                                          self);
+out:
+    g_object_unref (file);
 }
 
 gboolean

@@ -110,4 +110,7 @@ korva_upnp_host_data_get_content_type (KorvaUPnPHostData *self);
 
 gboolean
 korva_upnp_host_data_has_peers (KorvaUPnPHostData *self);
+
+int
+korva_upnp_host_data_get_peer_count (KorvaUPnPHostData *self);
 #endif /*__KORVA_UPNP_HOST_DATA_H__*/

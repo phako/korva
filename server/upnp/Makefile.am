@@ -16,4 +16,4 @@ libkorva_upnp_backend_a_CFLAGS = -I$(srcdir)/.. \
 	$(KORVA_WARNING_CFLAGS) \
 	$(GUPNP_CFLAGS) \
 	$(COVERAGE_CFLAGS)
-libkorva_upnp_backend_a_CFLAGS += -I$(top_srcdir)/dbus $(TRACKER_CFLAGS)
+libkorva_upnp_backend_a_CFLAGS += -I$(top_srcdir)/dbus $(TRACKER_CFLAGS) $(GSTREAMER_CFLAGS) -Wno-cast-align
