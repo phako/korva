@@ -13,7 +13,7 @@ libkorva_dbus_a_SOURCES = gdbusinterface.h \
 						  tui.h \
 						  $(BUILT_SOURCES)
 
-libkorva_dbus_a_CFLAGS = $(GIO_CFLAGS) -I $(srcdir)/.. -w $(COVERAGE_CFLAGS)
+libkorva_dbus_a_CFLAGS = $(KORVA_WARNING_CFLAGS) $(GIO_CFLAGS) -I $(srcdir)/.. -w $(COVERAGE_CFLAGS)
 
 BUILT_SOURCES = korva-marshal.c \
 	korva-marshal.h

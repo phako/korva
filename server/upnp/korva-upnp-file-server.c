@@ -95,9 +95,11 @@ korva_upnp_file_server_on_finished (SoupMessage *msg,
                                     gpointer     user_data)
 {
     ServeData *data = (ServeData *) user_data;
+    char *uri;
 
-    g_debug ("Handled request for '%s'",
-             soup_uri_to_string (soup_message_get_uri (msg), FALSE));
+    uri = soup_uri_to_string (soup_message_get_uri (msg), FALSE);
+    g_debug ("Handled request for '%s'", uri);
+    g_free (uri);
 
     if (data->host_data != NULL) {
         korva_upnp_host_data_start_timeout (data->host_data);

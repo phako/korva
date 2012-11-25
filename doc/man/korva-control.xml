@@ -28,19 +28,27 @@
     <cmdsynopsis>
       <command>korva-control</command>
       <arg choice="plain">
-          <option>--action=<replaceable>ACTION</replaceable></option>
+        <option>--action=<replaceable>ACTION</replaceable></option>
       </arg>
       <arg choice="req">OPTIONS</arg>
-  </cmdsynopsis>
-  <cmdsynopsis><command>korva-list</command></cmdsynopsis>
-    <cmdsynopsis>
-        <command>korva-push</command>
-        <arg choice="plain"><option>--file=<replaceable>FILE</replaceable></option></arg>
-        <arg choice="plain"><option>--device=<replaceable>UUID</replaceable></option></arg>
     </cmdsynopsis>
     <cmdsynopsis>
-        <command>korva-unshare</command>
-        <arg choice="plain"><option>--tag=<replaceable>TAG</replaceable></option></arg>
+      <command>korva-list</command>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>korva-push</command>
+      <arg choice="plain">
+        <option>--file=<replaceable>FILE</replaceable></option>
+      </arg>
+      <arg choice="plain">
+        <option>--device=<replaceable>UUID</replaceable></option>
+      </arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>korva-unshare</command>
+      <arg choice="plain">
+        <option>--tag=<replaceable>TAG</replaceable></option>
+      </arg>
     </cmdsynopsis>
   </refsynopsisdiv>
   <refsect1 id="description">
@@ -151,5 +159,9 @@ Pushed /home/user/Video/BigBuckBunny.avi to uuid:70e24575-b687-4d7b-821d-037fc87
       <title>Stop sharing of a previously shared file</title>
       <programlisting>korva-control --action=unshare --tag=79a6f3bbdc423f4457a2011907824e32</programlisting>
     </example>
+  </refsect1>
+  <refsect1>
+    <title>EXIT STATUS</title>
+    <para>TRUE unless the underlying network operation returned an error.</para>
   </refsect1>
 </refentry>

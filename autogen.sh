@@ -11,4 +11,4 @@ mkdir -p m4
 #                 --interface-prefix org.jensge.Korva \
 #                 data/Korva.xml
 #
-autoreconf -if && ./configure --enable-debug $*
+autoreconf -ivf && ./configure --enable-debug $*

@@ -21,12 +21,8 @@ AC_PROG_CXX
 LT_PREREQ([2.2])
 LT_INIT([dlopen disable-static])
 
-CFLAGS="${CFLAGS} -Wall -Wextra -Wno-unused-parameter"
-CFLAGS="${CFLAGS} -Wno-missing-field-initializers -Wmissing-declarations"
-CFLAGS="${CFLAGS} -Wshadow -Wredundant-decls -Wmissing-noreturn"
-CFLAGS="${CFLAGS} -Wpointer-arith -Wwrite-strings -Winline -Wformat-nonliteral"
-CFLAGS="${CFLAGS} -Wcast-align -Wformat-security -Wswitch-enum"
-CFLAGS="${CFLAGS} -Wswitch-default"
+dnl Set extended warning flags for compilation. See m4/korva.m4 for the flags
+KORVA_WARNING_FLAGS
 
 PKG_CHECK_MODULES([GIO], [gio-2.0 >= 2.28])
 PKG_CHECK_MODULES([GUPNP], [gupnp-1.0 >= 0.15.0])
@@ -36,11 +32,9 @@ PKG_CHECK_MODULES([TRACKER], [tracker-sparql-0.10])
 AC_ARG_ENABLE([debug],
               AS_HELP_STRING([--enable-debug],[Enable debug build]),[],
               [enable_debug=no])
-if test "x$enable_debug" = "xyes"; then
-    CFLAGS="${CFLAGS} -O0 -g -Werror"
-else
-    CFLAGS="${CFLAGS} -O2"
-fi
+AS_IF([test "x$[]enable_debug" = "xyes"],
+      [CFLAGS="${CFLAGS} -O0 -g"],
+      [CFLAGS="${CFLAGS} -O2"])
 
 dnl Generate coverage data
 AC_ARG_ENABLE([coverage],
