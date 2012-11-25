@@ -105,6 +105,7 @@ show_version (const char *option_name,
     exit (0);
 }
 
+/* *INDENT-OFF* */
 static GOptionEntry entries[] =
 {
     { "list",    'l', G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK, set_list_mode, "Show available devices; short for --action=list", NULL     },
@@ -116,6 +117,7 @@ static GOptionEntry entries[] =
     { "version", 0,   G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK, show_version,  "Show version number",                             NULL     },
     { NULL }
 };
+/* *INDENT-ON* */
 
 static int
 korva_control_list_devices (KorvaController1 *proxy)
