@@ -27,11 +27,9 @@ PKG_CHECK_MODULES([GUPNP], [gupnp-1.0 >= 0.18.0 gupnp-av-1.0 >= 0.10.1])
 AC_ARG_ENABLE([debug],
               AS_HELP_STRING([--enable-debug],[Enable debug build]),[],
               [enable_debug=no])
-if test "x$enable_debug" = "xyes"; then
-    CFLAGS="${CFLAGS} -O0 -g -Werror"
-else
-    CFLAGS="${CFLAGS} -O2"
-fi
+AS_IF([test "x$[]enable_debug" = "xyes"],
+      [CFLAGS="${CFLAGS} -O0 -g"],
+      [CFLAGS="${CFLAGS} -O2"])
 
 dnl Generate coverage data
 AC_ARG_ENABLE([coverage],
