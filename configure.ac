@@ -18,12 +18,8 @@ AC_PROG_RANLIB
 AC_PROG_LN_S
 AM_PROG_CC_C_O
 
-CFLAGS="${CFLAGS} -Wall -Wextra -Wno-unused-parameter"
-CFLAGS="${CFLAGS} -Wno-missing-field-initializers -Wmissing-declarations"
-CFLAGS="${CFLAGS} -Wshadow -Wredundant-decls -Wmissing-noreturn"
-CFLAGS="${CFLAGS} -Wpointer-arith -Wwrite-strings -Winline -Wformat-nonliteral"
-CFLAGS="${CFLAGS} -Wcast-align -Wformat-security -Wswitch-enum"
-CFLAGS="${CFLAGS} -Wswitch-default"
+dnl Set extended warning flags for compilation. See m4/korva.m4 for the flags
+KORVA_WARNING_FLAGS
 
 PKG_CHECK_MODULES([GIO], [gio-2.0 >= 2.30 gio-unix-2.0 >= 2.30])
 PKG_CHECK_MODULES([GUPNP], [gupnp-1.0 >= 0.18.0 gupnp-av-1.0 >= 0.10.1])
