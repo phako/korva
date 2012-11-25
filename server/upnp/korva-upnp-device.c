@@ -810,7 +810,7 @@ korva_upnp_device_on_get_content_directory_introspection (GUPnPServiceInfo *info
         return;
     }
 
-    /* Prefer to use ImportResource instead of HTTP post since we have the HTTP
+    /* Prefer to use ImportResource instead of HTTP POST since we have the HTTP
      * server in place anyway. */
     action = gupnp_service_introspection_get_action (introspection,
                                                      "ImportResource");
@@ -1355,6 +1355,7 @@ typedef struct _HostPathData {
     gboolean         unshare;
     GFile           *file;
     gboolean         transport_locked;
+    KorvaUPnPFilePost  *post;
 } HostPathData;
 
 static void
@@ -1363,6 +1364,10 @@ host_path_data_free (HostPathData *data)
     g_free (data->uri);
     g_free (data->meta_data);
     g_clear_object (&data->file);
+
+    if (data->post != NULL) {
+        g_object_unref (data->post);
+    }
 
     g_free (data);
 }
@@ -1701,6 +1706,7 @@ korva_upnp_device_on_import_resource (GUPnPServiceProxy       *proxy,
         g_simple_async_result_take_error (result, error);
     }
 
+    // TODO: Check if this is really useful.
     data->device->priv->current_uri = g_strdup (data->uri);
     data->device->priv->current_file = data->file;
     data->file = NULL;
@@ -1708,6 +1714,21 @@ korva_upnp_device_on_import_resource (GUPnPServiceProxy       *proxy,
     host_path_data_free (data);
     g_simple_async_result_complete_in_idle (result);
     g_object_unref (result);
+}
+
+static void
+on_file_post_ready (GObject *source, GAsyncResult *result, gpointer user_data)
+{
+    gboolean res;
+    GError *error = NULL;
+    HostPathData *data = (HostPathData *) user_data;
+
+    res = korva_upnp_file_post_finish (KORVA_UPNP_FILE_POST (source),
+                                       result,
+                                       &error);
+    if (!res) {
+        g_simple_asy
+    }
 }
 
 static void
@@ -1763,6 +1784,7 @@ korva_upnp_device_on_create_object (GUPnPServiceProxy       *proxy,
 
     import_uri = gupnp_didl_lite_resource_get_import_uri (GUPNP_DIDL_LITE_RESOURCE (resources->data));
     g_list_free_full (resources, g_object_unref);
+    // TODO: Check URI
     if (import_uri == NULL) {
         error = g_error_new_literal (KORVA_UPNP_DEVICE_ERROR,
                                      CREATE_FAILED,
@@ -1780,7 +1802,32 @@ korva_upnp_device_on_create_object (GUPnPServiceProxy       *proxy,
                                           "DestinationURI", G_TYPE_STRING, import_uri,
                                           NULL);
     } else {
-        /* TODO: HTTP Post */
+        KorvaUPnPFileServer *server;
+        gint64 size;
+        const char *content_type;
+        GVariant *value;
+
+        value = g_hash_table_lookup (data->params, "Size");
+        size = (gint64) g_variant_get_uint64 (value);
+
+        value = g_hash_table_lookup (data->params, "ContentType");
+        content_type = g_variant_get_string (value, NULL);
+        data->post = korva_upnp_file_post_new (import_uri,
+                                               data->file,
+                                               size,
+                                               content_type,
+                                               data->device->priv->session);
+
+        /* Remove reference to file. We don't need it anymore on the web
+         * server as we just post the data */
+        server = korva_upnp_file_server_get_default ();
+        korva_upnp_file_server_unhost_file_for_peer (server,
+                                                     data->file,
+                                                     data->device->priv->ip_address);
+        g_object_unref (server);
+
+        korva_upnp_file_post_run_async (data->post, NULL,
+                                        on_file_post_ready, data);
     }
 
     return;

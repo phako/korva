@@ -26,6 +26,7 @@
 #include <libgupnp/gupnp.h>
 
 #include "korva-device.h"
+#include "korva-upnp-file-post.h"
 
 #define KORVA_TYPE_UPNP_DEVICE \
     (korva_upnp_device_get_type ())
