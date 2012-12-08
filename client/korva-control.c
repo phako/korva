@@ -181,6 +181,9 @@ korva_control_push (KorvaController1 *controller, const char *path, const char *
     } else {
         source = g_file_new_for_commandline_arg (path);
     }
+
+    g_debug ("Trying to push uri %s", g_file_get_uri (source));
+
     builder = g_variant_builder_new (G_VARIANT_TYPE_ARRAY);
     g_variant_builder_add (builder, "{sv}", "URI", g_variant_new_string (g_file_get_uri (source)));
     if (title != NULL) {

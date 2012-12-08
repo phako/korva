@@ -1719,16 +1719,21 @@ korva_upnp_device_on_import_resource (GUPnPServiceProxy       *proxy,
 static void
 on_file_post_ready (GObject *source, GAsyncResult *result, gpointer user_data)
 {
-    gboolean res;
     GError *error = NULL;
     HostPathData *data = (HostPathData *) user_data;
 
-    res = korva_upnp_file_post_finish (KORVA_UPNP_FILE_POST (source),
-                                       result,
-                                       &error);
-    if (!res) {
-        g_simple_asy
+    korva_upnp_file_post_finish (KORVA_UPNP_FILE_POST (source),
+                                 result,
+                                 &error);
+    if (error != NULL) {
+        g_simple_async_result_take_error (data->result, error);
     }
+
+    g_object_unref (source);
+
+    g_simple_async_result_complete_in_idle (data->result);
+    g_object_unref (data->result);
+    host_path_data_free (data);
 }
 
 static void
@@ -1793,7 +1798,7 @@ korva_upnp_device_on_create_object (GUPnPServiceProxy       *proxy,
         goto out;
     }
 
-    if (data->device->priv->has_import_resource) {
+    if (!data->device->priv->has_import_resource) {
         gupnp_service_proxy_begin_action (proxy,
                                           "ImportResource",
                                           korva_upnp_device_on_import_resource,

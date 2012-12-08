@@ -436,13 +436,14 @@ korva_upnp_file_server_on_metadata_query_run_done (GObject      *sender,
             int code;
             code = error->code;
 
-            g_error_free (error);
-            error = NULL;
+//            g_error_free (error);
+//            error = NULL;
             if (code == G_IO_ERROR_NOT_FOUND) {
                 error = g_error_new_literal (KORVA_CONTROLLER1_ERROR,
                                              KORVA_CONTROLLER1_ERROR_FILE_NOT_FOUND,
                                              "File not found");
             } else {
+                g_debug ("=> Checkpoint 1: %s", error->message);
                 error = g_error_new_literal (KORVA_CONTROLLER1_ERROR,
                                              KORVA_CONTROLLER1_ERROR_NOT_ACCESSIBLE,
                                              "File not accessible");

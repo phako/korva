@@ -170,6 +170,7 @@ korva_upnp_metadata_query_on_file_query_info_async (GObject      *source,
 
     can_read = g_file_info_get_attribute_boolean (info, G_FILE_ATTRIBUTE_ACCESS_CAN_READ);
     if (!can_read) {
+        g_debug ("==> Checkpoint 2");
         g_task_return_new_error (self->priv->result,
                                  KORVA_CONTROLLER1_ERROR,
                                  KORVA_CONTROLLER1_ERROR_NOT_ACCESSIBLE,
@@ -198,7 +199,8 @@ korva_upnp_metadata_query_on_file_query_info_async (GObject      *source,
     if (value == NULL) {
         g_hash_table_insert (self->priv->params,
                              g_strdup ("Title"),
-                             g_variant_new_string (g_file_info_get_display_name (info)));
+                             g_variant_new_string ("Test-title"));
+                             //g_variant_new_string (g_file_info_get_display_name (info)));
     }
 
     value = g_hash_table_lookup (self->priv->params, "UPnPClass");

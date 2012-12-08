@@ -127,6 +127,16 @@ post_set_property (GObject      *object,
 }
 
 static void
+post_constructed (GObject *object)
+{
+    KorvaUPnPFilePost *self = KORVA_UPNP_FILE_POST (object);
+
+    self->priv->stream = G_INPUT_STREAM (g_file_read (self->priv->file,
+                                                      self->priv->cancellable,
+                                                      NULL));
+}
+
+static void
 korva_upnp_file_post_init (KorvaUPnPFilePost *self)
 {
     self->priv = G_TYPE_INSTANCE_GET_PRIVATE (self,
@@ -143,6 +153,7 @@ korva_upnp_file_post_class_init (KorvaUPnPFilePostClass *klass)
     object_class->dispose = post_dispose;
     object_class->finalize = post_finalize;
     object_class->set_property = post_set_property;
+    object_class->constructed = post_constructed;
 
     g_object_class_install_property (object_class,
                                      PROP_SESSION,
@@ -164,7 +175,7 @@ korva_upnp_file_post_class_init (KorvaUPnPFilePostClass *klass)
                                                           G_PARAM_STATIC_STRINGS));
 
     g_object_class_install_property (object_class,
-                                     PROP_FILE,
+                                     PROP_URI,
                                      g_param_spec_string ("uri",
                                                           "uri",
                                                           "uri",
@@ -179,8 +190,8 @@ korva_upnp_file_post_class_init (KorvaUPnPFilePostClass *klass)
                                                          "size",
                                                          "size",
                                                          0,
-                                                         0,
                                                          G_MAXINT64,
+                                                         0,
                                                          G_PARAM_CONSTRUCT_ONLY |
                                                          G_PARAM_WRITABLE |
                                                          G_PARAM_STATIC_STRINGS));
@@ -203,6 +214,9 @@ korva_upnp_file_post_new (const char *uri,
                           const char *content_type,
                           SoupSession *session)
 {
+    g_return_val_if_fail (uri != NULL, NULL);
+    g_return_val_if_fail (G_IS_OBJECT (file), NULL);
+
     return g_object_new (KORVA_TYPE_UPNP_FILE_POST,
                          "uri", uri,
                          "file", file,
@@ -234,11 +248,19 @@ post_next_chunk (SoupMessage *message, KorvaUPnPFilePost *self)
                                   self->priv->cancellable,
                                   &error))
     {
-        // TODO: Return async result
+        soup_session_cancel_message (self->priv->session, message,
+                                     SOUP_STATUS_CANCELLED);
+
+        g_simple_async_result_take_error (self->priv->result, error);
+        g_simple_async_result_complete_in_idle (self->priv->result);
+        g_object_unref (self->priv->result);
+
+        self->priv->result = NULL;
+
         return;
     }
 
-    soup_message_body_append (message->response_body, SOUP_MEMORY_TAKE,
+    soup_message_body_append (message->request_body, SOUP_MEMORY_TAKE,
                               chunk, bytes_read);
     self->priv->bytes_left -= bytes_read;
 }
@@ -246,19 +268,21 @@ post_next_chunk (SoupMessage *message, KorvaUPnPFilePost *self)
 static void
 post_on_informational (SoupMessage *message, KorvaUPnPFilePost *self)
 {
-    if (message->status_code != SOUP_STATUS_CONTINUE) {
-        soup_session_cancel_message (self->priv->session,
-                                     message,
-                                     SOUP_STATUS_CANCELLED);
-        g_simple_async_result_set_error (self->priv->result,
-                                         G_IO_ERROR,
-                                         G_IO_ERROR_CANCELLED,
-                                         "Server does not want the file");
-        g_simple_async_result_complete_in_idle (self->priv->result);
-        g_object_unref (self->priv->result);
-
-        self->priv->result = NULL;
+    if (message->status_code == SOUP_STATUS_CONTINUE) {
+        return;
     }
+
+    soup_session_cancel_message (self->priv->session,
+                                 message,
+                                 SOUP_STATUS_CANCELLED);
+    g_simple_async_result_set_error (self->priv->result,
+                                     G_IO_ERROR,
+                                     G_IO_ERROR_CANCELLED,
+                                     "Server does not want the file");
+    g_simple_async_result_complete_in_idle (self->priv->result);
+    g_object_unref (self->priv->result);
+
+    self->priv->result = NULL;
 }
 
 static void
@@ -270,6 +294,8 @@ post_on_finished (SoupMessage *message, KorvaUPnPFilePost *self)
 
         self->priv->result = NULL;
     }
+
+    self->priv->message = NULL;
 }
 
 void
@@ -320,5 +346,27 @@ korva_upnp_file_post_run_async (KorvaUPnPFilePost   *self,
                                                     callback,
                                                     user_data,
                                                     korva_upnp_file_post_run_async);
-    soup_session_queue_message (self->priv->session, message, NULL, NULL);
+    soup_session_queue_message (self->priv->session, message, NULL, self);
+}
+
+gboolean
+korva_upnp_file_post_finish    (KorvaUPnPFilePost  *post,
+                                GAsyncResult       *res,
+                                GError            **error)
+{
+    GSimpleAsyncResult *result;
+    gboolean success = TRUE;
+
+    if (!g_simple_async_result_is_valid (res,
+                                         G_OBJECT (post),
+                                         korva_upnp_file_post_run_async)) {
+        return FALSE;
+    }
+
+    result = (GSimpleAsyncResult *) res;
+    if (g_simple_async_result_propagate_error (result, error)) {
+        success = FALSE;
+    }
+
+    return success;
 }
