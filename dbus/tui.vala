@@ -13,6 +13,7 @@ public interface TransferUi : Object {
     [DBus (name="cancelled")]
     public abstract void cancelled (string id) throws IOError, DBusError;
 
+    [DBus (name="cancel")]
     public signal void cancel (string id);
 
     public static TransferUi? create () {
