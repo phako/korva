@@ -1,0 +1,6 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+<qresource>
+    <file alias="video-display.png">../../data/icons/video-display.png</file>
+</qresource>
+</RCC>

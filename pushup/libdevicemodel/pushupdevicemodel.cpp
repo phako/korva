@@ -21,17 +21,19 @@
 #include <QUrl>
 #include <QImage>
 
-#include "pushupdevicemodel.h"
+#include "korva-controller1.h"
 #include "pushupcontroller.h"
+#include "pushupdevicemodel.h"
 
 PushUpDeviceModel::PushUpDeviceModel(PushUpController *controller, QObject *parent)
     : QAbstractListModel(parent)
-    , m_controller(controller)
+    , m_controller(controller == 0 ? new PushUpController(this) : controller)
     , m_devices()
 {
+    const KorvaController1 *interface = m_controller->getInterface();
+
     connect(m_controller, SIGNAL(availabilityChanged(bool)), SLOT(onAvailabilityChanged(bool)));
 
-    const KorvaController1 *interface = m_controller->getInterface();
     connect(interface, SIGNAL(DeviceAvailable(QVariantMap)), SLOT(onDeviceAvailable(QVariantMap)));
     connect(interface, SIGNAL(DeviceUnavailable(QString)), SLOT(onDeviceUnavailable(QString)));
 

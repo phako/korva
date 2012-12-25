@@ -26,9 +26,12 @@ KORVA_WARNING_FLAGS
 
 PKG_CHECK_MODULES([GIO], [gio-2.0 >= 2.28])
 PKG_CHECK_MODULES([GUPNP], [gupnp-1.0 >= 0.15.0])
-PKG_CHECK_MODULES([SHAREUI], [share-ui-plugin mdatauri QtCore QtGui QtNetwork meegotouch])
+PKG_CHECK_MODULES([DEVICEMODEL], [QtCore QtDBus QtGui])
+PKG_CHECK_MODULES([SHAREUI], [share-ui-plugin mdatauri meegotouch QtCore QtGui
+                   QtNetwork QtDBus])
 PKG_CHECK_MODULES([TRACKER], [tracker-sparql-0.10])
 PKG_CHECK_MODULES([GSTREAMER], [gstreamer-0.10])
+PKG_CHECK_MODULES([UI], [QtCore QtGui QtNetwork QtDeclarative qdeclarative-boostable])
 
 AC_ARG_ENABLE([debug],
               AS_HELP_STRING([--enable-debug],[Enable debug build]),[],
@@ -67,6 +70,12 @@ dnl Force include config.h
 CFLAGS="${CFLAGS} -include config.h"
 
 AC_CONFIG_FILES([
+pushup/libdevicemodel/Makefile
+pushup/provider/Makefile
+pushup/gui/Makefile
+])
+
+AC_CONFIG_FILES([
 Makefile
 dbus/Makefile
 server/Makefile
@@ -76,6 +85,5 @@ data/Makefile
 libgupnp-av/Makefile
 tests/Makefile
 doc/man/Makefile
-provider/Makefile
 ])
 AC_OUTPUT

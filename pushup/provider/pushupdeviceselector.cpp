@@ -38,7 +38,7 @@
 
 #include "pushupdeviceselector.h"
 #include "pushupdevicemodel.h"
-#include "korva-controller1.h"
+#include "pushupcontroller.h"
 
 class ListCreator : public MAbstractCellCreator<MBasicListItem>
 {

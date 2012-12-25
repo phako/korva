@@ -1,0 +1,152 @@
+
+PushUp=/scratchbox/users/jens/home/jens/korva CD=. filter="*.c *.cpp *.h *.qml *.am *.ac *.vala" {
+ config.h
+ Makefile.am
+ configure.ac
+ client=client {
+  korva-control.c
+  Makefile.am
+ }
+ data=data {
+  Makefile.am
+ }
+ dbus=dbus {
+  gdbusinterface.c
+  gdbusinterfaceskeleton.c
+  gdbusobject.c
+  gdbusobjectskeleton.c
+  gdbusutils.c
+  korva-dbus-interface.c
+  korva-marshal.c
+  tui.c
+  gdbusinterface.h
+  gdbusinterfaceskeleton.h
+  gdbusobject.h
+  gdbusobjectskeleton.h
+  gdbusutils.h
+  glibintl.h
+  korva-dbus-interface.h
+  korva-marshal.h
+  tui.h
+  typedefs.h
+  Makefile.am
+  tui.vala
+ }
+ debian=debian {
+  control
+  rules
+  changelog
+ }
+ libgupnp-av=libgupnp-av {
+  gupnp-av-error.c
+  gupnp-av-marshal.c
+  gupnp-didl-lite-container.c
+  gupnp-didl-lite-contributor.c
+  gupnp-didl-lite-descriptor.c
+  gupnp-didl-lite-item.c
+  gupnp-didl-lite-object.c
+  gupnp-didl-lite-parser.c
+  gupnp-didl-lite-resource.c
+  gupnp-didl-lite-writer.c
+  gupnp-dlna.c
+  gupnp-last-change-parser.c
+  gupnp-protocol-info.c
+  gupnp-search-criteria-parser.c
+  gvalue-util.c
+  xml-util.c
+  gupnp-av-error.h
+  gupnp-av-marshal.h
+  gupnp-av.h
+  gupnp-didl-lite-container.h
+  gupnp-didl-lite-contributor-private.h
+  gupnp-didl-lite-contributor.h
+  gupnp-didl-lite-descriptor-private.h
+  gupnp-didl-lite-descriptor.h
+  gupnp-didl-lite-item.h
+  gupnp-didl-lite-object-private.h
+  gupnp-didl-lite-object.h
+  gupnp-didl-lite-parser.h
+  gupnp-didl-lite-resource-private.h
+  gupnp-didl-lite-resource.h
+  gupnp-didl-lite-writer.h
+  gupnp-dlna.h
+  gupnp-last-change-parser.h
+  gupnp-protocol-info.h
+  gupnp-search-criteria-parser.h
+  gvalue-util.h
+  xml-util.h
+  Makefile.am
+ }
+ pushup=pushup {
+  gui=gui CD=. {
+   main.cpp
+   qmlapplicationviewer.cpp
+   qmlapplicationviewer.h
+   resources.qrc
+   Makefile.am
+   images=images {
+   }
+   qml=qml {
+    PushUp=PushUp {
+     DeviceSheet.qml
+     MainPage.qml
+     main.qml
+    }
+   }
+  }
+  libdevicemodel=libdevicemodel CD=.{
+   korva-controller1.cpp
+   pushupcontroller.cpp
+   pushupdevicemodel.cpp
+   korva-controller1.h
+   pushupcontroller.h
+   pushupdevicemodel.h
+   Makefile.am
+  }
+  provider=provider CD=.{
+   pushupdeviceselector.cpp
+   pushupmethod.cpp
+   pushupplugin.cpp
+   pushupdeviceselector.h
+   pushupmethod.h
+   pushupplugin.h
+   Makefile.am
+  }
+ }
+ server=server CD=. {
+  korva-device-lister.c
+  korva-device.c
+  korva-error.c
+  korva-icon-cache.c
+  korva-server.c
+  korva.c
+  korva-device-lister.h
+  korva-device.h
+  korva-error.h
+  korva-icon-cache.h
+  korva-server.h
+  Makefile.am
+  upnp=upnp CD=. {
+   korva-upnp-device-lister.c
+   korva-upnp-device.c
+   korva-upnp-file-server.c
+   korva-upnp-host-data.c
+   korva-upnp-metadata-query.c
+   korva-upnp-constants-private.h
+   korva-upnp-device-lister.h
+   korva-upnp-device.h
+   korva-upnp-file-server.h
+   korva-upnp-host-data.h
+   korva-upnp-metadata-query.h
+   Makefile.am
+  }
+ }
+ tests=tests CD=. {
+  test-upnp.c
+  Makefile.am
+  mock-dmr=mock-dmr {
+   mock-dmr.c
+   mock-dmr.h
+  }
+ }
+}
