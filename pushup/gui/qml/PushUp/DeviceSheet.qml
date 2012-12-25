@@ -26,6 +26,10 @@ Sheet {
     acceptButtonText: qsTr("Select")
     rejectButtonText: qsTr("Cancel")
 
+    property url icon : ""
+    property string uuid : ""
+    property string deviceName : ""
+
     content: ListView {
         id: listView
         model: PushUpDeviceModel {}
@@ -57,7 +61,12 @@ Sheet {
 
             MouseArea {
                 anchors.fill: parent
-                onClicked: listView.currentIndex = index
+                onClicked: {
+                    listView.currentIndex = index
+                    icon = decoration
+                    deviceName = display
+                    uuid = edit
+                }
             }
         }
 

@@ -1,8 +1,10 @@
 opt/korva/lib/korva/korva
 opt/korva/bin/korva-control
+opt/korva/bin/pushup-control
 opt/korva/share/korva/icons/icon-l-pushup_play.png
 opt/korva/share/korva/icons/network-server.png
 opt/korva/share/korva/icons/video-display.png
+usr/share/applications/pushup-control.desktop
 usr/share/dbus-1/services/pushup.service
 usr/lib/share-ui/plugins/libpushup_play.so
 usr/share/themes/blanco/meegotouch/icons/icon-m-content-pushup_play.png

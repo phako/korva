@@ -20,12 +20,15 @@
 
 import QtQuick 1.1
 import com.nokia.meego 1.0
+import org.jensge.PushUp 1.0
 
 Page {
     id: page
     tools: commonTools
 
-    property string title : "Application Title"
+    property string title : "PushUp — DLNA bridge"
+    property string uuid : ""
+    property alias deviceName: deviceLabel.text
 
     Image {
         id: pageHeader
@@ -58,7 +61,7 @@ Page {
     Image {
         id: deviceIcon
         anchors.top: pageHeader.bottom
-        anchors.topMargin: 50
+        anchors.topMargin: 100
         anchors.horizontalCenter: parent.horizontalCenter
         width: 128
         height: 128
@@ -66,24 +69,44 @@ Page {
         MouseArea {
             anchors.fill: parent
             onClicked: deviceSheet.open()
+
+            Connections {
+                target: deviceSheet
+                onAccepted: {
+                    console.log("Setting new source: " + deviceSheet.icon)
+                    deviceIcon.source = deviceSheet.icon
+                    uuid = deviceSheet.uuid
+                    deviceName = deviceSheet.deviceName
+                }
+            }
         }
     }
 
     Label {
-        id: deviceName
+        id: deviceLabel
         text: qsTr("Select renderer")
         anchors.top: deviceIcon.bottom
         anchors.topMargin: 10
         anchors.horizontalCenter: parent.horizontalCenter
     }
 
+    PushUpController {
+        id: controller
+    }
+
     Button {
         id: toggleButton
-        anchors.top: deviceName.bottom
+        anchors.top: deviceLabel.bottom
         anchors.topMargin: 40
         anchors.horizontalCenter: parent.horizontalCenter
         checked: false
         checkable: true
         text: checked ? qsTr("Unshare phone audio") : qsTr("Share phone audio")
+        enabled: uuid != ""
+        onCheckedChanged: {
+            if (checked) {
+                controller.push("korva://system-audio", uuid);
+            }
+        }
     }
 }

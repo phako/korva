@@ -2,5 +2,9 @@
 <RCC version="1.0">
 <qresource>
     <file alias="video-display.png">../../data/icons/video-display.png</file>
+    <file>qml/PushUp/main.qml</file>
+    <file>qml/PushUp/MainPage.qml</file>
+    <file>qml/PushUp/ActiveSelection.qml</file>
+    <file>qml/PushUp/DeviceSheet.qml</file>
 </qresource>
 </RCC>

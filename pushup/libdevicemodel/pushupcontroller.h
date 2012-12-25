@@ -39,6 +39,7 @@ signals:
     void availabilityChanged(bool available);
 
 public slots:
+    void push(const QString &uri, const QString &uuid);
 private slots:
     void onServiceOwnerChanged(const QString& service, const QString& oldOwner, const QString& newOwner);
 private:

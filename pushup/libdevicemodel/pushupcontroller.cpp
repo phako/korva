@@ -42,3 +42,10 @@ void PushUpController::onServiceOwnerChanged(const QString &service, const QStri
 
     emit availabilityChanged(m_available);
 }
+
+void PushUpController::push(const QString &uri, const QString &uuid)
+{
+    QVariantMap source;
+    source["URI"] = uri;
+    m_controller.Push(source, uuid);
+}

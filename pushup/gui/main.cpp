@@ -23,17 +23,19 @@
 
 #include "qmlapplicationviewer.h"
 #include "pushupdevicemodel.h"
+#include "pushupcontroller.h"
 
 Q_DECL_EXPORT int main(int argc, char *argv[])
 {
     QScopedPointer<QApplication> app(createApplication(argc, argv));
 
     qmlRegisterType<PushUpDeviceModel>("org.jensge.PushUp", 1, 0, "PushUpDeviceModel");
+    qmlRegisterType<PushUpController>("org.jensge.PushUp", 1, 0, "PushUpController");
     
     QmlApplicationViewer viewer;
 
     viewer.setOrientation(QmlApplicationViewer::ScreenOrientationAuto);
-    viewer.setMainQmlFile(QLatin1String("qml/PushUp/main.qml"));
+    viewer.setSource(QUrl(QLatin1String("qrc:///qml/PushUp/main.qml")));
     viewer.showExpanded();
 
     return app->exec();

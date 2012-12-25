@@ -88,6 +88,7 @@ PushUp=/scratchbox/users/jens/home/jens/korva CD=. filter="*.c *.cpp *.h *.qml *
    }
    qml=qml {
     PushUp=PushUp {
+     ActiveSelection.qml
      DeviceSheet.qml
      MainPage.qml
      main.qml
