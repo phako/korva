@@ -21,6 +21,7 @@
 import QtQuick 1.1
 import com.nokia.meego 1.0
 import org.jensge.PushUp 1.0
+import QtMultimediaKit 1.1
 
 Page {
     id: page
@@ -28,7 +29,13 @@ Page {
 
     property string title : "PushUp — DLNA bridge"
     property string uuid : ""
+    property string tag : ""
+    property real saved_volume : 0.0
     property alias deviceName: deviceLabel.text
+
+    Audio {
+        id: audio
+    }
 
     Image {
         id: pageHeader
@@ -92,6 +99,9 @@ Page {
 
     PushUpController {
         id: controller
+        onPushDone: {
+            page.tag = tag
+        }
     }
 
     Button {
@@ -106,7 +116,13 @@ Page {
         onCheckedChanged: {
             if (checked) {
                 controller.push("korva://system-audio", uuid);
+                audio.volume = 0.0
+            } else {
+                controller.unshare(tag);
+                audio.volume = saved_volume;
             }
         }
     }
+
+    Component.onCompleted: saved_volume = audio.volume
 }

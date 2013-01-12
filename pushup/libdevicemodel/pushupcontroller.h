@@ -37,11 +37,14 @@ public:
 
 signals:
     void availabilityChanged(bool available);
+    void pushDone(const QString &tag);
 
 public slots:
     void push(const QString &uri, const QString &uuid);
+    void unshare(const QString &tag);
 private slots:
-    void onServiceOwnerChanged(const QString& service, const QString& oldOwner, const QString& newOwner);
+    void onServiceOwnerChanged(const QString &service, const QString &oldOwner, const QString &newOwner);
+    void onFinished(QDBusPendingCallWatcher *watcher);
 private:
     QDBusServiceWatcher m_watcher;
     KorvaController1    m_controller;

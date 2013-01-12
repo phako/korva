@@ -83,9 +83,8 @@ PushUp=/scratchbox/users/jens/home/jens/korva CD=. filter="*.c *.cpp *.h *.qml *
    qmlapplicationviewer.cpp
    qmlapplicationviewer.h
    resources.qrc
+   pushup-control.desktop
    Makefile.am
-   images=images {
-   }
    qml=qml {
     PushUp=PushUp {
      ActiveSelection.qml

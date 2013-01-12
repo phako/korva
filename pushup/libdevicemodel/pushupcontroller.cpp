@@ -47,5 +47,26 @@ void PushUpController::push(const QString &uri, const QString &uuid)
 {
     QVariantMap source;
     source["URI"] = uri;
-    m_controller.Push(source, uuid);
+    QDBusPendingCallWatcher *watcher =
+        new QDBusPendingCallWatcher(m_controller.Push(source, uuid), this);
+    connect(watcher, SIGNAL(finished(QDBusPendingCallWatcher *)),
+            SLOT(onFinished(QDBusPendingCallWatcher *)));
+}
+
+void PushUpController::unshare(const QString &tag)
+{
+    m_controller.Unshare(tag);
+}
+
+void PushUpController::onFinished(QDBusPendingCallWatcher *watcher)
+{
+    watcher->deleteLater();
+    QDBusPendingReply<QString> reply = *watcher;
+    if (reply.isError()) {
+        Q_EMIT(pushDone(QString()));
+
+        return;
+    }
+
+    Q_EMIT(pushDone(reply.argumentAt<0>()));
 }
