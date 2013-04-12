@@ -23,6 +23,7 @@
 
 #include "korva-error.h"
 
+/* *INDENT-OFF* */
 static const GDBusErrorEntry korva_controller1_error_entries[] =
 {
     { KORVA_CONTROLLER1_ERROR_FILE_NOT_FOUND,   "org.jensge.Korva.Error.FileNotFound"     },
@@ -33,6 +34,7 @@ static const GDBusErrorEntry korva_controller1_error_entries[] =
     { KORVA_CONTROLLER1_ERROR_NO_SUCH_TRANSFER, "org.jensge.Korva.Error.NoSuchTransfer"   },
     { KORVA_CONTROLLER1_ERROR_NOT_ACCESSIBLE,   "org.jensge.Korva.Error.NotAccessible"    }
 };
+/* *INDENT-ON* */
 
 GQuark
 korva_controller1_error_quark ()

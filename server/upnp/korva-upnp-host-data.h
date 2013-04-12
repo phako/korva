@@ -70,7 +70,6 @@ korva_upnp_host_data_new (GFile *file, GHashTable *meta_data, const char *addres
 
 void
 korva_upnp_host_data_add_peer (KorvaUPnPHostData *self, const char *peer);
-G_END_DECLS
 
 void
 korva_upnp_host_data_remove_peer (KorvaUPnPHostData *self, const char *peer);
@@ -110,4 +109,16 @@ korva_upnp_host_data_get_content_type (KorvaUPnPHostData *self);
 
 gboolean
 korva_upnp_host_data_has_peers (KorvaUPnPHostData *self);
+
+void
+korva_upnp_host_data_add_request (KorvaUPnPHostData *self);
+
+void
+korva_upnp_host_data_remove_request (KorvaUPnPHostData *self);
+
+gboolean
+korva_upnp_host_data_has_requests (KorvaUPnPHostData *self);
+
+G_END_DECLS
+
 #endif /*__KORVA_UPNP_HOST_DATA_H__*/
