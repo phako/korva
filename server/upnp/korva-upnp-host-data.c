@@ -36,6 +36,7 @@ struct _KorvaUPnPHostDataPrivate {
     GList      *peers;
     uint        timeout_id;
     char       *extension;
+    uint        request_count;
 };
 
 enum KorvaUPnPHostDataProperties {
@@ -578,6 +579,24 @@ gboolean
 korva_upnp_host_data_has_peers (KorvaUPnPHostData *self)
 {
     return self->priv->peers != NULL;
+}
+
+void
+korva_upnp_host_data_add_request (KorvaUPnPHostData *self)
+{
+    self->priv->request_count++;
+}
+
+void
+korva_upnp_host_data_remove_request (KorvaUPnPHostData *self)
+{
+    self->priv->request_count--;
+}
+
+gboolean
+korva_upnp_host_data_has_requests (KorvaUPnPHostData *self)
+{
+    return self->priv->request_count == 0;
 }
 
 /**

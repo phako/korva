@@ -314,6 +314,34 @@ test_upnp_fileserver_host_file_timeout (HostFileTestData *data, gconstpointer us
     g_assert (korva_upnp_file_server_idle (data->server));
 }
 
+
+static void
+test_upnp_fileserver_host_file_timeout2 (HostFileTestData *data, gconstpointer user_data)
+{
+    SoupSession *session;
+    SoupMessage *message;
+
+    session = soup_session_async_new ();
+    message = soup_message_new (SOUP_METHOD_HEAD, data->result_uri);
+    soup_session_queue_message (session, message, NULL, NULL);
+
+    g_signal_connect_swapped (message, "finished", G_CALLBACK (g_main_loop_quit), data->loop);
+
+    message = soup_message_new (SOUP_METHOD_GET, data->result_uri);
+    soup_session_queue_message (session, message, NULL, NULL);
+    g_signal_connect_swapped (message, "got-headers", G_CALLBACK (soup_session_pause_message), session);
+
+
+    g_main_loop_run (data->loop);
+
+    g_timeout_add_seconds (KORVA_UPNP_FILE_SERVER_DEFAULT_TIMEOUT + 10,
+                           quit_main_loop_source_func,
+                           data->loop);
+    g_main_loop_run (data->loop);
+
+    g_assert (!korva_upnp_file_server_idle (data->server));
+}
+
 static void
 test_upnp_fileserver_http_server_setup (HostFileTestData *data, gconstpointer user_data)
 {
@@ -964,6 +992,13 @@ int main (int argc, char *argv[])
                 NULL,
                 test_host_file_setup,
                 test_upnp_fileserver_host_file_timeout,
+                test_host_file_teardown);
+
+    g_test_add ("/korva/server/upnp/fileserver/host-file/timeout2",
+                HostFileTestData,
+                NULL,
+                test_upnp_fileserver_http_server_setup,
+                test_upnp_fileserver_host_file_timeout2,
                 test_host_file_teardown);
 
     g_test_add ("/korva/server/upnp/fileserver/host-file/non-existing",
