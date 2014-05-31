@@ -470,8 +470,7 @@ korva_server_on_handle_push (KorvaController1      *iface,
         g_dbus_method_invocation_return_error (invocation,
                                                KORVA_CONTROLLER1_ERROR,
                                                KORVA_CONTROLLER1_ERROR_INVALID_ARGS,
-                                               "'source' parameter needs to be 'a{sv}'",
-                                               uid);
+                                               "'source' parameter needs to be 'a{sv}'");
 
         return TRUE;
     }
