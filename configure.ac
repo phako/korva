@@ -22,7 +22,7 @@ dnl Set extended warning flags for compilation. See m4/korva.m4 for the flags
 KORVA_WARNING_FLAGS
 
 PKG_CHECK_MODULES([GIO], [gio-2.0 >= 2.30 gio-unix-2.0 >= 2.30])
-PKG_CHECK_MODULES([GUPNP], [gupnp-1.0 >= 0.18.0 gupnp-av-1.0 >= 0.10.1])
+PKG_CHECK_MODULES([GUPNP], [gssdp-1.0 gupnp-1.0 >= 0.18.0 gupnp-av-1.0 >= 0.10.1 libsoup-2.4])
 
 AC_ARG_ENABLE([debug],
               AS_HELP_STRING([--enable-debug],[Enable debug build]),[],
