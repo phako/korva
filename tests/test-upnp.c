@@ -321,6 +321,10 @@ test_upnp_fileserver_host_file_timeout2 (HostFileTestData *data, gconstpointer u
     SoupSession *session;
     SoupMessage *message;
 
+    if (!g_test_slow ()) {
+        return;
+    }
+
     session = soup_session_async_new ();
     message = soup_message_new (SOUP_METHOD_HEAD, data->result_uri);
     soup_session_queue_message (session, message, NULL, NULL);
