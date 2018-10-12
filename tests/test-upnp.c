@@ -966,7 +966,6 @@ test_upnp_device_share_not_compatible (UPnPDeviceData *data, gconstpointer user_
 
 int main (int argc, char *argv[])
 {
-    g_type_init ();
     korva_icon_cache_init ();
     g_test_init (&argc, &argv, NULL);
 

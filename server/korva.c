@@ -26,7 +26,6 @@
 int main (int argc, char *argv[])
 {
     g_debug ("Starting korva...");
-    g_type_init ();
     korva_icon_cache_init ();
 
     KorvaServer *server = korva_server_new ();

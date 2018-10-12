@@ -233,7 +233,6 @@ int main (int argc, char *argv[])
     char *basename;
     int mode_ret;
 
-    g_type_init ();
     context = g_option_context_new ("- control a korva server");
 
     /* Preparse operating mode from executable name */
