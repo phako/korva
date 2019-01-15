@@ -29,9 +29,9 @@ enum {
 };
 
 struct _KorvaUPnPMetadataQueryPrivate {
-    GFile        *file;
-    GTask        *result;
-    GHashTable   *params;
+    GFile      *file;
+    GTask      *result;
+    GHashTable *params;
 };
 
 G_DEFINE_TYPE (KorvaUPnPMetadataQuery, korva_upnp_metadata_query, G_TYPE_OBJECT)

@@ -571,7 +571,7 @@ korva_upnp_file_server_host_file_async (KorvaUPnPFileServer *self,
 
     result_data = g_new0 (HostFileResult, 1);
     result_data->params = korva_upnp_host_data_get_meta_data (data);
-    result_data->uri = korva_upnp_host_data_get_uri (data, iface, ((SoupURI *)uris->data)->port);
+    result_data->uri = korva_upnp_host_data_get_uri (data, iface, ((SoupURI *) uris->data)->port);
     g_slist_free_full (uris, (GDestroyNotify) soup_uri_free);
 
     g_task_return_pointer (result, result_data, g_free);
