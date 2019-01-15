@@ -34,7 +34,7 @@ struct _KorvaUPnPMetadataQueryPrivate {
     GHashTable *params;
 };
 
-G_DEFINE_TYPE (KorvaUPnPMetadataQuery, korva_upnp_metadata_query, G_TYPE_OBJECT)
+G_DEFINE_TYPE_WITH_PRIVATE (KorvaUPnPMetadataQuery, korva_upnp_metadata_query, G_TYPE_OBJECT)
 
 /* Forward declarations */
 static void
@@ -45,9 +45,7 @@ korva_upnp_metadata_query_on_file_query_info_async (GObject      *source,
 static void
 korva_upnp_metadata_query_init (KorvaUPnPMetadataQuery *self)
 {
-    self->priv = G_TYPE_INSTANCE_GET_PRIVATE (self,
-                                              KORVA_TYPE_UPNP_METADATA_QUERY,
-                                              KorvaUPnPMetadataQueryPrivate);
+    self->priv = korva_upnp_metadata_query_get_instance_private (self);
 }
 
 static void
@@ -85,8 +83,6 @@ static void
 korva_upnp_metadata_query_class_init (KorvaUPnPMetadataQueryClass *klass)
 {
     GObjectClass *object_class = G_OBJECT_CLASS (klass);
-
-    g_type_class_add_private (klass, sizeof (KorvaUPnPMetadataQueryPrivate));
 
     object_class->finalize = korva_upnp_metadata_query_finalize;
     object_class->set_property = korva_upnp_metadata_query_set_property;

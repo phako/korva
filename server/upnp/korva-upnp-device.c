@@ -53,9 +53,34 @@ korva_upnp_device_error_quark ()
     return g_quark_from_static_string ("korva-upnp-device-error");
 }
 
+struct _KorvaUPnPDevicePrivate {
+    union {
+        GUPnPDeviceProxy *proxy;
+        GUPnPDeviceInfo  *info;
+    };
+
+    char                      *udn;
+    char                      *friendly_name;
+    char                      *icon_uri;
+    KorvaDeviceType            device_type;
+    GTask                     *result;
+    GHashTable                *services;
+    GUPnPServiceIntrospection *introspection;
+    char                      *protocol_info;
+    SoupSession               *session;
+    GList                     *other_proxies;
+    GUPnPLastChangeParser     *last_change_parser;
+    char                      *state;
+    char                      *ip_address;
+    char                      *current_tag;
+    char                      *current_uri;
+    GFile                     *current_file;
+};
+
 G_DEFINE_TYPE_WITH_CODE (KorvaUPnPDevice,
                          korva_upnp_device,
                          G_TYPE_OBJECT,
+                         G_ADD_PRIVATE (KorvaUPnPDevice)
                          G_IMPLEMENT_INTERFACE (G_TYPE_ASYNC_INITABLE,
                                                 korva_upnp_device_async_initable_init)
                          G_IMPLEMENT_INTERFACE (KORVA_TYPE_DEVICE,
@@ -171,30 +196,6 @@ korva_upnp_device_unshare_finish (KorvaDevice  *self,
                                   GAsyncResult *result,
                                   GError      **error);
 
-struct _KorvaUPnPDevicePrivate {
-    union {
-        GUPnPDeviceProxy *proxy;
-        GUPnPDeviceInfo  *info;
-    };
-
-    char                      *udn;
-    char                      *friendly_name;
-    char                      *icon_uri;
-    KorvaDeviceType            device_type;
-    GTask                     *result;
-    GHashTable                *services;
-    GUPnPServiceIntrospection *introspection;
-    char                      *protocol_info;
-    SoupSession               *session;
-    GList                     *other_proxies;
-    GUPnPLastChangeParser     *last_change_parser;
-    char                      *state;
-    char                      *ip_address;
-    char                      *current_tag;
-    char                      *current_uri;
-    GFile                     *current_file;
-};
-
 enum Properties {
     PROP_0,
     PROP_PROXY
@@ -203,9 +204,7 @@ enum Properties {
 static void
 korva_upnp_device_init (KorvaUPnPDevice *self)
 {
-    self->priv = G_TYPE_INSTANCE_GET_PRIVATE (self,
-                                              KORVA_TYPE_UPNP_DEVICE,
-                                              KorvaUPnPDevicePrivate);
+    self->priv = korva_upnp_device_get_instance_private (self);
     self->priv->services = g_hash_table_new_full (g_str_hash,
                                                   g_str_equal,
                                                   NULL,
@@ -278,8 +277,6 @@ korva_upnp_device_class_init (KorvaUPnPDeviceClass *klass)
                                         G_REGEX_OPTIMIZE,
                                         0,
                                         NULL);
-
-    g_type_class_add_private (klass, sizeof (KorvaUPnPDevicePrivate));
 
     object_class->dispose = korva_upnp_device_dispose;
     object_class->finalize = korva_upnp_device_finalize;

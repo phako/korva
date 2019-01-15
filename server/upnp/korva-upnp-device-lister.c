@@ -45,6 +45,7 @@ G_DEFINE_TYPE_EXTENDED (KorvaUPnPDeviceLister,
                         korva_upnp_device_lister,
                         G_TYPE_OBJECT,
                         0,
+                        G_ADD_PRIVATE (KorvaUPnPDeviceLister)
                         G_IMPLEMENT_INTERFACE (KORVA_TYPE_DEVICE_LISTER,
                                                korva_upnp_device_lister_iface_init))
 
@@ -97,9 +98,7 @@ korva_upnp_device_lister_init (KorvaUPnPDeviceLister *self)
 {
     GUPnPContextManager *cm;
 
-    self->priv = G_TYPE_INSTANCE_GET_PRIVATE (self,
-                                              KORVA_TYPE_UPNP_DEVICE_LISTER,
-                                              KorvaUPnPDeviceListerPrivate);
+    self->priv = korva_upnp_device_lister_get_instance_private (self);
     self->priv->devices = g_hash_table_new_full (g_str_hash,
                                                  g_str_equal,
                                                  g_free,
@@ -139,8 +138,6 @@ korva_upnp_device_lister_class_init (KorvaUPnPDeviceListerClass *klass)
 
     object_class = G_OBJECT_CLASS (klass);
     object_class->dispose = korva_upnp_device_lister_dispose;
-
-    g_type_class_add_private (klass, sizeof (KorvaUPnPDeviceListerPrivate));
 }
 
 KorvaDeviceLister *

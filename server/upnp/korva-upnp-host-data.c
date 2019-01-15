@@ -27,8 +27,6 @@
 #include "korva-upnp-constants-private.h"
 #include "korva-upnp-host-data.h"
 
-G_DEFINE_TYPE (KorvaUPnPHostData, korva_upnp_host_data, G_TYPE_OBJECT)
-
 struct _KorvaUPnPHostDataPrivate {
     GFile      *file;
     GHashTable *meta_data;
@@ -38,6 +36,8 @@ struct _KorvaUPnPHostDataPrivate {
     char       *extension;
     uint        request_count;
 };
+
+G_DEFINE_TYPE_WITH_PRIVATE (KorvaUPnPHostData, korva_upnp_host_data, G_TYPE_OBJECT)
 
 enum KorvaUPnPHostDataProperties {
     PROP_0,
@@ -79,8 +79,6 @@ static void
 korva_upnp_host_data_class_init (KorvaUPnPHostDataClass *klass)
 {
     GObjectClass *object_class = G_OBJECT_CLASS (klass);
-
-    g_type_class_add_private (klass, sizeof (KorvaUPnPHostDataPrivate));
 
     object_class->constructed = korva_upnp_host_data_constructed;
     object_class->set_property = korva_upnp_host_data_set_property;
@@ -167,9 +165,7 @@ static void
 korva_upnp_host_data_init (KorvaUPnPHostData *self)
 {
 
-    self->priv = G_TYPE_INSTANCE_GET_PRIVATE (self,
-                                              KORVA_TYPE_UPNP_HOST_DATA,
-                                              KorvaUPnPHostDataPrivate);
+    self->priv = korva_upnp_host_data_get_instance_private (self);
 }
 
 static void

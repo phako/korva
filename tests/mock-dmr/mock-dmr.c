@@ -35,7 +35,7 @@ struct _MockDMRPrivate {
     char             *state;
 };
 
-G_DEFINE_TYPE (MockDMR, mock_dmr, GUPNP_TYPE_ROOT_DEVICE)
+G_DEFINE_TYPE_WITH_PRIVATE (MockDMR, mock_dmr, GUPNP_TYPE_ROOT_DEVICE)
 
 enum MockDMRProperties {
     PROP_0,
@@ -97,16 +97,12 @@ mock_dmr_class_init (MockDMRClass *klass)
                                                           G_PARAM_STATIC_BLURB |
                                                           G_PARAM_STATIC_NAME |
                                                           G_PARAM_STATIC_NICK));
-
-    g_type_class_add_private (klass, sizeof (MockDMRPrivate));
 }
 
 static void
 mock_dmr_init (MockDMR *self)
 {
-    self->priv = G_TYPE_INSTANCE_GET_PRIVATE (self,
-                                              TYPE_MOCK_DMR,
-                                              MockDMRPrivate);
+    self->priv = mock_dmr_get_instance_private (self);
 }
 
 static void

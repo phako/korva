@@ -47,7 +47,16 @@ korva_backend_free (KorvaBackend *backend)
     g_free (backend);
 }
 
-G_DEFINE_TYPE (KorvaServer, korva_server, G_TYPE_OBJECT);
+struct _KorvaServerPrivate {
+    GMainLoop        *loop;
+    KorvaController1 *dbus_controller;
+    GList            *backends;
+    guint             bus_id;
+    GHashTable       *tags;
+    guint             timeout_id;
+};
+
+G_DEFINE_TYPE_WITH_PRIVATE (KorvaServer, korva_server, G_TYPE_OBJECT);
 
 /* forward declarations */
 
@@ -107,15 +116,6 @@ korva_server_on_device_unavailable (KorvaDeviceLister *source,
                                     const char        *uid,
                                     gpointer           user_data);
 
-struct _KorvaServerPrivate {
-    GMainLoop        *loop;
-    KorvaController1 *dbus_controller;
-    GList            *backends;
-    guint             bus_id;
-    GHashTable       *tags;
-    guint             timeout_id;
-};
-
 static gboolean
 korva_server_signal_handler (gpointer user_data)
 {
@@ -129,9 +129,7 @@ korva_server_signal_handler (gpointer user_data)
 static void
 korva_server_init (KorvaServer *self)
 {
-    self->priv = G_TYPE_INSTANCE_GET_PRIVATE (self,
-                                              KORVA_TYPE_SERVER,
-                                              KorvaServerPrivate);
+    self->priv = korva_server_get_instance_private (self);
     self->priv->loop = g_main_loop_new (NULL, FALSE);
 
     self->priv->bus_id = g_bus_own_name (G_BUS_TYPE_SESSION,
@@ -191,8 +189,6 @@ korva_server_class_init (KorvaServerClass *klass)
 
     object_class->dispose = korva_server_dispose;
     object_class->finalize = korva_server_finalize;
-
-    g_type_class_add_private (klass, sizeof (KorvaServerPrivate));
 }
 
 KorvaServer *

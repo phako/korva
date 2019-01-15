@@ -36,8 +36,6 @@
 /* A valid path consists of /item/md5 and an optional 4 character extension */
 #define KORVA_PATH_REGEX "^/item/([0-9a-fA-F]{32})(\\.[a-zA-Z0-9]{0,4})?$"
 
-G_DEFINE_TYPE (KorvaUPnPFileServer, korva_upnp_file_server, G_TYPE_OBJECT);
-
 struct _KorvaUPnPFileServerPrivate {
     SoupServer *http_server;
     GHashTable *host_data;
@@ -45,6 +43,7 @@ struct _KorvaUPnPFileServerPrivate {
     guint       port;
     GRegex     *path_regex;
 };
+G_DEFINE_TYPE_WITH_PRIVATE (KorvaUPnPFileServer, korva_upnp_file_server, G_TYPE_OBJECT);
 
 typedef struct _ServeData {
     SoupServer        *server;
@@ -300,9 +299,7 @@ korva_upnp_file_server_init (KorvaUPnPFileServer *self)
 {
     GError *error = NULL;
 
-    self->priv = G_TYPE_INSTANCE_GET_PRIVATE (self,
-                                              KORVA_TYPE_UPNP_FILE_SERVER,
-                                              KorvaUPnPFileServerPrivate);
+    self->priv = korva_upnp_file_server_get_instance_private (self);
     self->priv->http_server = soup_server_new (NULL, NULL);
     soup_server_add_handler (self->priv->http_server,
                              "/item",
@@ -384,8 +381,6 @@ korva_upnp_file_server_class_init (KorvaUPnPFileServerClass *klass)
     object_class->constructor = korva_upnp_file_server_constructor;
     object_class->finalize = korva_upnp_file_server_finalize;
     object_class->dispose = korva_upnp_file_server_dispose;
-
-    g_type_class_add_private (klass, sizeof (KorvaUPnPFileServerPrivate));
 }
 
 KorvaUPnPFileServer *
