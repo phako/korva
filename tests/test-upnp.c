@@ -536,13 +536,6 @@ test_upnp_fileserver_http_server_ranges (HostFileTestData *data, gconstpointer u
     g_assert_cmpint (message->status_code, ==, SOUP_STATUS_REQUESTED_RANGE_NOT_SATISFIABLE);
     g_object_unref (message);
 
-    /* Check range request with inverted parameters */
-    message = g_object_ref (soup_message_new (SOUP_METHOD_HEAD, data->result_uri));
-    soup_message_headers_set_range (message->request_headers, 10, 0);
-    schedule_request_and_wait (session, message, data);
-    g_assert_cmpint (message->status_code, ==, SOUP_STATUS_REQUESTED_RANGE_NOT_SATISFIABLE);
-    g_object_unref (message);
-
     g_mapped_file_unref (file);
     g_object_unref (session);
 }
