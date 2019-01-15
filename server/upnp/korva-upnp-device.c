@@ -215,40 +215,22 @@ korva_upnp_device_init (KorvaUPnPDevice *self)
     self->priv->state = g_strdup (AV_STATE_UNKNOWN);
 }
 
+static void proxy_list_free (GList *proxies)
+{
+    g_list_free_full (proxies, g_object_unref);
+}
+
 static void
 korva_upnp_device_dispose (GObject *obj)
 {
     KorvaUPnPDevice *self = KORVA_UPNP_DEVICE (obj);
 
-    if (self->priv->proxy != NULL) {
-        g_object_unref (self->priv->proxy);
-        self->priv->proxy = NULL;
-    }
-
-    if (self->priv->services != NULL) {
-        g_hash_table_destroy (self->priv->services);
-        self->priv->services = NULL;
-    }
-
-    if (self->priv->session != NULL) {
-        g_object_unref (self->priv->session);
-        self->priv->session = NULL;
-    }
-
-    if (self->priv->other_proxies != NULL) {
-        g_list_free_full (self->priv->other_proxies, g_object_unref);
-        self->priv->other_proxies = NULL;
-    }
-
-    if (self->priv->last_change_parser != NULL) {
-        g_object_unref (self->priv->last_change_parser);
-        self->priv->last_change_parser = NULL;
-    }
-
-    if (self->priv->current_file != NULL) {
-        g_object_unref (self->priv->current_file);
-        self->priv->current_file = NULL;
-    }
+    g_clear_object (&self->priv->proxy);
+    g_clear_pointer (&self->priv->services, g_hash_table_destroy);
+    g_clear_object (&self->priv->session);
+    g_clear_pointer (&self->priv->other_proxies, proxy_list_free);
+    g_clear_object (&self->priv->last_change_parser);
+    g_clear_object (&self->priv->last_change_parser);
 
     G_OBJECT_CLASS (korva_upnp_device_parent_class)->dispose (obj);
 }
@@ -258,25 +240,10 @@ korva_upnp_device_finalize (GObject *obj)
 {
     KorvaUPnPDevice *self = KORVA_UPNP_DEVICE (obj);
 
-    if (self->priv->protocol_info != NULL) {
-        g_free (self->priv->protocol_info);
-        self->priv->protocol_info = NULL;
-    }
-
-    if (self->priv->ip_address != NULL) {
-        g_free (self->priv->ip_address);
-        self->priv->ip_address = NULL;
-    }
-
-    if (self->priv->current_tag != NULL) {
-        g_free (self->priv->current_tag);
-        self->priv->current_tag = NULL;
-    }
-
-    if (self->priv->current_uri != NULL) {
-        g_free (self->priv->current_uri);
-        self->priv->current_uri = NULL;
-    }
+    g_clear_pointer (&self->priv->protocol_info, g_free);
+    g_clear_pointer (&self->priv->ip_address, g_free);
+    g_clear_pointer (&self->priv->current_tag, g_free);
+    g_clear_pointer (&self->priv->current_uri, g_free);
 
     G_OBJECT_CLASS (korva_upnp_device_parent_class)->finalize (obj);
 }
@@ -861,17 +828,9 @@ typedef struct {
 static void
 host_path_data_free (HostPathData *data)
 {
-    if (data->uri != NULL) {
-        g_free (data->uri);
-    }
-
-    if (data->meta_data != NULL) {
-        g_free (data->meta_data);
-    }
-
-    if (data->file != NULL) {
-        g_object_unref (data->file);
-    }
+    g_free (data->uri);
+    g_free (data->meta_data);
+    g_clear_object (&data->file);
 
     g_free (data);
 }
@@ -1030,14 +989,9 @@ korva_upnp_device_drop_current_file (KorvaUPnPDevice *self)
                                                      self->priv->current_file,
                                                      self->priv->ip_address);
 
-        g_free (self->priv->current_tag);
-        self->priv->current_tag = NULL;
-
-        g_free (self->priv->current_uri);
-        self->priv->current_uri = NULL;
-
-        g_object_unref (self->priv->current_file);
-        self->priv->current_file = NULL;
+        g_clear_pointer (&self->priv->current_tag, g_free);
+        g_clear_pointer (&self->priv->current_uri, g_free);
+        g_clear_pointer (&self->priv->current_file, g_free);
     }
 
     g_object_unref (server);
@@ -1140,9 +1094,7 @@ korva_upnp_device_update_ip_address (KorvaUPnPDevice *self)
 {
     SoupURI *location;
 
-    if (self->priv->ip_address != NULL) {
-        g_free (self->priv->ip_address);
-    }
+    g_free (self->priv->ip_address);
 
     location = soup_uri_new (gupnp_device_info_get_location (self->priv->info));
     self->priv->ip_address = g_strdup (soup_uri_get_host (location));
@@ -1229,9 +1181,7 @@ korva_upnp_device_push_async (KorvaDevice        *device,
     return;
 out:
     g_hash_table_destroy (params);
-    if (file != NULL) {
-        g_object_unref (file);
-    }
+    g_clear_object (&file);
 }
 
 static char *

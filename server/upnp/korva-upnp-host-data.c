@@ -173,23 +173,19 @@ korva_upnp_host_data_init (KorvaUPnPHostData *self)
 }
 
 static void
+peer_list_free (GList *list)
+{
+    g_list_free_full (list, g_free);
+}
+
+static void
 korva_upnp_host_data_finalize (GObject *object)
 {
     KorvaUPnPHostData *self = KORVA_UPNP_HOST_DATA (object);
 
-    if (self->priv->peers != NULL) {
-        g_list_free_full (self->priv->peers, g_free);
-    }
-
-    if (self->priv->protocol_info != NULL) {
-        g_free (self->priv->protocol_info);
-        self->priv->protocol_info = NULL;
-    }
-
-    if (self->priv->extension != NULL) {
-        g_free (self->priv->extension);
-        self->priv->extension = NULL;
-    }
+    g_clear_pointer (&self->priv->peers, peer_list_free);
+    g_clear_pointer (&self->priv->protocol_info, g_free);
+    g_clear_pointer (&self->priv->extension, g_free);
 
     G_OBJECT_CLASS (korva_upnp_host_data_parent_class)->finalize (object);
 }
@@ -202,11 +198,7 @@ korva_upnp_host_data_dispose (GObject *object)
     korva_upnp_host_data_cancel_timeout (self);
 
     g_clear_object (&(self->priv->file));
-
-    if (self->priv->meta_data != NULL) {
-        g_hash_table_unref (self->priv->meta_data);
-        self->priv->meta_data = NULL;
-    }
+    g_clear_pointer (&self->priv->meta_data, g_hash_table_unref);
 
     G_OBJECT_CLASS (korva_upnp_host_data_parent_class)->dispose (object);
 }

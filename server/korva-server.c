@@ -156,20 +156,18 @@ korva_server_init (KorvaServer *self)
 }
 
 static void
+backend_list_free (GList *backend)
+{
+    g_list_free_full (backend, (GDestroyNotify) korva_backend_free);
+}
+
+static void
 korva_server_dispose (GObject *object)
 {
     KorvaServer *self = KORVA_SERVER (object);
 
-    if (self->priv->backends != NULL) {
-        g_list_free_full (self->priv->backends,
-                          (GDestroyNotify) korva_backend_free);
-        self->priv->backends = NULL;
-    }
-
-    if (self->priv->dbus_controller != NULL) {
-        g_object_unref (self->priv->dbus_controller);
-        self->priv->dbus_controller = NULL;
-    }
+    g_clear_pointer (&self->priv->backends, backend_list_free);
+    g_clear_object (&self->priv->dbus_controller);
 
     G_OBJECT_CLASS (korva_server_parent_class)->dispose (object);
 }
@@ -179,10 +177,7 @@ korva_server_finalize (GObject *object)
 {
     KorvaServer *self = KORVA_SERVER (object);
 
-    if (self->priv->tags != NULL) {
-        g_hash_table_destroy (self->priv->tags);
-        self->priv->tags = NULL;
-    }
+    g_clear_pointer (&self->priv->tags, g_hash_table_destroy);
 
     G_OBJECT_CLASS (korva_server_parent_class)->finalize (object);
 }
@@ -266,6 +261,8 @@ korva_server_on_bus_aquired  (GDBusConnection *connection,
         g_error_free (error);
 
         g_main_loop_quit (self->priv->loop);
+
+        return;
     }
 
     backend = g_new0 (KorvaBackend, 1);

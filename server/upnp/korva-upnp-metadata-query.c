@@ -55,15 +55,8 @@ korva_upnp_metadata_query_finalize (GObject *object)
 {
     KorvaUPnPMetadataQuery *self = KORVA_UPNP_METADATA_QUERY (object);
 
-    if (self->priv->file != NULL) {
-        g_object_unref (self->priv->file);
-        self->priv->file = NULL;
-    }
-
-    if (self->priv->params != NULL) {
-        g_hash_table_unref (self->priv->params);
-        self->priv->params = NULL;
-    }
+    g_clear_object (&self->priv->file);
+    g_clear_pointer (&self->priv->params, g_hash_table_unref);
 
     G_OBJECT_CLASS (korva_upnp_metadata_query_parent_class)->finalize (object);
 }

@@ -124,25 +124,10 @@ korva_upnp_device_lister_dispose (GObject *object)
 {
     KorvaUPnPDeviceLister *self = KORVA_UPNP_DEVICE_LISTER (object);
 
-    if (self->priv->context_manager != NULL) {
-        g_object_unref (self->priv->context_manager);
-        self->priv->context_manager = NULL;
-    }
-
-    if (self->priv->devices != NULL) {
-        g_hash_table_destroy (self->priv->devices);
-        self->priv->devices = NULL;
-    }
-
-    if (self->priv->pending_devices != NULL) {
-        g_hash_table_destroy (self->priv->pending_devices);
-        self->priv->pending_devices = NULL;
-    }
-
-    if (self->priv->server != NULL) {
-        g_object_unref (self->priv->server);
-        self->priv->server = NULL;
-    }
+    g_clear_object (&self->priv->context_manager);
+    g_clear_pointer (&self->priv->devices, g_hash_table_destroy);
+    g_clear_pointer (&self->priv->pending_devices, g_hash_table_destroy);
+    g_clear_object (&self->priv->server);
 
     G_OBJECT_CLASS (korva_upnp_device_lister_parent_class)->dispose (object);
 }

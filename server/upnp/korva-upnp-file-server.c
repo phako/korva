@@ -337,10 +337,7 @@ korva_upnp_file_server_dispose (GObject *object)
 {
     KorvaUPnPFileServer *self = KORVA_UPNP_FILE_SERVER (object);
 
-    if (self->priv->http_server != NULL) {
-        g_object_unref (self->priv->http_server);
-        self->priv->http_server = NULL;
-    }
+    g_clear_object (&self->priv->http_server);
 
     G_OBJECT_CLASS (korva_upnp_file_server_parent_class)->dispose (object);
 }
@@ -351,20 +348,9 @@ korva_upnp_file_server_finalize (GObject *object)
     KorvaUPnPFileServer *self = KORVA_UPNP_FILE_SERVER (object);
 
     /* TODO: Add deinitalization code here */
-    if (self->priv->host_data != NULL) {
-        g_hash_table_destroy (self->priv->host_data);
-        self->priv->host_data = NULL;
-    }
-
-    if (self->priv->id_map != NULL) {
-        g_hash_table_destroy (self->priv->id_map);
-        self->priv->id_map = NULL;
-    }
-
-    if (self->priv->path_regex != NULL) {
-        g_regex_unref (self->priv->path_regex);
-        self->priv->path_regex = NULL;
-    }
+    g_clear_pointer (&self->priv->host_data, g_hash_table_destroy);
+    g_clear_pointer (&self->priv->id_map, g_hash_table_destroy);
+    g_clear_pointer (&self->priv->path_regex, g_regex_unref);
 
     G_OBJECT_CLASS (korva_upnp_file_server_parent_class)->finalize (object);
 }
