@@ -294,6 +294,8 @@ out:
 static void
 korva_upnp_file_server_init (KorvaUPnPFileServer *self)
 {
+    GError *error = NULL;
+
     self->priv = G_TYPE_INSTANCE_GET_PRIVATE (self,
                                               KORVA_TYPE_UPNP_FILE_SERVER,
                                               KorvaUPnPFileServerPrivate);
@@ -303,7 +305,15 @@ korva_upnp_file_server_init (KorvaUPnPFileServer *self)
                              korva_upnp_file_server_handle_request,
                              self,
                              NULL);
-    soup_server_run_async (self->priv->http_server);
+
+    soup_server_listen_all (self->priv->http_server,
+                            0,  /* any port */
+                            0,  /* SoupServerListenOptions */
+                            &error);
+    if (error != NULL) {
+        g_warning ("Failed to start HTTP server: %s", error->message);
+    }
+
     self->priv->host_data = g_hash_table_new_full (g_file_hash,
                                                    (GEqualFunc) g_file_equal,
                                                    g_object_unref,
@@ -431,8 +441,8 @@ korva_upnp_file_server_on_metadata_query_run_done (GObject      *sender,
     QueryMetaData *data = (QueryMetaData *) user_data;
     GTask *result = data->result;
     HostFileResult *result_data;
-    guint port;
     GError *error = NULL;
+    GSList *uris = NULL;
 
     if (!korva_upnp_metadata_query_run_finish (KORVA_UPNP_METADATA_QUERY (sender),
                                                res,
@@ -472,11 +482,21 @@ korva_upnp_file_server_on_metadata_query_run_done (GObject      *sender,
                          korva_upnp_host_data_get_id (data->data),
                          korva_upnp_host_data_get_file (data->data));
 
-    port = soup_server_get_port (data->self->priv->http_server);
+    uris = soup_server_get_uris (data->self->priv->http_server);
+    if (uris == NULL) {
+        g_task_return_new_error (result,
+                                 KORVA_CONTROLLER1_ERROR,
+                                 KORVA_CONTROLLER1_ERROR_NO_SERVER,
+                                 "%s",
+                                 "No HTTP server available");
+
+        goto out;
+    }
 
     result_data = g_new0 (HostFileResult, 1);
     result_data->params = korva_upnp_host_data_get_meta_data (data->data);
-    result_data->uri = korva_upnp_host_data_get_uri (data->data, data->iface, port);
+    result_data->uri = korva_upnp_host_data_get_uri (data->data, data->iface, ((SoupURI *) uris->data)->port);
+    g_slist_free_full (uris, (GDestroyNotify) soup_uri_free);
 
     g_task_return_pointer (result, result_data, g_free);
 
@@ -503,9 +523,9 @@ korva_upnp_file_server_host_file_async (KorvaUPnPFileServer *self,
 {
     KorvaUPnPHostData *data;
     GTask *result;
-    guint port;
     HostFileResult *result_data;
     KorvaUPnPMetadataQuery *query;
+    GSList *uris = NULL;
 
     result = g_task_new (G_OBJECT (self), cancellable, callback, user_data);
 
@@ -530,13 +550,25 @@ korva_upnp_file_server_host_file_async (KorvaUPnPFileServer *self,
         return;
     }
 
-    korva_upnp_host_data_add_peer (data, peer);
+    uris = soup_server_get_uris (self->priv->http_server);
+    if (uris == NULL) {
+        g_task_return_new_error (result,
+                                 KORVA_CONTROLLER1_ERROR,
+                                 KORVA_CONTROLLER1_ERROR_NO_SERVER,
+                                 "%s",
+                                 "No HTTP server available");
 
-    port = soup_server_get_port (self->priv->http_server);
+        g_object_unref (result);
+
+        return;
+    }
+
+    korva_upnp_host_data_add_peer (data, peer);
 
     result_data = g_new0 (HostFileResult, 1);
     result_data->params = korva_upnp_host_data_get_meta_data (data);
-    result_data->uri = korva_upnp_host_data_get_uri (data, iface, port);
+    result_data->uri = korva_upnp_host_data_get_uri (data, iface, ((SoupURI *)uris->data)->port);
+    g_slist_free_full (uris, (GDestroyNotify) soup_uri_free);
 
     g_task_return_pointer (result, result_data, g_free);
     g_object_unref (result);

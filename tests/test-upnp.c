@@ -146,7 +146,7 @@ test_upnp_fileserver_host_file (HostFileTestData *data, gconstpointer user_data)
     g_assert (value != NULL);
 
     /* Test that the file is reachable under the uri */
-    session = soup_session_async_new ();
+    session = soup_session_new ();
     message = g_object_ref (soup_message_new (SOUP_METHOD_HEAD, data->result_uri));
     soup_session_queue_message (session, message, NULL, NULL);
     g_signal_connect_swapped (message, "finished", G_CALLBACK (g_main_loop_quit), data->loop);
@@ -331,7 +331,7 @@ test_upnp_fileserver_host_file_timeout2 (HostFileTestData *data, gconstpointer u
         return;
     }
 
-    session = soup_session_async_new ();
+    session = soup_session_new ();
     message = soup_message_new (SOUP_METHOD_HEAD, data->result_uri);
     soup_session_queue_message (session, message, NULL, NULL);
 
@@ -383,7 +383,7 @@ test_upnp_fileserver_http_server (HostFileTestData *data, gconstpointer user_dat
     needle = g_strrstr_len (base_uri, -1, "/") + 1;
     *needle = '\0';
 
-    session = soup_session_async_new ();
+    session = soup_session_new ();
 
     /* Check invalid HTTP method */
     message = soup_message_new (SOUP_METHOD_DELETE, data->result_uri);
@@ -467,7 +467,7 @@ test_upnp_fileserver_http_server_ranges (HostFileTestData *data, gconstpointer u
     size = g_variant_get_uint64 (value);
     g_assert (size > 2048);
 
-    session = soup_session_async_new ();
+    session = soup_session_new ();
 
     /* Check proper range request */
     message = g_object_ref (soup_message_new (SOUP_METHOD_GET, data->result_uri));
@@ -553,7 +553,7 @@ test_upnp_fileserver_http_server_content_features (HostFileTestData *data, gcons
     SoupSession *session;
     SoupMessage *message;
 
-    session = soup_session_async_new ();
+    session = soup_session_new ();
     message = g_object_ref (soup_message_new (SOUP_METHOD_HEAD, data->result_uri));
     soup_message_headers_append (message->request_headers, "getContentFeatures.dlna.org", "1");
     schedule_request_and_wait (session, message, data);

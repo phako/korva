@@ -210,7 +210,7 @@ korva_upnp_device_init (KorvaUPnPDevice *self)
                                                   g_str_equal,
                                                   NULL,
                                                   g_object_unref);
-    self->priv->session = soup_session_async_new ();
+    self->priv->session = soup_session_new ();
     self->priv->last_change_parser = gupnp_last_change_parser_new ();
     self->priv->state = g_strdup (AV_STATE_UNKNOWN);
 }
