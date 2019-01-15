@@ -197,7 +197,11 @@ korva_upnp_file_server_handle_request (SoupServer        *server,
         start = ranges[0].start;
         end = ranges[0].end;
 
-        if (start > size || start > end || end > size) {
+        if (start > end) {
+            start = 0; end = size - 1;
+        }
+
+        if (start > size || end > size) {
             soup_message_set_status (msg, SOUP_STATUS_REQUESTED_RANGE_NOT_SATISFIABLE);
             g_slice_free (ServeData, serve_data);
 
