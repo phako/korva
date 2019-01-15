@@ -403,7 +403,7 @@ typedef struct {
     KorvaUPnPHostData   *data;
     KorvaUPnPFileServer *self;
     char                *iface;
-    GSimpleAsyncResult  *result;
+    GTask               *result;
 } QueryMetaData;
 
 static void
@@ -429,7 +429,7 @@ korva_upnp_file_server_on_metadata_query_run_done (GObject      *sender,
                                                    gpointer      user_data)
 {
     QueryMetaData *data = (QueryMetaData *) user_data;
-    GSimpleAsyncResult *result = data->result;
+    GTask *result = data->result;
     HostFileResult *result_data;
     guint port;
     GError *error = NULL;
@@ -454,7 +454,7 @@ korva_upnp_file_server_on_metadata_query_run_done (GObject      *sender,
             }
         }
 
-        g_simple_async_result_take_error (data->result, error);
+        g_task_return_error (result, error);
         g_object_unref (data->data);
 
         goto out;
@@ -478,7 +478,7 @@ korva_upnp_file_server_on_metadata_query_run_done (GObject      *sender,
     result_data->params = korva_upnp_host_data_get_meta_data (data->data);
     result_data->uri = korva_upnp_host_data_get_uri (data->data, data->iface, port);
 
-    g_simple_async_result_set_op_res_gpointer (result, result_data, g_free);
+    g_task_return_pointer (result, result_data, g_free);
 
     data->result = NULL;
 
@@ -486,7 +486,6 @@ out:
     g_free (data->iface);
     data->iface = NULL;
 
-    g_simple_async_result_complete_in_idle (result);
     g_object_unref (result);
     g_object_unref (sender);
     g_slice_free (QueryMetaData, data);
@@ -498,19 +497,17 @@ korva_upnp_file_server_host_file_async (KorvaUPnPFileServer *self,
                                         GHashTable          *params,
                                         const char          *iface,
                                         const char          *peer,
+                                        GCancellable        *cancellable,
                                         GAsyncReadyCallback  callback,
                                         gpointer             user_data)
 {
     KorvaUPnPHostData *data;
-    GSimpleAsyncResult *result;
+    GTask *result;
     guint port;
     HostFileResult *result_data;
     KorvaUPnPMetadataQuery *query;
 
-    result = g_simple_async_result_new (G_OBJECT (self),
-                                        callback,
-                                        user_data,
-                                        (gpointer) korva_upnp_file_server_host_file_async);
+    result = g_task_new (G_OBJECT (self), cancellable, callback, user_data);
 
     data = g_hash_table_lookup (self->priv->host_data, file);
     if (data == NULL) {
@@ -541,9 +538,7 @@ korva_upnp_file_server_host_file_async (KorvaUPnPFileServer *self,
     result_data->params = korva_upnp_host_data_get_meta_data (data);
     result_data->uri = korva_upnp_host_data_get_uri (data, iface, port);
 
-    g_simple_async_result_set_op_res_gpointer (result, result_data, g_free);
-
-    g_simple_async_result_complete_in_idle (result);
+    g_task_return_pointer (result, result_data, g_free);
     g_object_unref (result);
 }
 
@@ -553,27 +548,21 @@ korva_upnp_file_server_host_file_finish (KorvaUPnPFileServer *self,
                                          GHashTable         **params,
                                          GError             **error)
 {
-    GSimpleAsyncResult *result;
     HostFileResult *result_data;
-
 
     *params = NULL;
 
-    if (!g_simple_async_result_is_valid (res,
-                                         G_OBJECT (self),
-                                         korva_upnp_file_server_host_file_async)) {
-        return NULL;
+    g_return_val_if_fail (g_task_is_valid (res, self), NULL);
+
+    result_data = (HostFileResult *) g_task_propagate_pointer (G_TASK (res), error);
+
+    if (result_data != NULL) {
+        *params = result_data->params;
+
+        return result_data->uri;
     }
 
-    result = (GSimpleAsyncResult *) res;
-    if (g_simple_async_result_propagate_error (result, error)) {
-        return NULL;
-    }
-    result_data = (HostFileResult *) g_simple_async_result_get_op_res_gpointer (result);
-    *params = result_data->params;
-
-
-    return result_data->uri;
+    return NULL;
 }
 
 gboolean

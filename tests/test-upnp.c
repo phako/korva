@@ -128,6 +128,7 @@ test_upnp_fileserver_host_file (HostFileTestData *data, gconstpointer user_data)
                                             data->in_params,
                                             "127.0.0.1",
                                             "127.0.0.1",
+                                            NULL,
                                             test_upnp_fileserver_host_file_on_host_file,
                                             data);
 
@@ -160,6 +161,7 @@ test_upnp_fileserver_host_file (HostFileTestData *data, gconstpointer user_data)
                                             data->in_params,
                                             "127.0.0.1",
                                             "192.168.4.5",
+                                            NULL,
                                             test_upnp_fileserver_host_file_on_host_file,
                                             data);
 
@@ -195,6 +197,7 @@ test_upnp_fileserver_host_file_dont_override_data (HostFileTestData *data, gcons
                                             data->in_params,
                                             "127.0.0.1",
                                             "127.0.0.1",
+                                            NULL,
                                             test_upnp_fileserver_host_file_on_host_file,
                                             data);
 
@@ -235,6 +238,7 @@ test_upnp_fileserver_host_file_error (HostFileTestData *data, gconstpointer user
                                             data->in_params,
                                             "127.0.0.1",
                                             "127.0.0.1",
+                                            NULL,
                                             test_upnp_fileserver_host_file_on_host_file,
                                             data);
 
@@ -269,6 +273,7 @@ test_upnp_file_server_host_file_no_access (HostFileTestData *data, gconstpointer
                                             data->in_params,
                                             "127.0.0.1",
                                             "127.0.0.1",
+                                            NULL,
                                             test_upnp_fileserver_host_file_on_host_file,
                                             data);
 
@@ -298,6 +303,7 @@ test_upnp_fileserver_host_file_timeout (HostFileTestData *data, gconstpointer us
                                             data->in_params,
                                             "127.0.0.1",
                                             "127.0.0.1",
+                                            NULL,
                                             test_upnp_fileserver_host_file_on_host_file,
                                             data);
 
@@ -355,6 +361,7 @@ test_upnp_fileserver_http_server_setup (HostFileTestData *data, gconstpointer us
                                             data->in_params,
                                             "127.0.0.1",
                                             "127.0.0.1",
+                                            NULL,
                                             test_upnp_fileserver_host_file_on_host_file,
                                             data);
 
@@ -416,6 +423,7 @@ test_upnp_fileserver_http_server (HostFileTestData *data, gconstpointer user_dat
                                             data->in_params,
                                             "127.0.0.1",
                                             "192.168.4.5",
+                                            NULL,
                                             test_upnp_fileserver_host_file_on_host_file,
                                             data);
     g_main_loop_run (data->loop);
@@ -792,6 +800,7 @@ test_upnp_device_share (UPnPDeviceData *data, gconstpointer user_data)
     g_variant_builder_add (source, "{sv}", "URI", g_variant_new_string (uri));
     korva_device_push_async (KORVA_DEVICE (data->device),
                              g_variant_builder_end (source),
+                             NULL,
                              on_test_upnp_device_share_push_async,
                              data);
 
@@ -803,6 +812,7 @@ test_upnp_device_share (UPnPDeviceData *data, gconstpointer user_data)
 
     korva_device_unshare_async (KORVA_DEVICE (data->device),
                                 data->result_tag,
+                                NULL,
                                 on_test_upnp_device_share_unshare_async,
                                 data);
 
@@ -813,6 +823,7 @@ test_upnp_device_share (UPnPDeviceData *data, gconstpointer user_data)
 
     korva_device_unshare_async (KORVA_DEVICE (data->device),
                                 "ThisIsAnInvalidTag",
+                                NULL,
                                 on_test_upnp_device_share_unshare_async,
                                 data);
 
@@ -845,6 +856,7 @@ test_upnp_device_share_transport_locked (UPnPDeviceData *data, gconstpointer use
     g_variant_builder_add (source, "{sv}", "URI", g_variant_new_string (uri));
     korva_device_push_async (KORVA_DEVICE (data->device),
                              g_variant_builder_end (source),
+                             NULL,
                              on_test_upnp_device_share_push_async,
                              data);
 
@@ -856,6 +868,7 @@ test_upnp_device_share_transport_locked (UPnPDeviceData *data, gconstpointer use
 
     korva_device_unshare_async (KORVA_DEVICE (data->device),
                                 data->result_tag,
+                                NULL,
                                 on_test_upnp_device_share_unshare_async,
                                 data);
 
@@ -873,6 +886,7 @@ test_upnp_device_share_transport_locked (UPnPDeviceData *data, gconstpointer use
     g_variant_builder_add (source, "{sv}", "URI", g_variant_new_string (uri));
     korva_device_push_async (KORVA_DEVICE (data->device),
                              g_variant_builder_end (source),
+                             NULL,
                              on_test_upnp_device_share_push_async,
                              data);
 
@@ -904,6 +918,7 @@ test_upnp_device_share_ops_fail (UPnPDeviceData *data, gconstpointer user_data)
     g_variant_builder_add (source, "{sv}", "URI", g_variant_new_string (uri));
     korva_device_push_async (KORVA_DEVICE (data->device),
                              g_variant_builder_end (source),
+                             NULL,
                              on_test_upnp_device_share_push_async,
                              data);
 
@@ -922,6 +937,7 @@ test_upnp_device_share_ops_fail (UPnPDeviceData *data, gconstpointer user_data)
     if (fault == MOCK_DMR_FAULT_STOP_FAIL) {
         korva_device_unshare_async (KORVA_DEVICE (data->device),
                                     data->result_tag,
+                                    NULL,
                                     on_test_upnp_device_share_unshare_async,
                                     data);
 
@@ -954,6 +970,7 @@ test_upnp_device_share_not_compatible (UPnPDeviceData *data, gconstpointer user_
     g_variant_builder_add (source, "{sv}", "URI", g_variant_new_string (uri));
     korva_device_push_async (KORVA_DEVICE (data->device),
                              g_variant_builder_end (source),
+                             NULL,
                              on_test_upnp_device_share_push_async,
                              data);
 

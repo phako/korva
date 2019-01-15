@@ -57,6 +57,7 @@ struct _KorvaDeviceInterface {
     GVariant           *(*serialize)(KorvaDevice * self);
     void                (*push_async)(KorvaDevice        *self,
                                       GVariant           *source,
+                                      GCancellable       *cancellable,
                                       GAsyncReadyCallback callback,
                                       gpointer            user_data);
     char               *(*push_finish)(KorvaDevice   * self,
@@ -64,6 +65,7 @@ struct _KorvaDeviceInterface {
                                        GError       * *error);
     void                (*unshare_async)(KorvaDevice        *self,
                                          const char         *tag,
+                                         GCancellable       *cancellable,
                                          GAsyncReadyCallback callback,
                                          gpointer            user_data);
     gboolean            (*unshare_finish)(KorvaDevice  *self,
@@ -91,6 +93,7 @@ korva_device_serialize (KorvaDevice *self);
 void
 korva_device_push_async (KorvaDevice        *self,
                          GVariant           *source,
+                         GCancellable       *cancellable,
                          GAsyncReadyCallback callback,
                          gpointer            user_data);
 
@@ -102,6 +105,7 @@ korva_device_push_finish (KorvaDevice  *self,
 void
 korva_device_unshare_async (KorvaDevice        *self,
                             const char         *tag,
+                            GCancellable       *cancellable,
                             GAsyncReadyCallback callback,
                             gpointer            user_data);
 

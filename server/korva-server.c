@@ -489,7 +489,7 @@ korva_server_on_handle_push (KorvaController1      *iface,
     data->self = self;
     data->invocation = invocation;
 
-    korva_device_push_async (device, source, korva_server_on_push_async_ready, data);
+    korva_device_push_async (device, source, NULL, korva_server_on_push_async_ready, data);
 
     return TRUE;
 }
@@ -557,7 +557,7 @@ korva_server_on_handle_unshare (KorvaController1      *iface,
     data->self = self;
     data->invocation = invocation;
 
-    korva_device_unshare_async (device, tag, korva_server_on_unshare_async_ready, data);
+    korva_device_unshare_async (device, tag, NULL, korva_server_on_unshare_async_ready, data);
 
     return TRUE;
 }

@@ -84,11 +84,13 @@ korva_device_serialize (KorvaDevice *self)
 void
 korva_device_push_async (KorvaDevice        *self,
                          GVariant           *source,
+                         GCancellable       *cancellable,
                          GAsyncReadyCallback callback,
                          gpointer            user_data)
 {
     KORVA_DEVICE_GET_INTERFACE (self)->push_async (self,
                                                    source,
+                                                   cancellable,
                                                    callback,
                                                    user_data);
 }
@@ -117,10 +119,11 @@ korva_device_push_finish (KorvaDevice  *self,
 void
 korva_device_unshare_async (KorvaDevice        *self,
                             const char         *tag,
+                            GCancellable       *cancellable,
                             GAsyncReadyCallback callback,
                             gpointer            user_data)
 {
-    KORVA_DEVICE_GET_INTERFACE (self)->unshare_async (self, tag, callback, user_data);
+    KORVA_DEVICE_GET_INTERFACE (self)->unshare_async (self, tag, cancellable, callback, user_data);
 }
 
 gboolean

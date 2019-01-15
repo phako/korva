@@ -150,6 +150,7 @@ korva_upnp_device_serialize (KorvaDevice *device);
 static void
 korva_upnp_device_push_async (KorvaDevice        *self,
                               GVariant           *source,
+                              GCancellable       *cancellable,
                               GAsyncReadyCallback callback,
                               gpointer            user_data);
 
@@ -161,6 +162,7 @@ korva_upnp_device_push_finish (KorvaDevice  *self,
 static void
 korva_upnp_device_unshare_async (KorvaDevice        *self,
                                  const char         *tag,
+                                 GCancellable       *cancellable,
                                  GAsyncReadyCallback callback,
                                  gpointer            user_data);
 
@@ -179,7 +181,7 @@ struct _KorvaUPnPDevicePrivate {
     char                      *friendly_name;
     char                      *icon_uri;
     KorvaDeviceType            device_type;
-    GSimpleAsyncResult        *result;
+    GTask                     *result;
     GHashTable                *services;
     GUPnPServiceIntrospection *introspection;
     char                      *protocol_info;
@@ -430,7 +432,7 @@ korva_upnp_device_init_async (GAsyncInitable     *initable,
                               GAsyncReadyCallback callback,
                               gpointer            user_data)
 {
-    GSimpleAsyncResult *result;
+    GTask *result;
     KorvaUPnPDevice *self;
     const char *device_type;
 
@@ -441,11 +443,7 @@ korva_upnp_device_init_async (GAsyncInitable     *initable,
     self->priv->icon_uri = korva_icon_cache_lookup (self->priv->udn);
 
     device_type = gupnp_device_info_get_device_type (self->priv->info);
-    result = g_simple_async_result_new (G_OBJECT (self),
-                                        callback,
-                                        user_data,
-                                        korva_upnp_device_init_async);
-    g_simple_async_result_set_op_res_gboolean (result, FALSE);
+    result = g_task_new (self, cancellable, callback, user_data);
     self->priv->result = result;
 
     if (g_regex_match (media_server_regex, device_type, 0, NULL)) {
@@ -471,21 +469,9 @@ korva_upnp_device_init_finish (GAsyncInitable *initable,
                                GAsyncResult   *res,
                                GError        **error)
 {
-    GSimpleAsyncResult *result;
-    gboolean success = TRUE;
+    g_return_val_if_fail (g_task_is_valid (res, initable), FALSE);
 
-    if (!g_simple_async_result_is_valid (res,
-                                         G_OBJECT (initable),
-                                         korva_upnp_device_init_async)) {
-        return FALSE;
-    }
-
-    result = (GSimpleAsyncResult *) res;
-    if (g_simple_async_result_propagate_error (result, error)) {
-        success = FALSE;
-    }
-
-    return success;
+    return g_task_propagate_boolean (G_TASK (res), error);
 }
 
 static void
@@ -635,12 +621,10 @@ korva_upnp_device_introspection_finish (KorvaUPnPDevice *self,
                                         GError          *error)
 {
     if (error != NULL) {
-        g_simple_async_result_take_error (self->priv->result, error);
+        g_task_return_error (self->priv->result, error);
     } else {
-        g_simple_async_result_set_op_res_gboolean (self->priv->result,
-                                                   TRUE);
+        g_task_return_boolean (self->priv->result, TRUE);
     }
-    g_simple_async_result_complete_in_idle (self->priv->result);
     g_object_unref (self->priv->result);
 }
 
@@ -864,14 +848,14 @@ korva_upnp_device_remove_proxy (KorvaUPnPDevice *self, GUPnPDeviceProxy *proxy)
 }
 
 typedef struct {
-    GSimpleAsyncResult *result;
-    KorvaUPnPDevice    *device;
-    GHashTable         *params;
-    char               *uri;
-    char               *meta_data;
-    gboolean            unshare;
-    GFile              *file;
-    gboolean            transport_locked;
+    GTask           *result;
+    KorvaUPnPDevice *device;
+    GHashTable      *params;
+    char            *uri;
+    char            *meta_data;
+    gboolean         unshare;
+    GFile           *file;
+    gboolean         transport_locked;
 } HostPathData;
 
 static void
@@ -899,7 +883,7 @@ korva_upnp_device_on_play (GUPnPServiceProxy       *proxy,
 {
     GError *error = NULL;
     HostPathData *data = (HostPathData *) user_data;
-    GSimpleAsyncResult *result = data->result;
+    GTask *result = data->result;
 
     gupnp_service_proxy_end_action (proxy, action, &error, NULL);
     if (error != NULL) {
@@ -911,7 +895,10 @@ korva_upnp_device_on_play (GUPnPServiceProxy       *proxy,
                                                      data->device->priv->ip_address);
         g_object_unref (server);
 
-        g_simple_async_result_take_error (result, error);
+        g_task_return_error (result, error);
+    } else {
+        char *data = g_strdup (g_task_get_task_data (result));
+        g_task_return_pointer (result, data, g_free);
     }
 
     data->device->priv->current_uri = g_strdup (data->uri);
@@ -919,7 +906,6 @@ korva_upnp_device_on_play (GUPnPServiceProxy       *proxy,
     data->file = NULL;
 
     host_path_data_free (data);
-    g_simple_async_result_complete_in_idle (result);
     g_object_unref (result);
 }
 
@@ -930,15 +916,13 @@ korva_upnp_device_on_stop (GUPnPServiceProxy       *proxy,
 {
     GError *error = NULL;
     HostPathData *data = (HostPathData *) user_data;
-    GSimpleAsyncResult *result = data->result;
+    GTask *result = data->result;
 
     gupnp_service_proxy_end_action (proxy, action, &error, NULL);
     if (error != NULL) {
         KorvaUPnPFileServer *server;
 
-        g_simple_async_result_take_error (result, error);
-
-
+        g_task_return_error (result, error);
 
         server = korva_upnp_file_server_get_default ();
         korva_upnp_file_server_unhost_file_for_peer (server,
@@ -959,7 +943,6 @@ korva_upnp_device_on_stop (GUPnPServiceProxy       *proxy,
     }
 
     host_path_data_free (data);
-    g_simple_async_result_complete_in_idle (result);
     g_object_unref (result);
 }
 
@@ -971,7 +954,7 @@ korva_upnp_device_on_set_av_transport_uri (GUPnPServiceProxy       *proxy,
     GError *error = NULL;
     HostPathData *data = (HostPathData *) user_data;
     KorvaUPnPDevice *self = data->device;
-    GSimpleAsyncResult *result = data->result;
+    GTask *result = data->result;
 
     gupnp_service_proxy_end_action (proxy, action, &error, NULL);
     if (error != NULL) {
@@ -990,7 +973,7 @@ korva_upnp_device_on_set_av_transport_uri (GUPnPServiceProxy       *proxy,
             return;
         }
 
-        g_simple_async_result_take_error (result, error);
+        g_task_return_error (result, error);
 
         if (!data->unshare) {
             KorvaUPnPFileServer *server;
@@ -1008,6 +991,7 @@ korva_upnp_device_on_set_av_transport_uri (GUPnPServiceProxy       *proxy,
     /* This was called from Unshare. We're done now */
     if (data->unshare) {
         korva_upnp_device_drop_current_file (data->device);
+        g_task_return_pointer (result, NULL, NULL);
 
         goto out;
     }
@@ -1032,7 +1016,6 @@ korva_upnp_device_on_set_av_transport_uri (GUPnPServiceProxy       *proxy,
 
 out:
     host_path_data_free (data);
-    g_simple_async_result_complete_in_idle (result);
     g_object_unref (result);
 }
 
@@ -1082,7 +1065,7 @@ korva_upnp_device_on_host_file_async (GObject      *source,
                                                          &params,
                                                          &error);
     if (params == NULL) {
-        g_simple_async_result_take_error (data->result, error);
+        g_task_return_error (data->result, error);
 
         goto out;
     }
@@ -1127,7 +1110,7 @@ korva_upnp_device_on_host_file_async (GObject      *source,
                              KORVA_CONTROLLER1_ERROR_NOT_COMPATIBLE,
                              "The file is not compatible with the selected renderer");
 
-        g_simple_async_result_take_error (data->result, error);
+        g_task_return_error (data->result, error);
         korva_upnp_file_server_unhost_file_for_peer (KORVA_UPNP_FILE_SERVER (source),
                                                      data->file,
                                                      data->device->priv->ip_address);
@@ -1148,7 +1131,6 @@ korva_upnp_device_on_host_file_async (GObject      *source,
 
     return;
 out:
-    g_simple_async_result_complete_in_idle (data->result);
     g_object_unref (data->result);
     host_path_data_free (data);
 }
@@ -1170,11 +1152,12 @@ korva_upnp_device_update_ip_address (KorvaUPnPDevice *self)
 static void
 korva_upnp_device_push_async (KorvaDevice        *device,
                               GVariant           *source,
+                              GCancellable       *cancellable,
                               GAsyncReadyCallback callback,
                               gpointer            user_data)
 {
     KorvaUPnPDevice *self;
-    GSimpleAsyncResult *result;
+    GTask *result;
     GVariantIter *iter;
     gchar *key;
     GVariant *value;
@@ -1189,10 +1172,7 @@ korva_upnp_device_push_async (KorvaDevice        *device,
     char *raw_tag;
 
     self = KORVA_UPNP_DEVICE (device);
-    result = g_simple_async_result_new (G_OBJECT (device),
-                                        callback,
-                                        user_data,
-                                        (gpointer) korva_upnp_device_push_async);
+    result = g_task_new (device, cancellable, callback, user_data);
 
     params = g_hash_table_new_full (g_str_hash,
                                     g_str_equal,
@@ -1212,7 +1192,8 @@ korva_upnp_device_push_async (KorvaDevice        *device,
                              "'Push' to device %s is missing mandatory URI key",
                              korva_device_get_uid (device));
 
-        g_simple_async_result_take_error (result, error);
+        g_task_return_error (result, error);
+        g_object_unref (result);
 
         goto out;
     }
@@ -1229,9 +1210,9 @@ korva_upnp_device_push_async (KorvaDevice        *device,
     host_path_data->params = params;
     host_path_data->file = g_object_ref (file);
 
-    g_simple_async_result_set_op_res_gpointer (result,
-                                               g_compute_checksum_for_string (G_CHECKSUM_MD5, raw_tag, -1),
-                                               g_free);
+    g_task_set_task_data (result,
+                          g_compute_checksum_for_string (G_CHECKSUM_MD5, raw_tag, -1),
+                          g_free);
     g_free (raw_tag);
 
     korva_upnp_device_drop_current_file (self);
@@ -1240,6 +1221,7 @@ korva_upnp_device_push_async (KorvaDevice        *device,
                                             params,
                                             iface,
                                             self->priv->ip_address,
+                                            cancellable,
                                             korva_upnp_device_on_host_file_async,
                                             host_path_data);
     g_object_unref (server);
@@ -1250,7 +1232,6 @@ out:
     if (file != NULL) {
         g_object_unref (file);
     }
-    g_simple_async_result_complete_in_idle (result);
 }
 
 static char *
@@ -1258,53 +1239,42 @@ korva_upnp_device_push_finish (KorvaDevice  *device,
                                GAsyncResult *res,
                                GError      **error)
 {
-    GSimpleAsyncResult *result;
     KorvaUPnPDevice *self;
     char *tag;
 
-    if (!g_simple_async_result_is_valid (res,
-                                         G_OBJECT (device),
-                                         korva_upnp_device_push_async)) {
-        return NULL;
+    g_return_val_if_fail (g_task_is_valid (res, device), NULL);
+
+    tag = g_task_propagate_pointer (G_TASK (res), error);
+    if (tag != NULL) {
+        self = KORVA_UPNP_DEVICE (device);
+        self->priv->current_tag = g_strdup (tag);
+
+        return tag;
     }
 
-    result = (GSimpleAsyncResult *) res;
-    if (g_simple_async_result_propagate_error (result, error)) {
-        return NULL;
-    }
-
-    tag = g_strdup (g_simple_async_result_get_op_res_gpointer (result));
-    self = KORVA_UPNP_DEVICE (device);
-    self->priv->current_tag = g_strdup (tag);
-
-    return tag;
+    return NULL;
 }
 
 static void
 korva_upnp_device_unshare_async (KorvaDevice        *device,
                                  const char         *tag,
+                                 GCancellable       *cancellable,
                                  GAsyncReadyCallback callback,
                                  gpointer            user_data)
 {
-    GSimpleAsyncResult *result;
+    GTask *result;
     HostPathData *data;
     KorvaUPnPDevice *self = KORVA_UPNP_DEVICE (device);
     GUPnPServiceProxy *proxy;
 
-    result = g_simple_async_result_new (G_OBJECT (device),
-                                        callback,
-                                        user_data,
-                                        (gpointer) korva_upnp_device_unshare_async);
+    result = g_task_new (device, cancellable, callback, user_data);
 
     if (g_strcmp0 (self->priv->current_tag, tag) != 0) {
-        GError *error;
-
-        error = g_error_new (KORVA_CONTROLLER1_ERROR,
-                             KORVA_CONTROLLER1_ERROR_NO_SUCH_TRANSFER,
-                             "Sharing operation '%s' is not valid",
-                             tag);
-        g_simple_async_result_take_error (result, error);
-        g_simple_async_result_complete_in_idle (result);
+        g_task_return_new_error (result,
+                                 KORVA_CONTROLLER1_ERROR,
+                                 KORVA_CONTROLLER1_ERROR_NO_SUCH_TRANSFER,
+                                 "Sharing operation '%s' is not valid",
+                                 tag);
         g_object_unref (result);
 
         return;
@@ -1333,18 +1303,7 @@ korva_upnp_device_unshare_finish (KorvaDevice  *device,
                                   GAsyncResult *res,
                                   GError      **error)
 {
-    GSimpleAsyncResult *result;
+    g_return_val_if_fail (g_task_is_valid (res, device), FALSE);
 
-    if (!g_simple_async_result_is_valid (res,
-                                         G_OBJECT (device),
-                                         korva_upnp_device_unshare_async)) {
-        return FALSE;
-    }
-
-    result = (GSimpleAsyncResult *) res;
-    if (g_simple_async_result_propagate_error (result, error)) {
-        return FALSE;
-    }
-
-    return TRUE;
+    return g_task_propagate_boolean (G_TASK (res), error);
 }

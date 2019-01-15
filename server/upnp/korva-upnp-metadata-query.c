@@ -29,10 +29,9 @@ enum {
 };
 
 struct _KorvaUPnPMetadataQueryPrivate {
-    GFile              *file;
-    GSimpleAsyncResult *result;
-    GCancellable       *cancellable;
-    GHashTable         *params;
+    GFile        *file;
+    GTask        *result;
+    GHashTable   *params;
 };
 
 G_DEFINE_TYPE (KorvaUPnPMetadataQuery, korva_upnp_metadata_query, G_TYPE_OBJECT);
@@ -137,11 +136,7 @@ korva_upnp_metadata_query_new (GFile *file, GHashTable *params)
 void
 korva_upnp_metadata_query_run_async (KorvaUPnPMetadataQuery *self, GAsyncReadyCallback callback, GCancellable *cancellable, gpointer user_data)
 {
-    self->priv->result = g_simple_async_result_new (G_OBJECT (self),
-                                                    callback,
-                                                    user_data,
-                                                    (gpointer) korva_upnp_metadata_query_run_async);
-    self->priv->cancellable = cancellable;
+    self->priv->result = g_task_new (self, cancellable, callback, user_data);
 
     g_file_query_info_async (self->priv->file,
                              G_FILE_ATTRIBUTE_STANDARD_CONTENT_TYPE ","
@@ -150,7 +145,7 @@ korva_upnp_metadata_query_run_async (KorvaUPnPMetadataQuery *self, GAsyncReadyCa
                              G_FILE_ATTRIBUTE_ACCESS_CAN_READ,
                              G_FILE_QUERY_INFO_NONE,
                              G_PRIORITY_DEFAULT_IDLE,
-                             self->priv->cancellable,
+                             g_task_get_cancellable (self->priv->result),
                              korva_upnp_metadata_query_on_file_query_info_async,
                              self);
 }
@@ -158,20 +153,11 @@ korva_upnp_metadata_query_run_async (KorvaUPnPMetadataQuery *self, GAsyncReadyCa
 gboolean
 korva_upnp_metadata_query_run_finish (KorvaUPnPMetadataQuery *self, GAsyncResult *res, GError **error)
 {
-    GSimpleAsyncResult *result;
-
-    if (!g_simple_async_result_is_valid (res,
-                                         G_OBJECT (self),
-                                         korva_upnp_metadata_query_run_async)) {
+    if (!g_task_is_valid (G_TASK (res), G_OBJECT (self))) {
         return FALSE;
     }
 
-    result = (GSimpleAsyncResult *) res;
-    if (g_simple_async_result_propagate_error (result, error)) {
-        return FALSE;
-    }
-
-    return TRUE;
+    return g_task_propagate_boolean (G_TASK (res), error);
 }
 
 static void
@@ -188,17 +174,18 @@ korva_upnp_metadata_query_on_file_query_info_async (GObject      *source,
 
     info = g_file_query_info_finish (self->priv->file, res, &error);
     if (info == NULL) {
-        g_simple_async_result_take_error (self->priv->result, error);
+        g_task_return_error (self->priv->result, error);
 
         goto out;
     }
 
     can_read = g_file_info_get_attribute_boolean (info, G_FILE_ATTRIBUTE_ACCESS_CAN_READ);
     if (!can_read) {
-        g_simple_async_result_take_error (self->priv->result,
-                                          g_error_new_literal (KORVA_CONTROLLER1_ERROR,
-                                                               KORVA_CONTROLLER1_ERROR_NOT_ACCESSIBLE,
-                                                               "Can not read file"));
+        g_task_return_new_error (self->priv->result,
+                                 KORVA_CONTROLLER1_ERROR,
+                                 KORVA_CONTROLLER1_ERROR_NOT_ACCESSIBLE,
+                                 "%s",
+                                 "Can not read file");
 
         goto out;
     }
@@ -225,11 +212,9 @@ korva_upnp_metadata_query_on_file_query_info_async (GObject      *source,
                              g_variant_new_string (g_file_info_get_display_name (info)));
     }
 
+    g_task_return_boolean (self->priv->result, TRUE);
 out:
-    if (info != NULL) {
-        g_object_unref (info);
-    }
+    g_clear_object (&info);
 
-    g_simple_async_result_complete_in_idle (self->priv->result);
-    g_object_unref (self->priv->result);
+    g_object_unref (G_OBJECT (self->priv->result));
 }

@@ -59,6 +59,7 @@ korva_upnp_file_server_host_file_async (KorvaUPnPFileServer *self,
                                         GHashTable          *params,
                                         const char          *iface,
                                         const char          *peer,
+                                        GCancellable        *cancellable,
                                         GAsyncReadyCallback  callback,
                                         gpointer             user_data);
 
