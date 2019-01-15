@@ -405,7 +405,7 @@ korva_upnp_device_serialize (KorvaDevice *device)
     g_variant_builder_add (builder,
                            "{sv}",
                            "IconURI",
-                           g_variant_new_string (self->priv->icon_uri ? : ""));
+                           g_variant_new_string (self->priv->icon_uri ? self->priv->icon_uri : ""));
     g_variant_builder_add (builder,
                            "{sv}",
                            "Protocol",

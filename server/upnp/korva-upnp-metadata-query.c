@@ -34,7 +34,7 @@ struct _KorvaUPnPMetadataQueryPrivate {
     GHashTable   *params;
 };
 
-G_DEFINE_TYPE (KorvaUPnPMetadataQuery, korva_upnp_metadata_query, G_TYPE_OBJECT);
+G_DEFINE_TYPE (KorvaUPnPMetadataQuery, korva_upnp_metadata_query, G_TYPE_OBJECT)
 
 /* Forward declarations */
 static void
