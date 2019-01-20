@@ -1685,7 +1685,7 @@ korva_upnp_device_on_import_resource (GUPnPServiceProxy       *proxy,
 {
     GError *error = NULL;
     HostPathData *data = (HostPathData *) user_data;
-    GSimpleAsyncResult *result = data->result;
+    GTask *result = data->result;
 
     gupnp_service_proxy_end_action (proxy, action, &error, NULL);
     if (error != NULL) {
@@ -1701,9 +1701,7 @@ korva_upnp_device_on_import_resource (GUPnPServiceProxy       *proxy,
         korva_upnp_file_server_unhost_file_for_peer (server,
                                                      data->file,
                                                      data->device->priv->ip_address);
-        g_object_unref (server);
-
-        g_simple_async_result_take_error (result, error);
+        g_task_return_error (result, error);
     }
 
     // TODO: Check if this is really useful.
@@ -1712,7 +1710,6 @@ korva_upnp_device_on_import_resource (GUPnPServiceProxy       *proxy,
     data->file = NULL;
 
     host_path_data_free (data);
-    g_simple_async_result_complete_in_idle (result);
     g_object_unref (result);
 }
 
@@ -1726,12 +1723,11 @@ on_file_post_ready (GObject *source, GAsyncResult *result, gpointer user_data)
                                  result,
                                  &error);
     if (error != NULL) {
-        g_simple_async_result_take_error (data->result, error);
+        g_task_return_error (data->result, error);
     }
 
     g_object_unref (source);
 
-    g_simple_async_result_complete_in_idle (data->result);
     g_object_unref (data->result);
     host_path_data_free (data);
 }
@@ -1743,7 +1739,7 @@ korva_upnp_device_on_create_object (GUPnPServiceProxy       *proxy,
 {
     GError *error = NULL;
     HostPathData *data = (HostPathData *) user_data;
-    GSimpleAsyncResult *result = data->result;
+    GTask *result = data->result;
     char *didl = NULL;
     const char *import_uri = NULL;
     GUPnPDIDLLiteItem *item = NULL;
@@ -1837,7 +1833,7 @@ korva_upnp_device_on_create_object (GUPnPServiceProxy       *proxy,
 
     return;
 out:
-    g_simple_async_result_take_error (result, error);
+    g_task_return_error (result, error);
 
     if (data->device->priv->has_import_resource) {
         KorvaUPnPFileServer *server;
@@ -1850,7 +1846,6 @@ out:
     }
 
     host_path_data_free (data);
-    g_simple_async_result_complete_in_idle (result);
     g_object_unref (result);
 }
 
@@ -1867,7 +1862,6 @@ korva_upnp_device_push_async (KorvaDevice        *device,
     gchar *key;
     GVariant *value;
     GHashTable *params;
-    GError *error = NULL;
     KorvaUPnPFileServer *server;
     GFile *file = NULL;
     GUPnPContext *context;
@@ -1881,11 +1875,11 @@ korva_upnp_device_push_async (KorvaDevice        *device,
 
      if (self->priv->device_type != DEVICE_TYPE_PLAYER &&
          !self->priv->has_import_resource) {
-        error = g_error_new_literal (KORVA_CONTROLLER1_ERROR,
-                                     KORVA_CONTROLLER1_ERROR_INVALID_ARGS,
-                                     "'Push' to this server devices does not work yet");
-
-        g_simple_async_result_take_error (result, error);
+         g_task_return_new_error (result,
+                                  KORVA_CONTROLLER1_ERROR,
+                                  KORVA_CONTROLLER1_ERROR_INVALID_ARGS,
+                                  "%s",
+                                  "'Push' to this server devices does not work yet");
 
         goto out;
     }
@@ -1902,12 +1896,11 @@ korva_upnp_device_push_async (KorvaDevice        *device,
 
     uri = g_hash_table_lookup (params, "URI");
     if (uri == NULL) {
-        error = g_error_new (KORVA_CONTROLLER1_ERROR,
-                             KORVA_CONTROLLER1_ERROR_INVALID_ARGS,
-                             "'Push' to device %s is missing mandatory URI key",
-                             korva_device_get_uid (device));
-
-        g_simple_async_result_take_error (result, error);
+        g_task_return_new_error (result,
+                                 KORVA_CONTROLLER1_ERROR,
+                                 KORVA_CONTROLLER1_ERROR_INVALID_ARGS,
+                                 "'Push' to device %s is missing mandatory URI key",
+                                 korva_device_get_uid (device));
 
         goto out;
     }
@@ -1942,6 +1935,7 @@ korva_upnp_device_push_async (KorvaDevice        *device,
 
     return;
 out:
+    g_object_unref (result);
     g_hash_table_destroy (params);
     g_clear_object (&file);
 }
