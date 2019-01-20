@@ -988,7 +988,7 @@ korva_upnp_device_drop_current_file (KorvaUPnPDevice *self)
 
         g_clear_pointer (&self->priv->current_tag, g_free);
         g_clear_pointer (&self->priv->current_uri, g_free);
-        g_clear_pointer (&self->priv->current_file, g_free);
+        g_clear_object (&self->priv->current_file);
     }
 
     g_object_unref (server);
