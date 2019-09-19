@@ -35,16 +35,20 @@ struct _MockDMRPrivate {
     char             *state;
 };
 
-G_DEFINE_TYPE_WITH_PRIVATE (MockDMR, mock_dmr, GUPNP_TYPE_ROOT_DEVICE)
+static GInitableIface *ginitable_parent_iface = NULL;
+static void
+mock_dmr_ginitable_interface_init (GInitableIface *iface);
+
+G_DEFINE_TYPE_WITH_CODE (MockDMR, mock_dmr, GUPNP_TYPE_ROOT_DEVICE,
+                        G_IMPLEMENT_INTERFACE (G_TYPE_INITABLE,
+                                               mock_dmr_ginitable_interface_init)
+                        G_ADD_PRIVATE(MockDMR))
 
 enum MockDMRProperties {
     PROP_0,
     PROP_FAULT,
     PROP_STATE
 };
-
-static void
-mock_dmr_constructed (GObject *object);
 
 static void
 mock_dmr_finalize (GObject *object);
@@ -67,7 +71,6 @@ mock_dmr_class_init (MockDMRClass *klass)
     GObjectClass *object_class;
 
     object_class = G_OBJECT_CLASS (klass);
-    object_class->constructed = mock_dmr_constructed;
     object_class->finalize = mock_dmr_finalize;
     object_class->get_property = mock_dmr_get_property;
     object_class->set_property = mock_dmr_set_property;
@@ -313,11 +316,15 @@ on_query_last_change (GUPnPService *service,
 }
 
 
-static void
-mock_dmr_constructed (GObject *object)
+static gboolean
+mock_dmr_ginitable_init (GInitable *object, GCancellable *cancellable, GError **error)
 {
-    GUPnPContext *context;
-    MockDMR *self = MOCK_DMR (object);
+    GUPnPContext *context = NULL;
+    MockDMR *self = MOCK_DMR(object);
+
+    if (!ginitable_parent_iface->init(object, cancellable, error)) {
+        return FALSE;
+    }
 
     context = gupnp_device_info_get_context (GUPNP_DEVICE_INFO (self));
 
@@ -333,7 +340,6 @@ mock_dmr_constructed (GObject *object)
     gupnp_context_host_path (context,
                              "RenderingControl2.xml",
                              TEST_DATA_DIR "/mock-dmr/RenderingControl2.xml");
-    gupnp_root_device_set_available (GUPNP_ROOT_DEVICE (self), TRUE);
 
     if (self->priv->fault != MOCK_DMR_FAULT_NO_CONNECTION_MANAGER) {
         self->priv->connection_manager = gupnp_device_info_get_service (GUPNP_DEVICE_INFO (self),
@@ -380,6 +386,15 @@ mock_dmr_constructed (GObject *object)
                           G_CALLBACK (on_query_last_change),
                           self);
     }
+
+    return TRUE;
+}
+
+static void
+mock_dmr_ginitable_interface_init (GInitableIface *iface)
+{
+    ginitable_parent_iface = g_type_interface_peek_parent (iface);
+    iface->init = mock_dmr_ginitable_init;
 }
 
 static void
@@ -409,7 +424,7 @@ mock_dmr_new (MockDMRFault fault)
     GUPnPXMLDoc *doc;
     const char *state = "STOPPED";
 
-    context = gupnp_context_new (NULL, "lo", 0, &error);
+    context = gupnp_context_new ("lo", 0, &error);
     g_assert (error == NULL);
 
     doc = gupnp_xml_doc_new_from_path (TEST_DATA_DIR "/mock-dmr/MediaRenderer2.xml", &error);
@@ -425,7 +440,7 @@ mock_dmr_new (MockDMRFault fault)
 
         path = g_strdup_printf (XPATH_TEMPLATE,
                                 fault == MOCK_DMR_FAULT_NO_AV_TRANSPORT ? AV_TRANSPORT : CONNECTION_MANAGER);
-        ctx = xmlXPathNewContext (doc->doc);
+        ctx = xmlXPathNewContext ((xmlDocPtr)gupnp_xml_doc_get_doc (doc));
         xpo = xmlXPathEvalExpression ((const xmlChar *) path, ctx);
         if (xpo != NULL &&
             xpo->type == XPATH_NODESET &&
@@ -437,7 +452,7 @@ mock_dmr_new (MockDMRFault fault)
             xmlNodeSetContent (node, (const xmlChar *) "ThisIsInvalid");
         }
 
-        xmlDocDumpMemoryEnc (doc->doc, (xmlChar **) &out, &out_len, "UTF-8");
+        xmlDocDumpMemoryEnc ((xmlDocPtr)gupnp_xml_doc_get_doc(doc), (xmlChar **) &out, &out_len, "UTF-8");
         /* TODO: Dump file and use that instead */
         g_free (path);
     }
@@ -446,7 +461,9 @@ mock_dmr_new (MockDMRFault fault)
         state = "STOPPED";
     }
 
-    return g_object_new (TYPE_MOCK_DMR,
+    return g_initable_new (TYPE_MOCK_DMR,
+                         NULL,
+                         NULL,
                          "resource-factory", gupnp_resource_factory_get_default (),
                          "context", context,
                          "description-dir", TEST_DATA_DIR "/mock-dmr",
