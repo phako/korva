@@ -639,6 +639,7 @@ test_upnp_device_setup (UPnPDeviceData *data, gconstpointer user_data)
     } else {
         mock_dmr_set_protocol_info (data->dmr, NULL, "*:*:*:*,http-get:*:image/jpeg:*");
     }
+    gupnp_root_device_set_available(GUPNP_ROOT_DEVICE (data->dmr), TRUE);
     context = gupnp_device_info_get_context (GUPNP_DEVICE_INFO (data->dmr));
     data->cp = gupnp_control_point_new (context, MOCK_DMR_UDN);
     gssdp_resource_browser_set_active (GSSDP_RESOURCE_BROWSER (data->cp), TRUE);
