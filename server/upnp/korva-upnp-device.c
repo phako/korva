@@ -947,7 +947,7 @@ korva_upnp_device_on_set_av_transport_uri (GUPnPServiceProxy       *proxy,
     /* This was called from Unshare. We're done now */
     if (data->unshare) {
         korva_upnp_device_drop_current_file (data->device);
-        g_task_return_pointer (result, NULL, NULL);
+        g_task_return_boolean (result, TRUE);
 
         goto out;
     }
