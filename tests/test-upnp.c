@@ -387,16 +387,19 @@ test_upnp_fileserver_http_server (HostFileTestData *data, gconstpointer user_dat
 
     /* Check invalid HTTP method */
     message = soup_message_new (SOUP_METHOD_DELETE, data->result_uri);
+    g_object_ref (message);
     soup_session_queue_message (session, message, NULL, NULL);
     g_signal_connect_swapped (message, "finished", G_CALLBACK (g_main_loop_quit), data->loop);
 
     g_main_loop_run (data->loop);
 
     g_assert_cmpint (message->status_code, ==, SOUP_STATUS_METHOD_NOT_ALLOWED);
+    g_object_unref (message);
 
     /* Check URI format with invalid item format */
     uri = g_strconcat (base_uri, "should_not_work", NULL);
     message = soup_message_new (SOUP_METHOD_HEAD, uri);
+    g_object_ref (message);
     soup_session_queue_message (session, message, NULL, NULL);
     g_signal_connect_swapped (message, "finished", G_CALLBACK (g_main_loop_quit), data->loop);
 
@@ -404,10 +407,12 @@ test_upnp_fileserver_http_server (HostFileTestData *data, gconstpointer user_dat
 
     g_assert_cmpint (message->status_code, ==, SOUP_STATUS_NOT_FOUND);
     g_free (uri);
+    g_object_unref (message);
 
     /* Check URI format with invalid MD5 */
     uri = g_strconcat (base_uri, empty_md5, NULL);
     message = soup_message_new (SOUP_METHOD_HEAD, uri);
+    g_object_ref (message);
     soup_session_queue_message (session, message, NULL, NULL);
     g_signal_connect_swapped (message, "finished", G_CALLBACK (g_main_loop_quit), data->loop);
 
@@ -415,6 +420,7 @@ test_upnp_fileserver_http_server (HostFileTestData *data, gconstpointer user_dat
 
     g_assert_cmpint (message->status_code, ==, SOUP_STATUS_NOT_FOUND);
     g_free (uri);
+    g_object_unref (message);
 
     /* Check that we get a 404 when trying to access it with different IP */
     uri = g_strdup (data->result_uri);
@@ -429,6 +435,7 @@ test_upnp_fileserver_http_server (HostFileTestData *data, gconstpointer user_dat
     g_main_loop_run (data->loop);
     korva_upnp_file_server_unhost_file_for_peer (data->server, data->in_file, "127.0.0.1");
     message = soup_message_new (SOUP_METHOD_HEAD, uri);
+    g_object_ref (message);
     soup_session_queue_message (session, message, NULL, NULL);
     g_signal_connect_swapped (message, "finished", G_CALLBACK (g_main_loop_quit), data->loop);
 
@@ -436,6 +443,7 @@ test_upnp_fileserver_http_server (HostFileTestData *data, gconstpointer user_dat
 
     g_assert_cmpint (message->status_code, ==, SOUP_STATUS_NOT_FOUND);
     g_free (uri);
+    g_object_unref (message);
 
     g_object_unref (session);
     g_free (base_uri);
