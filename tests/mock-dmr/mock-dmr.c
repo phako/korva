@@ -166,7 +166,7 @@ on_get_protocol_info (GUPnPService       *service,
     } else if (self->priv->fault == MOCK_DMR_FAULT_EMPTY_PROTOCOL_INFO) {
         gupnp_service_action_set (action, "Source", G_TYPE_STRING, "", NULL);
         gupnp_service_action_set (action, "Sink", G_TYPE_STRING, "", NULL);
-        gupnp_service_action_return (action);
+        gupnp_service_action_return_success (action);
 
         return;
     }
@@ -183,7 +183,7 @@ on_get_protocol_info (GUPnPService       *service,
                                   G_TYPE_STRING, self->priv->sink_protocol_info,
                                   NULL);
     }
-    gupnp_service_action_return (action);
+    gupnp_service_action_return_success (action);
 }
 
 static void
@@ -194,7 +194,7 @@ on_play (GUPnPService       *service,
     if (self->priv->fault == MOCK_DMR_FAULT_PLAY_FAIL) {
         gupnp_service_action_return_error (action, 721, "Deliberately fail");
     } else {
-        gupnp_service_action_return (action);
+        gupnp_service_action_return_success (action);
     }
 }
 
@@ -206,7 +206,7 @@ on_stop (GUPnPService       *service,
     if (self->priv->fault == MOCK_DMR_FAULT_STOP_FAIL) {
         gupnp_service_action_return_error (action, 701, "Deliberately fail");
     } else {
-        gupnp_service_action_return (action);
+        gupnp_service_action_return_success (action);
     }
 }
 
@@ -215,7 +215,7 @@ on_pause (GUPnPService       *service,
           GUPnPServiceAction *action,
           gpointer            user_data)
 {
-    gupnp_service_action_return (action);
+    gupnp_service_action_return_success (action);
 }
 
 static void
@@ -246,7 +246,7 @@ on_get_transport_info (GUPnPService       *service,
                               "CurrentSpeed", G_TYPE_STRING, "1",
                               NULL);
 
-    gupnp_service_action_return (action);
+    gupnp_service_action_return_success (action);
 }
 
 static void
@@ -295,7 +295,7 @@ on_set_av_transport_uri (GUPnPService       *service,
     gupnp_service_notify_value (GUPNP_SERVICE (self->priv->av_transport), "LastChange", &last_change);
     g_string_free (last_change_str, FALSE);
 
-    gupnp_service_action_return (action);
+    gupnp_service_action_return_success (action);
 }
 
 static void

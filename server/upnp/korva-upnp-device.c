@@ -106,9 +106,7 @@ korva_upnp_device_on_last_change (GUPnPServiceProxy *proxy,
     korva_upnp_device_introspection_finish ((self), NULL)
 
 static void
-korva_upnp_device_on_get_protocol_info (GUPnPServiceProxy       *proxy,
-                                        GUPnPServiceProxyAction *action,
-                                        gpointer                 user_data);
+korva_upnp_device_on_get_protocol_info (GObject *source, GAsyncResult *res, gpointer user_data);
 
 static void
 korva_upnp_device_get_icon (KorvaUPnPDevice *self);
@@ -117,25 +115,17 @@ static void
 korva_upnp_device_on_icon_ready (SoupMessage *message, gpointer user_data);
 
 static void
-korva_upnp_device_on_set_av_transport_uri (GUPnPServiceProxy       *proxy,
-                                           GUPnPServiceProxyAction *action,
-                                           gpointer                 user_data);
+korva_upnp_device_on_set_av_transport_uri (GObject *proxy, GAsyncResult *res, gpointer user_data);
 static void
-korva_upnp_device_on_play (GUPnPServiceProxy       *proxy,
-                           GUPnPServiceProxyAction *action,
-                           gpointer                 user_data);
+korva_upnp_device_on_play (GObject *source, GAsyncResult *res, gpointer user_data);
 static void
-korva_upnp_device_on_stop (GUPnPServiceProxy       *proxy,
-                           GUPnPServiceProxyAction *action,
-                           gpointer                 user_data);
+korva_upnp_device_on_stop (GObject *source, GAsyncResult *res, gpointer user_data);
 
 static void
 korva_upnp_device_update_ip_address (KorvaUPnPDevice *self);
 
 static void
-korva_upnp_device_on_get_transport_info (GUPnPServiceProxy       *proxy,
-                                         GUPnPServiceProxyAction *action,
-                                         gpointer                 user_data);
+korva_upnp_device_on_get_transport_info (GObject *source, GAsyncResult *action, gpointer user_data);
 
 static void
 korva_upnp_device_drop_current_file (KorvaUPnPDevice *self);
@@ -500,28 +490,20 @@ korva_upnp_device_introspect_renderer (KorvaUPnPDevice *self)
                          GUPNP_SERVICE_PROXY (service));
 
     proxy = g_hash_table_lookup (self->priv->services, AV_TRANSPORT);
-    gupnp_service_proxy_begin_action (proxy,
-                                      "GetTransportInfo",
-                                      korva_upnp_device_on_get_transport_info,
-                                      self,
-                                      "InstanceID", G_TYPE_UINT, 0,
-                                      NULL);
+    g_autoptr (GUPnPServiceProxyAction) action;
+
+    action = gupnp_service_proxy_action_new ("GetTransportInfo", "InstanceID", G_TYPE_UINT, 0, NULL);
+    gupnp_service_proxy_call_action_async (proxy, action, NULL, korva_upnp_device_on_get_transport_info, self);
 }
 
 static void
-korva_upnp_device_on_get_transport_info (GUPnPServiceProxy       *proxy,
-                                         GUPnPServiceProxyAction *action,
-                                         gpointer                 user_data)
+korva_upnp_device_on_get_transport_info (GObject *source, GAsyncResult *res, gpointer user_data)
 {
-    GUPnPServiceProxy *cm_proxy;
-    GError *error = NULL;
+    GUPnPServiceProxy *proxy = GUPNP_SERVICE_PROXY (source);
     KorvaUPnPDevice *self = KORVA_UPNP_DEVICE (user_data);
+    GError *error = NULL;
 
-    gupnp_service_proxy_end_action (proxy,
-                                    action,
-                                    &error,
-                                    "CurrentTransportState", G_TYPE_STRING, &(self->priv->state),
-                                    NULL);
+    GUPnPServiceProxyAction *action = gupnp_service_proxy_call_action_finish (proxy, res, &error);
     if (error != NULL) {
         GError *inner_error;
 
@@ -537,47 +519,72 @@ korva_upnp_device_on_get_transport_info (GUPnPServiceProxy       *proxy,
         return;
     }
 
+    gupnp_service_proxy_action_get_result (action,
+                                           &error,
+                                           "CurrentTransportState",
+                                           G_TYPE_STRING,
+                                           &(self->priv->state),
+                                           NULL);
+
+    if (error != NULL) {
+        GError *inner_error;
+
+        inner_error = g_error_new (KORVA_UPNP_DEVICE_ERROR,
+                                   INVALID_RESPONSE,
+                                   "Getting current stransport state on device %s failed: %s",
+                                   self->priv->udn,
+                                   error->message);
+        g_error_free (error);
+
+        korva_upnp_device_introspection_finish (self, inner_error);
+
+        return;
+    }
+
     g_debug ("Device %s has state %s", self->priv->udn, self->priv->state);
 
-    cm_proxy = g_hash_table_lookup (self->priv->services, CONNECTION_MANAGER);
-    gupnp_service_proxy_begin_action (cm_proxy,
-                                      "GetProtocolInfo",
-                                      korva_upnp_device_on_get_protocol_info,
-                                      self,
-                                      NULL);
+    GUPnPServiceProxy *cm_proxy = g_hash_table_lookup (self->priv->services, CONNECTION_MANAGER);
+
+    action = gupnp_service_proxy_action_new ("GetProtocolInfo", NULL);
+    gupnp_service_proxy_call_action_async (cm_proxy, action, NULL, korva_upnp_device_on_get_protocol_info, self);
+    gupnp_service_proxy_action_unref (action);
 }
 
 static void
-korva_upnp_device_on_get_protocol_info (GUPnPServiceProxy       *proxy,
-                                        GUPnPServiceProxyAction *action,
-                                        gpointer                 user_data)
+korva_upnp_device_on_get_protocol_info (GObject *source, GAsyncResult *res, gpointer user_data)
 {
     KorvaUPnPDevice *self = KORVA_UPNP_DEVICE (user_data);
     GError *error = NULL;
     const char *variable;
 
-    variable = self->priv->device_type == DEVICE_TYPE_PLAYER ? "Sink" : "Source";
+    GUPnPServiceProxyAction *action =
+        gupnp_service_proxy_call_action_finish (GUPNP_SERVICE_PROXY (source), res, &error);
 
-    gupnp_service_proxy_end_action (proxy,
-                                    action,
-                                    &error,
-                                    variable,
-                                    G_TYPE_STRING,
-                                    &self->priv->protocol_info,
-                                    NULL);
-
-    if (self->priv->protocol_info == NULL && error == NULL) {
+    if (error != NULL) {
         error = g_error_new (KORVA_UPNP_DEVICE_ERROR,
                              MISSING_SERVICE,
                              "Device %s did not properly reply to GetProtocolInfo call",
                              self->priv->udn);
+        korva_upnp_device_introspection_finish (self, error);
+
+        return;
     }
 
-    if (error != NULL) {
+    variable = self->priv->device_type == DEVICE_TYPE_PLAYER ? "Sink" : "Source";
+
+    gupnp_service_proxy_action_get_result (action, &error, variable, G_TYPE_STRING, &self->priv->protocol_info, NULL);
+
+    if (self->priv->protocol_info == NULL || error != NULL) {
+        g_clear_error (&error);
+        error = g_error_new (KORVA_UPNP_DEVICE_ERROR,
+                             MISSING_SERVICE,
+                             "Device %s did not properly reply to GetProtocolInfo call",
+                             self->priv->udn);
         korva_upnp_device_introspection_finish (self, error);
-    } else {
-        korva_upnp_device_get_icon (self);
+
+        return;
     }
+    korva_upnp_device_get_icon (self);
 }
 
 static void
@@ -833,15 +840,20 @@ host_path_data_free (HostPathData *data)
 }
 
 static void
-korva_upnp_device_on_play (GUPnPServiceProxy       *proxy,
-                           GUPnPServiceProxyAction *action,
-                           gpointer                 user_data)
+korva_upnp_device_on_play (GObject *source, GAsyncResult *res, gpointer user_data)
 {
     GError *error = NULL;
     HostPathData *data = (HostPathData *) user_data;
     GTask *result = data->result;
 
-    gupnp_service_proxy_end_action (proxy, action, &error, NULL);
+    GUPnPServiceProxyAction *action =
+        gupnp_service_proxy_call_action_finish (GUPNP_SERVICE_PROXY (source), res, &error);
+
+    // The actual SOAP error is evaluated only in the action get function
+    if (error == NULL) {
+        gupnp_service_proxy_action_get_result (action, &error, NULL);
+    }
+
     if (error != NULL) {
         KorvaUPnPFileServer *server;
 
@@ -866,15 +878,21 @@ korva_upnp_device_on_play (GUPnPServiceProxy       *proxy,
 }
 
 static void
-korva_upnp_device_on_stop (GUPnPServiceProxy       *proxy,
-                           GUPnPServiceProxyAction *action,
-                           gpointer                 user_data)
+korva_upnp_device_on_stop (GObject *source, GAsyncResult *res, gpointer user_data)
 {
+    GUPnPServiceProxy *proxy = GUPNP_SERVICE_PROXY (source);
     GError *error = NULL;
     HostPathData *data = (HostPathData *) user_data;
     GTask *result = data->result;
 
-    gupnp_service_proxy_end_action (proxy, action, &error, NULL);
+    GUPnPServiceProxyAction *action =
+        gupnp_service_proxy_call_action_finish (GUPNP_SERVICE_PROXY (source), res, &error);
+
+    // The actual SOAP error is evaluated only in the action get function
+    if (error == NULL) {
+        gupnp_service_proxy_action_get_result (action, &error, NULL);
+    }
+
     if (error != NULL) {
         KorvaUPnPFileServer *server;
 
@@ -886,14 +904,25 @@ korva_upnp_device_on_stop (GUPnPServiceProxy       *proxy,
                                                      data->device->priv->ip_address);
         g_object_unref (server);
     } else {
-        gupnp_service_proxy_begin_action (proxy,
-                                          "SetAVTransportURI",
-                                          korva_upnp_device_on_set_av_transport_uri,
-                                          user_data,
-                                          "InstanceID", G_TYPE_STRING, "0",
-                                          "CurrentURI", G_TYPE_STRING, data->uri,
-                                          "CurrentURIMetaData", G_TYPE_STRING, data->meta_data,
-                                          NULL);
+        g_autoptr (GUPnPServiceProxyAction) action;
+
+        action = gupnp_service_proxy_action_new ("SetAVTransportURI",
+                                                 "InstanceID",
+                                                 G_TYPE_STRING,
+                                                 "0",
+                                                 "CurrentURI",
+                                                 G_TYPE_STRING,
+                                                 data->uri,
+                                                 "CurrentURIMetaData",
+                                                 G_TYPE_STRING,
+                                                 data->meta_data,
+                                                 NULL);
+
+        gupnp_service_proxy_call_action_async (proxy,
+                                               action,
+                                               NULL,
+                                               korva_upnp_device_on_set_av_transport_uri,
+                                               user_data);
 
         return;
     }
@@ -903,27 +932,33 @@ korva_upnp_device_on_stop (GUPnPServiceProxy       *proxy,
 }
 
 static void
-korva_upnp_device_on_set_av_transport_uri (GUPnPServiceProxy       *proxy,
-                                           GUPnPServiceProxyAction *action,
-                                           gpointer                 user_data)
+korva_upnp_device_on_set_av_transport_uri (GObject *source, GAsyncResult *res, gpointer user_data)
 {
+    GUPnPServiceProxy *proxy = GUPNP_SERVICE_PROXY (source);
     GError *error = NULL;
     HostPathData *data = (HostPathData *) user_data;
     KorvaUPnPDevice *self = data->device;
     GTask *result = data->result;
 
-    gupnp_service_proxy_end_action (proxy, action, &error, NULL);
+    GUPnPServiceProxyAction *action =
+        gupnp_service_proxy_call_action_finish (GUPNP_SERVICE_PROXY (source), res, &error);
+
+    // The actual SOAP error is evaluated only in the action get function
+    if (error == NULL) {
+        gupnp_service_proxy_action_get_result (action, &error, NULL);
+    }
+
     if (error != NULL) {
         /* Transport locked and we didn't come from a transport_locked state already */
         if (error->code == 705 && !data->transport_locked) {
             data->transport_locked = TRUE;
             g_debug ("Transport was locked, trying to stop the device");
-            gupnp_service_proxy_begin_action (proxy,
-                                              "Stop",
-                                              korva_upnp_device_on_stop,
-                                              user_data,
-                                              "InstanceID", G_TYPE_STRING, "0",
-                                              NULL);
+
+            g_autoptr (GUPnPServiceProxyAction) action =
+                gupnp_service_proxy_action_new ("Stop", "InstanceID", G_TYPE_STRING, "0", NULL);
+
+            gupnp_service_proxy_call_action_async (proxy, action, NULL, korva_upnp_device_on_stop, user_data);
+
             g_error_free (error);
 
             return;
@@ -955,13 +990,16 @@ korva_upnp_device_on_set_av_transport_uri (GUPnPServiceProxy       *proxy,
     if (g_ascii_strcasecmp (self->priv->state, AV_STATE_STOPPED) == 0 ||
         g_ascii_strcasecmp (self->priv->state, AV_STATE_NO_MEDIA_PRESENT) == 0 ||
         g_ascii_strcasecmp (self->priv->state, AV_STATE_PAUSED_PLAYBACK) == 0) {
-        gupnp_service_proxy_begin_action (proxy,
-                                          "Play",
-                                          korva_upnp_device_on_play,
-                                          user_data,
-                                          "InstanceID", G_TYPE_STRING, "0",
-                                          "Speed", G_TYPE_FLOAT, 1.0f,
-                                          NULL);
+        g_autoptr (GUPnPServiceProxyAction) action = gupnp_service_proxy_action_new ("Play",
+                                                                                     "InstanceID",
+                                                                                     G_TYPE_STRING,
+                                                                                     "0",
+                                                                                     "Speed",
+                                                                                     G_TYPE_FLOAT,
+                                                                                     1.0f,
+                                                                                     NULL);
+
+        gupnp_service_proxy_call_action_async (proxy, action, NULL, korva_upnp_device_on_play, user_data);
 
         return;
     }
@@ -1010,6 +1048,7 @@ korva_upnp_device_on_host_file_async (GObject      *source,
     const char *title, *content_type, *dlna_profile = NULL;
     GVariant *value;
     guint64 size;
+    g_autoptr (GUPnPServiceProxyAction) action;
 
     data->uri = korva_upnp_file_server_host_file_finish (KORVA_UPNP_FILE_SERVER (source),
                                                          res,
@@ -1071,14 +1110,20 @@ korva_upnp_device_on_host_file_async (GObject      *source,
     g_object_unref (compat_resource);
 
     proxy = g_hash_table_lookup (data->device->priv->services, AV_TRANSPORT);
-    gupnp_service_proxy_begin_action (proxy,
-                                      "SetAVTransportURI",
-                                      korva_upnp_device_on_set_av_transport_uri,
-                                      user_data,
-                                      "InstanceID", G_TYPE_STRING, "0",
-                                      "CurrentURI", G_TYPE_STRING, data->uri,
-                                      "CurrentURIMetaData", G_TYPE_STRING, data->meta_data,
-                                      NULL);
+
+    action = gupnp_service_proxy_action_new ("SetAVTransportURI",
+                                             "InstanceID",
+                                             G_TYPE_STRING,
+                                             "0",
+                                             "CurrentURI",
+                                             G_TYPE_STRING,
+                                             data->uri,
+                                             "CurrentURIMetaData",
+                                             G_TYPE_STRING,
+                                             data->meta_data,
+                                             NULL);
+
+    gupnp_service_proxy_call_action_async (proxy, action, NULL, korva_upnp_device_on_set_av_transport_uri, user_data);
 
     return;
 out:
@@ -1236,13 +1281,10 @@ korva_upnp_device_unshare_async (KorvaDevice        *device,
     data->file = g_object_ref (self->priv->current_file);
 
     proxy = g_hash_table_lookup (data->device->priv->services, AV_TRANSPORT);
+    g_autoptr (GUPnPServiceProxyAction) action =
+        gupnp_service_proxy_action_new ("Stop", "InstanceID", G_TYPE_STRING, "0", NULL);
 
-    gupnp_service_proxy_begin_action (proxy,
-                                      "Stop",
-                                      korva_upnp_device_on_stop,
-                                      data,
-                                      "InstanceID", G_TYPE_STRING, "0",
-                                      NULL);
+    gupnp_service_proxy_call_action_async (proxy, action, NULL, korva_upnp_device_on_stop, data);
 }
 
 static gboolean

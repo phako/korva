@@ -49,9 +49,11 @@ GType korva_upnp_device_get_type (void);
 
 GQuark korva_upnp_device_error_quark ();
 #define KORVA_UPNP_DEVICE_ERROR korva_upnp_device_error_quark ()
-enum _KorvaUPnPDeviceError {
+enum _KorvaUPnPDeviceError
+{
     INVALID_DEVICE_TYPE,
     MISSING_SERVICE,
+    INVALID_RESPONSE,
     TIMEOUT
 };
 

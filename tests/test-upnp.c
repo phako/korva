@@ -686,21 +686,19 @@ test_upnp_device (UPnPDeviceData *data, gconstpointer user_data)
         g_main_loop_run (data->loop);
     }
 
-    if (fault == MOCK_DMR_FAULT_PROTOCOL_INFO_CALL_INVALID ||
-        fault == MOCK_DMR_FAULT_NO_AV_TRANSPORT ||
-        fault == MOCK_DMR_FAULT_NO_CONNECTION_MANAGER ||
-        fault == MOCK_DMR_FAULT_GET_TRANSPORT_INFO_FAIL) {
+    if (fault == MOCK_DMR_FAULT_PROTOCOL_INFO_CALL_INVALID || fault == MOCK_DMR_FAULT_NO_AV_TRANSPORT ||
+        fault == MOCK_DMR_FAULT_NO_CONNECTION_MANAGER || fault == MOCK_DMR_FAULT_PROTOCOL_INFO_CALL_ERROR) {
         g_assert (!data->init_result);
         g_assert (data->init_error != NULL);
         g_assert (data->init_error->domain == KORVA_UPNP_DEVICE_ERROR);
         g_assert_cmpint (data->init_error->code, ==, MISSING_SERVICE);
 
         return;
-    } else if (fault == MOCK_DMR_FAULT_PROTOCOL_INFO_CALL_ERROR) {
+    } else if (fault == MOCK_DMR_FAULT_GET_TRANSPORT_INFO_FAIL) {
         g_assert (!data->init_result);
         g_assert (data->init_error != NULL);
-        g_assert (data->init_error->domain == GUPNP_CONTROL_ERROR);
-        g_assert_cmpint (data->init_error->code, ==, 501);
+        g_assert (data->init_error->domain == KORVA_UPNP_DEVICE_ERROR);
+        g_assert_cmpint (data->init_error->code, ==, INVALID_RESPONSE);
 
         return;
     }
