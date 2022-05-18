@@ -54,50 +54,40 @@ typedef struct _ServeData {
 } ServeData;
 
 static void
-korva_upnp_file_server_on_wrote_chunk (SoupMessage *msg,
-                                       gpointer     user_data)
+korva_upnp_file_server_on_wrote_chunk (SoupServerMessage *msg, gpointer user_data)
 {
     ServeData *data = (ServeData *) user_data;
     int chunk_size;
-    char *file_buffer;
     GError *error = NULL;
-    gsize bytes_read;
 
     soup_server_pause_message (data->server, msg);
+    SoupMessageBody *body = soup_server_message_get_response_body (msg);
 
     chunk_size = MIN (data->end - data->start + 1, G_MAXUINT16 + 1);
 
     if (chunk_size <= 0) {
-        soup_message_body_complete (msg->response_body);
+        soup_message_body_complete (body);
         soup_server_unpause_message (data->server, msg);
 
         return;
     }
 
-    file_buffer = g_malloc0 (chunk_size);
-    g_input_stream_read_all (data->stream,
-                             (void *) file_buffer,
-                             chunk_size,
-                             &bytes_read,
-                             NULL,
-                             &error);
+    g_autoptr (GBytes) buffer = g_input_stream_read_bytes (data->stream, chunk_size, NULL, &error);
 
-    data->start += chunk_size;
-    soup_message_body_append (msg->response_body, SOUP_MEMORY_TAKE, file_buffer, chunk_size);
+    data->start += g_bytes_get_size (buffer);
+    soup_message_body_append_bytes (body, buffer);
 
     soup_server_unpause_message (data->server, msg);
 }
 
 static void
-korva_upnp_file_server_on_finished (SoupMessage *msg,
-                                    gpointer     user_data)
+korva_upnp_file_server_on_finished (SoupServerMessage *msg, gpointer user_data)
 {
     ServeData *data = (ServeData *) user_data;
-    char *uri;
+    g_autofree char *uri = NULL;
 
-    uri = soup_uri_to_string (soup_message_get_uri (msg), FALSE);
+    uri = g_uri_to_string (soup_server_message_get_uri (msg));
     g_debug ("Handled request for '%s'", uri);
-    g_free (uri);
 
     if (data->host_data != NULL) {
         korva_upnp_host_data_remove_request (data->host_data);
@@ -119,12 +109,11 @@ static void print_header (const char *name, const char *value, gpointer user_dat
 }
 
 static void
-korva_upnp_file_server_handle_request (SoupServer        *server,
-                                       SoupMessage       *msg,
-                                       const char        *path,
-                                       GHashTable        *query,
-                                       SoupClientContext *client,
-                                       gpointer           user_data)
+korva_upnp_file_server_handle_request (SoupServer *server,
+                                       SoupServerMessage *msg,
+                                       const char *path,
+                                       GHashTable *query,
+                                       gpointer user_data)
 {
     KorvaUPnPFileServer *self = KORVA_UPNP_FILE_SERVER (user_data);
     GMatchInfo *info;
@@ -138,24 +127,25 @@ korva_upnp_file_server_handle_request (SoupServer        *server,
     GError *error = NULL;
     goffset size;
 
-    if (msg->method != SOUP_METHOD_HEAD &&
-        msg->method != SOUP_METHOD_GET) {
-        soup_message_set_status (msg, SOUP_STATUS_METHOD_NOT_ALLOWED);
+    const char *method = soup_server_message_get_method (msg);
+    if (method != SOUP_METHOD_HEAD && method != SOUP_METHOD_GET) {
+        soup_server_message_set_status (msg, SOUP_STATUS_METHOD_NOT_ALLOWED, NULL);
 
         return;
     }
 
-    g_debug ("Got %s request for uri: %s", msg->method, path);
-    soup_message_headers_foreach (msg->request_headers, print_header, NULL);
+    g_debug ("Got %s request for uri: %s", method, path);
+    SoupMessageHeaders *request_headers = soup_server_message_get_request_headers (msg);
+    soup_message_headers_foreach (request_headers, print_header, NULL);
 
     soup_server_pause_message (server, msg);
-    soup_message_set_status (msg, SOUP_STATUS_OK);
+    soup_server_message_set_status (msg, SOUP_STATUS_OK, NULL);
 
     if (!g_regex_match (self->priv->path_regex,
                         path,
                         0,
                         &info)) {
-        soup_message_set_status (msg, SOUP_STATUS_NOT_FOUND);
+        soup_server_message_set_status (msg, SOUP_STATUS_NOT_FOUND, NULL);
         g_match_info_free (info);
 
         goto out;
@@ -168,20 +158,20 @@ korva_upnp_file_server_handle_request (SoupServer        *server,
     g_free (id);
 
     if (file == NULL) {
-        soup_message_set_status (msg, SOUP_STATUS_NOT_FOUND);
+        soup_server_message_set_status (msg, SOUP_STATUS_NOT_FOUND, NULL);
 
         goto out;
     }
 
     data = g_hash_table_lookup (self->priv->host_data, file);
     if (data == NULL) {
-        soup_message_set_status (msg, SOUP_STATUS_NOT_FOUND);
+        soup_server_message_set_status (msg, SOUP_STATUS_NOT_FOUND, NULL);
 
         goto out;
     }
 
-    if (!korva_upnp_host_data_valid_for_peer (data, soup_client_context_get_host (client))) {
-        soup_message_set_status (msg, SOUP_STATUS_NOT_FOUND);
+    if (!korva_upnp_host_data_valid_for_peer (data, soup_server_message_get_remote_host (msg))) {
+        soup_server_message_set_status (msg, SOUP_STATUS_NOT_FOUND, NULL);
 
         goto out;
     }
@@ -191,7 +181,9 @@ korva_upnp_file_server_handle_request (SoupServer        *server,
     g_object_add_weak_pointer (G_OBJECT (data), (gpointer *) &(serve_data->host_data));
     korva_upnp_host_data_add_request (data);
     size = korva_upnp_host_data_get_size (data);
-    if (soup_message_headers_get_ranges (msg->request_headers, size, &ranges, &length)) {
+    SoupMessageHeaders *response_headers = soup_server_message_get_response_headers (msg);
+
+    if (soup_message_headers_get_ranges (request_headers, size, &ranges, &length)) {
         goffset start, end;
         start = ranges[0].start;
         end = ranges[0].end;
@@ -201,58 +193,53 @@ korva_upnp_file_server_handle_request (SoupServer        *server,
         }
 
         if (start > size || end > size) {
-            soup_message_set_status (msg, SOUP_STATUS_REQUESTED_RANGE_NOT_SATISFIABLE);
+            soup_server_message_set_status (msg, SOUP_STATUS_REQUESTED_RANGE_NOT_SATISFIABLE, NULL);
             g_slice_free (ServeData, serve_data);
 
             goto out;
         } else {
-            soup_message_set_status (msg, SOUP_STATUS_PARTIAL_CONTENT);
-            soup_message_headers_set_content_range (msg->response_headers, start, end, size);
+            soup_server_message_set_status (msg, SOUP_STATUS_PARTIAL_CONTENT, NULL);
+            soup_message_headers_set_content_range (response_headers, start, end, size);
         }
         serve_data->start = start;
         serve_data->end = end;
     } else {
         serve_data->start = 0;
         serve_data->end = size - 1;
-        soup_message_set_status (msg, SOUP_STATUS_OK);
+        soup_server_message_set_status (msg, SOUP_STATUS_OK, NULL);
     }
 
-    soup_message_headers_set_content_length (msg->response_headers,
-                                             serve_data->end - serve_data->start + 1);
-    soup_message_headers_set_content_type (msg->response_headers,
-                                           korva_upnp_host_data_get_content_type (data),
-                                           NULL);
+    soup_message_headers_set_content_length (response_headers, serve_data->end - serve_data->start + 1);
+    soup_message_headers_set_content_type (response_headers, korva_upnp_host_data_get_content_type (data), NULL);
 
-    content_features = soup_message_headers_get_one (msg->request_headers,
-                                                     "getContentFeatures.dlna.org");
+    content_features = soup_message_headers_get_one (request_headers, "getContentFeatures.dlna.org");
     if (content_features != NULL && atol (content_features) == 1) {
         const GVariant *value;
 
         value = korva_upnp_host_data_lookup_meta_data (data, "DLNAProfile");
         if (value == NULL) {
-            soup_message_headers_append (msg->response_headers,
-                                         "contentFeatures.dlna.org", "*");
+            soup_message_headers_append (response_headers, "contentFeatures.dlna.org", "*");
         } else {
-            soup_message_headers_append (msg->response_headers,
+            soup_message_headers_append (response_headers,
                                          "contentFeatures.dlna.org",
                                          korva_upnp_host_data_get_protocol_info (data));
         }
     }
 
-    soup_message_headers_append (msg->response_headers, "Connection", "close");
+    soup_message_headers_append (response_headers, "Connection", "close");
 
     g_debug ("Response headers:");
-    soup_message_headers_foreach (msg->response_headers, print_header, NULL);
+    soup_message_headers_foreach (response_headers, print_header, NULL);
 
-    if (g_ascii_strcasecmp (msg->method, "HEAD") == 0) {
-        g_debug ("Handled HEAD request of %s: %d", path, msg->status_code);
+    if (g_ascii_strcasecmp (method, "HEAD") == 0) {
+        g_debug ("Handled HEAD request of %s: %d", path, soup_server_message_get_status (msg));
         g_slice_free (ServeData, serve_data);
 
         goto out;
     }
 
-    soup_message_headers_set_encoding (msg->response_headers, SOUP_ENCODING_CONTENT_LENGTH);
-    soup_message_body_set_accumulate (msg->response_body, FALSE);
+    soup_message_headers_set_encoding (response_headers, SOUP_ENCODING_CONTENT_LENGTH);
+    soup_message_body_set_accumulate (soup_server_message_get_response_body (msg), FALSE);
 
     serve_data->stream = G_INPUT_STREAM (g_file_read (file, NULL, &error));
     serve_data->server = server;
@@ -264,7 +251,7 @@ korva_upnp_file_server_handle_request (SoupServer        *server,
         g_error_free (error);
         g_slice_free (ServeData, serve_data);
 
-        soup_message_set_status (msg, SOUP_STATUS_INTERNAL_SERVER_ERROR);
+        soup_server_message_set_status (msg, SOUP_STATUS_INTERNAL_SERVER_ERROR, NULL);
 
         goto out;
     }
@@ -288,7 +275,7 @@ korva_upnp_file_server_handle_request (SoupServer        *server,
 
 out:
     if (ranges != NULL) {
-        soup_message_headers_free_ranges (msg->request_headers, ranges);
+        soup_message_headers_free_ranges (request_headers, ranges);
     }
 
     soup_server_unpause_message (server, msg);
@@ -480,8 +467,8 @@ korva_upnp_file_server_on_metadata_query_run_done (GObject      *sender,
 
     result_data = g_new0 (HostFileResult, 1);
     result_data->params = korva_upnp_host_data_get_meta_data (data->data);
-    result_data->uri = korva_upnp_host_data_get_uri (data->data, data->iface, ((SoupURI *) uris->data)->port);
-    g_slist_free_full (uris, (GDestroyNotify) soup_uri_free);
+    result_data->uri = korva_upnp_host_data_get_uri (data->data, data->iface, g_uri_get_port ((GUri *) uris->data));
+    g_slist_free_full (uris, (GDestroyNotify) g_uri_unref);
 
     g_task_return_pointer (result, result_data, g_free);
 
@@ -552,8 +539,8 @@ korva_upnp_file_server_host_file_async (KorvaUPnPFileServer *self,
 
     result_data = g_new0 (HostFileResult, 1);
     result_data->params = korva_upnp_host_data_get_meta_data (data);
-    result_data->uri = korva_upnp_host_data_get_uri (data, iface, ((SoupURI *) uris->data)->port);
-    g_slist_free_full (uris, (GDestroyNotify) soup_uri_free);
+    result_data->uri = korva_upnp_host_data_get_uri (data, iface, g_uri_get_port ((GUri *) uris->data));
+    g_slist_free_full (uris, (GDestroyNotify) g_uri_unref);
 
     g_task_return_pointer (result, result_data, g_free);
     g_object_unref (result);

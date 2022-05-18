@@ -33,7 +33,7 @@ korva_icon_cache_init ();
 char *
 korva_icon_cache_lookup (const char *uid);
 
-char *
+GFile *
 korva_icon_cache_create_path (const char *uid);
 
 char *

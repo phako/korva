@@ -82,8 +82,8 @@ korva_icon_cache_get_default (KorvaDeviceType type)
     return uri;
 }
 
-char *
+GFile *
 korva_icon_cache_create_path (const char *uid)
 {
-    return g_build_filename (cache_path, uid, NULL);
+    return g_file_get_child (user_icon_cache, uid);
 }

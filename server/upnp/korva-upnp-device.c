@@ -112,7 +112,7 @@ static void
 korva_upnp_device_get_icon (KorvaUPnPDevice *self);
 
 static void
-korva_upnp_device_on_icon_ready (SoupMessage *message, gpointer user_data);
+korva_upnp_device_on_icon_ready (GObject *source, GAsyncResult *res, gpointer user_data);
 
 static void
 korva_upnp_device_on_set_av_transport_uri (GObject *proxy, GAsyncResult *res, gpointer user_data);
@@ -640,60 +640,47 @@ korva_upnp_device_get_icon (KorvaUPnPDevice *self)
         self->priv->icon_uri = korva_icon_cache_get_default (self->priv->device_type);
         korva_upnp_device_introspection_success (self);
     } else {
-        SoupMessage *message;
+        g_autoptr (SoupMessage) message;
 
         message = soup_message_new (SOUP_METHOD_GET, uri);
-        g_signal_connect (G_OBJECT (message),
-                          "finished",
-                          G_CALLBACK (korva_upnp_device_on_icon_ready),
-                          self);
-        soup_session_queue_message (self->priv->session,
-                                    message,
-                                    NULL,
-                                    NULL);
+        soup_session_send_async (self->priv->session,
+                                 message,
+                                 G_PRIORITY_DEFAULT,
+                                 NULL,
+                                 korva_upnp_device_on_icon_ready,
+                                 self);
     }
 }
 
 static void
-korva_upnp_device_on_icon_ready (SoupMessage *message, gpointer user_data)
+korva_upnp_device_on_icon_ready (GObject *source, GAsyncResult *res, gpointer user_data)
 {
     KorvaUPnPDevice *self = KORVA_UPNP_DEVICE (user_data);
-    int status_code = 0;
-    char *reason = NULL;
-    GError *error = NULL;
+    g_autoptr (GError) error = NULL;
 
-    g_object_get (message,
-                  SOUP_MESSAGE_STATUS_CODE, &status_code,
-                  SOUP_MESSAGE_REASON_PHRASE, &reason,
-                  NULL);
+    g_autoptr (GInputStream) input_stream = soup_session_send_finish (SOUP_SESSION (source), res, &error);
 
-    if (status_code == SOUP_STATUS_FOUND || status_code == SOUP_STATUS_OK) {
-        char *path;
-        GFile *file;
+    if (error == NULL) {
+        g_autoptr (GFile) file = korva_icon_cache_create_path (self->priv->udn);
 
-        path = korva_icon_cache_create_path (self->priv->udn);
-        file = g_file_new_for_path (path);
-        g_free (path);
+        g_autoptr (GFileOutputStream) ofs = g_file_replace (file, NULL, FALSE, G_FILE_CREATE_NONE, NULL, &error);
 
-        g_file_replace_contents (file,
-                                 message->response_body->data,
-                                 message->response_body->length,
-                                 NULL,
-                                 FALSE,
-                                 G_FILE_CREATE_NONE,
-                                 NULL,
-                                 NULL,
-                                 &error);
+        if (error == NULL) {
+            g_output_stream_splice (G_OUTPUT_STREAM (ofs),
+                                    input_stream,
+                                    G_OUTPUT_STREAM_SPLICE_CLOSE_SOURCE | G_OUTPUT_STREAM_SPLICE_CLOSE_TARGET,
+                                    NULL,
+                                    &error);
+        }
+
         if (error == NULL) {
             self->priv->icon_uri = g_file_get_uri (file);
         } else {
+            g_autofree char *path = g_file_get_path (file);
             g_debug ("Could not write icon %s: %s", path, error->message);
-            g_error_free (error);
         }
-
-        g_object_unref (file);
     } else {
-        g_debug ("Failed to download icon: %s", reason);
+        g_debug ("Failed to download icon: %s", error->message);
     }
 
     if (self->priv->icon_uri == NULL) {
@@ -846,13 +833,7 @@ korva_upnp_device_on_play (GObject *source, GAsyncResult *res, gpointer user_dat
     HostPathData *data = (HostPathData *) user_data;
     GTask *result = data->result;
 
-    GUPnPServiceProxyAction *action =
-        gupnp_service_proxy_call_action_finish (GUPNP_SERVICE_PROXY (source), res, &error);
-
-    // The actual SOAP error is evaluated only in the action get function
-    if (error == NULL) {
-        gupnp_service_proxy_action_get_result (action, &error, NULL);
-    }
+    gupnp_service_proxy_call_action_finish (GUPNP_SERVICE_PROXY (source), res, &error);
 
     if (error != NULL) {
         KorvaUPnPFileServer *server;
@@ -881,28 +862,19 @@ static void
 korva_upnp_device_on_stop (GObject *source, GAsyncResult *res, gpointer user_data)
 {
     GUPnPServiceProxy *proxy = GUPNP_SERVICE_PROXY (source);
-    GError *error = NULL;
+    g_autoptr (GError) error = NULL;
     HostPathData *data = (HostPathData *) user_data;
     GTask *result = data->result;
 
-    GUPnPServiceProxyAction *action =
-        gupnp_service_proxy_call_action_finish (GUPNP_SERVICE_PROXY (source), res, &error);
-
-    // The actual SOAP error is evaluated only in the action get function
-    if (error == NULL) {
-        gupnp_service_proxy_action_get_result (action, &error, NULL);
-    }
+    gupnp_service_proxy_call_action_finish (GUPNP_SERVICE_PROXY (source), res, &error);
 
     if (error != NULL) {
-        KorvaUPnPFileServer *server;
+        g_autoptr (KorvaUPnPFileServer) server;
 
         g_task_return_error (result, error);
 
         server = korva_upnp_file_server_get_default ();
-        korva_upnp_file_server_unhost_file_for_peer (server,
-                                                     data->file,
-                                                     data->device->priv->ip_address);
-        g_object_unref (server);
+        korva_upnp_file_server_unhost_file_for_peer (server, data->file, data->device->priv->ip_address);
     } else {
         g_autoptr (GUPnPServiceProxyAction) action;
 
@@ -1134,13 +1106,10 @@ out:
 static void
 korva_upnp_device_update_ip_address (KorvaUPnPDevice *self)
 {
-    SoupURI *location;
-
     g_free (self->priv->ip_address);
 
-    location = soup_uri_new (gupnp_device_info_get_location (self->priv->info));
-    self->priv->ip_address = g_strdup (soup_uri_get_host (location));
-    soup_uri_free (location);
+    g_autoptr (GUri) location = g_uri_parse (gupnp_device_info_get_location (self->priv->info), G_URI_FLAGS_NONE, NULL);
+    self->priv->ip_address = g_strdup (g_uri_get_host (location));
 }
 
 static void
