@@ -53,6 +53,15 @@ typedef struct _ServeData {
     KorvaUPnPHostData *host_data;
 } ServeData;
 
+void
+serve_data_free (ServeData *data)
+{
+    if (data->host_data != NULL) {
+        g_object_remove_weak_pointer (G_OBJECT (data->host_data), (gpointer *) &(data->host_data));
+    }
+    g_slice_free (ServeData, data);
+}
+
 static void
 korva_upnp_file_server_on_wrote_chunk (SoupMessage *msg,
                                        gpointer     user_data)
@@ -104,13 +113,11 @@ korva_upnp_file_server_on_finished (SoupMessage *msg,
         if (korva_upnp_host_data_has_requests (data->host_data)) {
             korva_upnp_host_data_start_timeout (data->host_data);
         }
-        g_object_remove_weak_pointer (G_OBJECT (data->host_data),
-                                      (gpointer *) (&data->host_data));
     }
 
     g_input_stream_close (data->stream, NULL, NULL);
     g_object_unref (data->stream);
-    g_slice_free (ServeData, data);
+    serve_data_free (data);
 }
 
 static void print_header (const char *name, const char *value, gpointer user_data)
@@ -202,7 +209,7 @@ korva_upnp_file_server_handle_request (SoupServer        *server,
 
         if (start > size || end > size) {
             soup_message_set_status (msg, SOUP_STATUS_REQUESTED_RANGE_NOT_SATISFIABLE);
-            g_slice_free (ServeData, serve_data);
+            serve_data_free (serve_data);
 
             goto out;
         } else {
@@ -246,7 +253,7 @@ korva_upnp_file_server_handle_request (SoupServer        *server,
 
     if (g_ascii_strcasecmp (msg->method, "HEAD") == 0) {
         g_debug ("Handled HEAD request of %s: %d", path, msg->status_code);
-        g_slice_free (ServeData, serve_data);
+        serve_data_free (serve_data);
 
         goto out;
     }
@@ -262,7 +269,7 @@ korva_upnp_file_server_handle_request (SoupServer        *server,
                    error->message);
 
         g_error_free (error);
-        g_slice_free (ServeData, serve_data);
+        serve_data_free (serve_data);
 
         soup_message_set_status (msg, SOUP_STATUS_INTERNAL_SERVER_ERROR);
 
@@ -344,7 +351,6 @@ korva_upnp_file_server_finalize (GObject *object)
 {
     KorvaUPnPFileServer *self = KORVA_UPNP_FILE_SERVER (object);
 
-    /* TODO: Add deinitalization code here */
     g_clear_pointer (&self->priv->host_data, g_hash_table_destroy);
     g_clear_pointer (&self->priv->id_map, g_hash_table_destroy);
     g_clear_pointer (&self->priv->path_regex, g_regex_unref);
