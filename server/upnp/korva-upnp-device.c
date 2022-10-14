@@ -1048,7 +1048,7 @@ korva_upnp_device_on_host_file_async (GObject      *source,
     const char *title, *content_type, *dlna_profile = NULL;
     GVariant *value;
     guint64 size;
-    g_autoptr (GUPnPServiceProxyAction) action;
+    g_autoptr (GUPnPServiceProxyAction) action = NULL;
 
     data->uri = korva_upnp_file_server_host_file_finish (KORVA_UPNP_FILE_SERVER (source),
                                                          res,
