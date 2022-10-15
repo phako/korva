@@ -42,6 +42,14 @@ struct _KorvaUPnPFileServerPrivate {
     guint       port;
     GRegex     *path_regex;
 };
+typedef struct _KorvaUPnPFileServerPrivate KorvaUPnPFileServerPrivate;
+
+struct _KorvaUPnPFileServer {
+    GObject                     parent_instance;
+
+    KorvaUPnPFileServerPrivate *priv;
+};
+
 G_DEFINE_TYPE_WITH_PRIVATE (KorvaUPnPFileServer, korva_upnp_file_server, G_TYPE_OBJECT);
 
 typedef struct _ServeData {

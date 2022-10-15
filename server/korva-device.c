@@ -31,31 +31,31 @@ korva_device_default_init (KorvaDeviceInterface *g_iface)
 const char *
 korva_device_get_uid (KorvaDevice *self)
 {
-    return KORVA_DEVICE_GET_INTERFACE (self)->get_uid (self);
+    return KORVA_DEVICE_GET_IFACE (self)->get_uid (self);
 }
 
 const char *
 korva_device_get_display_name (KorvaDevice *self)
 {
-    return KORVA_DEVICE_GET_INTERFACE (self)->get_display_name (self);
+    return KORVA_DEVICE_GET_IFACE (self)->get_display_name (self);
 }
 
 const char *
 korva_device_get_icon_uri (KorvaDevice *self)
 {
-    return KORVA_DEVICE_GET_INTERFACE (self)->get_icon_uri (self);
+    return KORVA_DEVICE_GET_IFACE (self)->get_icon_uri (self);
 }
 
 KorvaDeviceProtocol
 korva_device_get_protocol (KorvaDevice *self)
 {
-    return KORVA_DEVICE_GET_INTERFACE (self)->get_protocol (self);
+    return KORVA_DEVICE_GET_IFACE (self)->get_protocol (self);
 }
 
 KorvaDeviceType
 korva_device_get_device_type (KorvaDevice *self)
 {
-    return KORVA_DEVICE_GET_INTERFACE (self)->get_device_type (self);
+    return KORVA_DEVICE_GET_IFACE (self)->get_device_type (self);
 }
 
 /**
@@ -69,7 +69,7 @@ korva_device_get_device_type (KorvaDevice *self)
 GVariant *
 korva_device_serialize (KorvaDevice *self)
 {
-    return KORVA_DEVICE_GET_INTERFACE (self)->serialize (self);
+    return KORVA_DEVICE_GET_IFACE (self)->serialize (self);
 }
 
 /**
@@ -88,7 +88,7 @@ korva_device_push_async (KorvaDevice        *self,
                          GAsyncReadyCallback callback,
                          gpointer            user_data)
 {
-    KORVA_DEVICE_GET_INTERFACE (self)->push_async (self,
+    KORVA_DEVICE_GET_IFACE (self)->push_async (self,
                                                    source,
                                                    cancellable,
                                                    callback,
@@ -111,7 +111,7 @@ korva_device_push_finish (KorvaDevice  *self,
                           GAsyncResult *result,
                           GError      **error)
 {
-    return KORVA_DEVICE_GET_INTERFACE (self)->push_finish (self,
+    return KORVA_DEVICE_GET_IFACE (self)->push_finish (self,
                                                            result,
                                                            error);
 }
@@ -123,7 +123,7 @@ korva_device_unshare_async (KorvaDevice        *self,
                             GAsyncReadyCallback callback,
                             gpointer            user_data)
 {
-    KORVA_DEVICE_GET_INTERFACE (self)->unshare_async (self, tag, cancellable, callback, user_data);
+    KORVA_DEVICE_GET_IFACE (self)->unshare_async (self, tag, cancellable, callback, user_data);
 }
 
 gboolean
@@ -131,5 +131,5 @@ korva_device_unshare_finish (KorvaDevice  *self,
                              GAsyncResult *result,
                              GError      **error)
 {
-    return KORVA_DEVICE_GET_INTERFACE (self)->unshare_finish (self, result, error);
+    return KORVA_DEVICE_GET_IFACE (self)->unshare_finish (self, result, error);
 }

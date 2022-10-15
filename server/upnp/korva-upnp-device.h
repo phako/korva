@@ -18,53 +18,26 @@
     along with Korva.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __KORVA_UPNP_DEVICE_H__
-#define __KORVA_UPNP_DEVICE_H__
+#pragma once
 
 #include <glib-object.h>
 
 #include <libgupnp/gupnp.h>
 
-#include "korva-device.h"
+#define KORVA_TYPE_UPNP_DEVICE (korva_upnp_device_get_type ())
+G_DECLARE_FINAL_TYPE (KorvaUPnPDevice, korva_upnp_device, KORVA, UPNP_DEVICE, GObject)
 
-#define KORVA_TYPE_UPNP_DEVICE \
-    (korva_upnp_device_get_type ())
-#define KORVA_UPNP_DEVICE(obj) \
-    (G_TYPE_CHECK_INSTANCE_CAST ((obj), KORVA_TYPE_UPNP_DEVICE, KorvaUPnPDevice))
-#define KORVA_IS_UPNP_DEVICE(obj) \
-    (G_TYPE_CHECK_INSTANCE_TYPE ((obj), KORVA_TYPE_UPNP_DEVICE))
-#define KORVA_UPNP_DEVICE_CLASS(obj) \
-    (G_TYPE_CHECK_CLASS_CAST ((obj), KORVA_TYPE_UPNP_DEVICE, KorvaUPnPDeviceClass))
-#define KORVA_IS_UPNP_DEVICE_CLASS(klass) \
-    (G_TYPE_CHECK_CLASS_TYPE ((klass), KORVA_TYPE_UPNP_DEVICE))
-#define KORVA_UPNP_DEVICE_GET_CLASS(obj) \
-    (G_TYPE_INSTANCE_GET_CLASS ((obj), KORVA_TYPE_UPNP_DEVICE, KorvaUPnPDeviceClass))
+GQuark
+korva_upnp_device_error_quark ();
 
-
-typedef struct _KorvaUPnPDevicePrivate KorvaUPnPDevicePrivate;
-typedef struct _KorvaUPnPDeviceClass KorvaUPnPDeviceClass;
-typedef struct _KorvaUPnPDevice KorvaUPnPDevice;
-
-GType korva_upnp_device_get_type (void);
-
-GQuark korva_upnp_device_error_quark ();
 #define KORVA_UPNP_DEVICE_ERROR korva_upnp_device_error_quark ()
+
 enum _KorvaUPnPDeviceError
 {
     INVALID_DEVICE_TYPE,
     MISSING_SERVICE,
     INVALID_RESPONSE,
     TIMEOUT
-};
-
-struct _KorvaUPnPDeviceClass {
-    GObjectClass parent_class;
-};
-
-struct _KorvaUPnPDevice {
-    GObject                 parent;
-
-    KorvaUPnPDevicePrivate *priv;
 };
 
 void
@@ -74,4 +47,3 @@ gboolean
 korva_upnp_device_remove_proxy (KorvaUPnPDevice *self, GUPnPDeviceProxy *proxy);
 
 G_END_DECLS
-#endif /* __KORVA_UPNP_DEVICE_H__ */

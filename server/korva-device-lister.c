@@ -76,7 +76,7 @@ korva_device_lister_default_init (KorvaDeviceListerInterface *g_iface)
 GList *
 korva_device_lister_get_devices (KorvaDeviceLister *self)
 {
-    return KORVA_DEVICE_LISTER_GET_INTERFACE (self)->get_devices (self);
+    return KORVA_DEVICE_LISTER_GET_IFACE (self)->get_devices (self);
 }
 
 /**
@@ -91,7 +91,7 @@ KorvaDevice *
 korva_device_lister_get_device_info (KorvaDeviceLister *self,
                                      const char        *uid)
 {
-    return KORVA_DEVICE_LISTER_GET_INTERFACE (self)->get_device_info (self, uid);
+    return KORVA_DEVICE_LISTER_GET_IFACE (self)->get_device_info (self, uid);
 }
 
 /**
@@ -105,7 +105,7 @@ korva_device_lister_get_device_info (KorvaDeviceLister *self,
 gint
 korva_device_lister_get_device_count (KorvaDeviceLister *self)
 {
-    return KORVA_DEVICE_LISTER_GET_INTERFACE (self)->get_device_count (self);
+    return KORVA_DEVICE_LISTER_GET_IFACE (self)->get_device_count (self);
 }
 
 /**
@@ -120,5 +120,5 @@ korva_device_lister_get_device_count (KorvaDeviceLister *self)
 gboolean
 korva_device_lister_idle (KorvaDeviceLister *self)
 {
-    return KORVA_DEVICE_LISTER_GET_INTERFACE (self)->idle (self);
+    return KORVA_DEVICE_LISTER_GET_IFACE (self)->idle (self);
 }

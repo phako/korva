@@ -23,6 +23,7 @@
 #include <libsoup/soup.h>
 #include <libgupnp-av/gupnp-av.h>
 
+#include <korva-device.h>
 #include <korva-error.h>
 #include <korva-icon-cache.h>
 
@@ -75,6 +76,13 @@ struct _KorvaUPnPDevicePrivate {
     char                      *current_tag;
     char                      *current_uri;
     GFile                     *current_file;
+};
+typedef struct _KorvaUPnPDevicePrivate KorvaUPnPDevicePrivate;
+
+struct _KorvaUPnPDevice {
+    GObject parent;
+
+    KorvaUPnPDevicePrivate *priv;
 };
 
 G_DEFINE_TYPE_WITH_CODE (KorvaUPnPDevice,

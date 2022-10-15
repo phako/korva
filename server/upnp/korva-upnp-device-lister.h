@@ -18,47 +18,13 @@
     along with Korva.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __KORVA_UPNP_DEVICE_LISTER_H__
-#define __KORVA_UPNP_DEVICE_LISTER_H__
-
-#include <glib-object.h>
+#pragma once
 #include "korva-device-lister.h"
+#include <glib-object.h>
 
-GType korva_upnp_device_lister_get_type (void);
+#define KORVA_TYPE_UPNP_DEVICE_LISTER (korva_upnp_device_lister_get_type ())
 
-#define KORVA_TYPE_UPNP_DEVICE_LISTER \
-    (korva_upnp_device_lister_get_type ())
-#define KORVA_UPNP_DEVICE_LISTER(obj) \
-    (G_TYPE_CHECK_INSTANCE_CAST ((obj), \
-                                 KORVA_TYPE_UPNP_DEVICE_LISTER, \
-                                 KorvaUPnPDeviceLister))
-#define KORVA_IS_UPNP_DEVICE_LISTER(obj) \
-    (G_TYPE_CHECK_INSTANCE_TYPE ((obj), \
-                                 KORVA_TYPE_UPNP_DEVICE_LISTER))
-#define KORVA_UPNP_DEVICE_LISTER_CLASS(obj) \
-    (G_TYPE_CHECK_CLASS_CAST ((obj), \
-                              KORVA_TYPE_UPNP_DEVICE_LISTER, KorvaUPnPDeviceListerClass))
-#define KORVA_IS_UPNP_DEVICE_LISTER_CLASS(klass) \
-    (G_TYPE_CHECK_CLASS_TYPE ((klass), KORVA_TYPE_UPNP_DEVICE_LISTER))
-#define KORVA_UPNP_DEVICE_LISTER_GET_CLASS(obj) \
-    (G_TYPE_INSTANCE_GET_CLASS ((obj), \
-                                KORVA_TYPE_UPNP_DEVICE_LISTER, \
-                                KorvaUPnPDeviceListerClass))
-
-typedef struct _KorvaUPnPDeviceListerPrivate KorvaUPnPDeviceListerPrivate;
-typedef struct _KorvaUPnPDeviceLister KorvaUPnPDeviceLister;
-typedef struct _KorvaUPnPDeviceListerClass KorvaUPnPDeviceListerClass;
-
-struct _KorvaUPnPDeviceLister {
-    GObject                       parent;
-
-    KorvaUPnPDeviceListerPrivate *priv;
-};
-
-struct _KorvaUPnPDeviceListerClass {
-    GObjectClass parent_class;
-};
+G_DECLARE_FINAL_TYPE (KorvaUPnPDeviceLister, korva_upnp_device_lister, KORVA, UPNP_DEVICE_LISTER, GObject)
 
 KorvaDeviceLister *
 korva_upnp_device_lister_new (void);
-#endif /* __KORVA_UPNP_DEVICE_LISTER_H__ */

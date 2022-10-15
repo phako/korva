@@ -18,8 +18,7 @@
     along with Korva.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _KORVA_UPNP_METADATA_QUERY_H_
-#define _KORVA_UPNP_METADATA_QUERY_H_
+#pragma once
 
 #include <glib-object.h>
 #include <gio/gio.h>
@@ -27,27 +26,7 @@
 G_BEGIN_DECLS
 
 #define KORVA_TYPE_UPNP_METADATA_QUERY             (korva_upnp_metadata_query_get_type ())
-#define KORVA_UPNP_METADATA_QUERY(obj)             (G_TYPE_CHECK_INSTANCE_CAST ((obj), KORVA_TYPE_UPNP_METADATA_QUERY, KorvaUPnPMetadataQuery))
-#define KORVA_UPNP_METADATA_QUERY_CLASS(klass)     (G_TYPE_CHECK_CLASS_CAST ((klass), KORVA_TYPE_UPNP_METADATA_QUERY, KorvaUPnPMetadataQueryClass))
-#define KORVA_IS_UPNP_METADATA_QUERY(obj)          (G_TYPE_CHECK_INSTANCE_TYPE ((obj), KORVA_TYPE_UPNP_METADATA_QUERY))
-#define KORVA_IS_UPNP_METADATA_QUERY_CLASS(klass)  (G_TYPE_CHECK_CLASS_TYPE ((klass), KORVA_TYPE_UPNP_METADATA_QUERY))
-#define KORVA_UPNP_METADATA_QUERY_GET_CLASS(obj)   (G_TYPE_INSTANCE_GET_CLASS ((obj), KORVA_TYPE_UPNP_METADATA_QUERY, KorvaUPnPMetadataQueryClass))
-
-typedef struct _KorvaUPnPMetadataQueryClass KorvaUPnPMetadataQueryClass;
-typedef struct _KorvaUPnPMetadataQuery KorvaUPnPMetadataQuery;
-typedef struct _KorvaUPnPMetadataQueryPrivate KorvaUPnPMetadataQueryPrivate;
-
-struct _KorvaUPnPMetadataQueryClass {
-    GObjectClass parent_class;
-};
-
-struct _KorvaUPnPMetadataQuery {
-    GObject                        parent_instance;
-
-    KorvaUPnPMetadataQueryPrivate *priv;
-};
-
-GType korva_upnp_metadata_query_get_type (void) G_GNUC_CONST;
+G_DECLARE_FINAL_TYPE(KorvaUPnPMetadataQuery, korva_upnp_metadata_query, KORVA, UPNP_METADATA_QUERY, GObject)
 
 KorvaUPnPMetadataQuery *
 korva_upnp_metadata_query_new (GFile *file, GHashTable *params);
@@ -64,5 +43,3 @@ korva_upnp_metadata_query_run_finish (KorvaUPnPMetadataQuery *query,
                                       GError                **error);
 
 G_END_DECLS
-
-#endif /* _KORVA_UPNP_METADATA_QUERY_H_ */

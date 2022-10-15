@@ -18,63 +18,54 @@
     along with Korva.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __KORVA_DEVICE_H__
-#define __KORVA_DEVICE_H__
+#pragma once
 
-#include <glib-object.h>
 #include <gio/gio.h>
+#include <glib-object.h>
 
-#define KORVA_TYPE_DEVICE        (korva_device_get_type ())
-#define KORVA_DEVICE(obj)        (G_TYPE_CHECK_INSTANCE_CAST ((obj), KORVA_TYPE_DEVICE, KorvaDevice))
-#define KORVA_IS_DEVICE(obj)     (G_TYPE_CHECK_INSTANCE_TYPE ((obj), KORVA_TYPE_DEVICE))
-#define KORVA_DEVICE_GET_INTERFACE(inst) (G_TYPE_INSTANCE_GET_INTERFACE ((inst), KORVA_TYPE_DEVICE, KorvaDeviceInterface))
+#define KORVA_TYPE_DEVICE (korva_device_get_type ())
+G_DECLARE_INTERFACE (KorvaDevice, korva_device, KORVA, DEVICE, GObject)
 
-typedef struct _KorvaDevice KorvaDevice;
-typedef struct _KorvaDeviceInterface KorvaDeviceInterface;
-
-GType korva_device_get_type (void);
-
-enum _KorvaDeviceProtocol {
+enum _KorvaDeviceProtocol
+{
     DEVICE_PROTOCOL_UPNP
 };
 typedef enum _KorvaDeviceProtocol KorvaDeviceProtocol;
 
-enum _KorvaDeviceType {
+enum _KorvaDeviceType
+{
     DEVICE_TYPE_SERVER,
     DEVICE_TYPE_PLAYER
 };
 typedef enum _KorvaDeviceType KorvaDeviceType;
 
 struct _KorvaDeviceInterface {
-    GTypeInterface      parent;
+    GTypeInterface parent;
 
-    const char         *(*get_uid)(KorvaDevice * self);
-    const char         *(*get_display_name)(KorvaDevice * self);
-    const char         *(*get_icon_uri)(KorvaDevice * self);
-    KorvaDeviceProtocol (*get_protocol)(KorvaDevice *self);
-    KorvaDeviceType     (*get_device_type)(KorvaDevice *self);
+    const char *(*get_uid) (KorvaDevice *self);
+    const char *(*get_display_name) (KorvaDevice *self);
+    const char *(*get_icon_uri) (KorvaDevice *self);
+    KorvaDeviceProtocol (*get_protocol) (KorvaDevice *self);
+    KorvaDeviceType (*get_device_type) (KorvaDevice *self);
 
-    GVariant           *(*serialize)(KorvaDevice * self);
-    void                (*push_async)(KorvaDevice        *self,
-                                      GVariant           *source,
-                                      GCancellable       *cancellable,
-                                      GAsyncReadyCallback callback,
-                                      gpointer            user_data);
-    char               *(*push_finish)(KorvaDevice   * self,
-                                       GAsyncResult  * result,
-                                       GError       * *error);
-    void                (*unshare_async)(KorvaDevice        *self,
-                                         const char         *tag,
-                                         GCancellable       *cancellable,
-                                         GAsyncReadyCallback callback,
-                                         gpointer            user_data);
-    gboolean            (*unshare_finish)(KorvaDevice  *self,
-                                          GAsyncResult *result,
-                                          GError      **error);
+    GVariant *(*serialize) (KorvaDevice *self);
+    void (*push_async) (KorvaDevice *self,
+                        GVariant *source,
+                        GCancellable *cancellable,
+                        GAsyncReadyCallback callback,
+                        gpointer user_data);
+    char *(*push_finish) (KorvaDevice *self, GAsyncResult *result, GError **error);
+    void (*unshare_async) (KorvaDevice *self,
+                           const char *tag,
+                           GCancellable *cancellable,
+                           GAsyncReadyCallback callback,
+                           gpointer user_data);
+    gboolean (*unshare_finish) (KorvaDevice *self, GAsyncResult *result, GError **error);
 };
 
 const char *
 korva_device_get_uid (KorvaDevice *self);
+
 const char *
 korva_device_get_display_name (KorvaDevice *self);
 
@@ -91,28 +82,23 @@ GVariant *
 korva_device_serialize (KorvaDevice *self);
 
 void
-korva_device_push_async (KorvaDevice        *self,
-                         GVariant           *source,
-                         GCancellable       *cancellable,
+korva_device_push_async (KorvaDevice *self,
+                         GVariant *source,
+                         GCancellable *cancellable,
                          GAsyncReadyCallback callback,
-                         gpointer            user_data);
+                         gpointer user_data);
 
 char *
-korva_device_push_finish (KorvaDevice  *self,
-                          GAsyncResult *result,
-                          GError      **error);
+korva_device_push_finish (KorvaDevice *self, GAsyncResult *result, GError **error);
 
 void
-korva_device_unshare_async (KorvaDevice        *self,
-                            const char         *tag,
-                            GCancellable       *cancellable,
+korva_device_unshare_async (KorvaDevice *self,
+                            const char *tag,
+                            GCancellable *cancellable,
                             GAsyncReadyCallback callback,
-                            gpointer            user_data);
+                            gpointer user_data);
 
 gboolean
-korva_device_unshare_finish (KorvaDevice  *self,
-                             GAsyncResult *result,
-                             GError      **error);
+korva_device_unshare_finish (KorvaDevice *self, GAsyncResult *result, GError **error);
 
 G_END_DECLS
-#endif /* __KORVA_DEVICE_H__ */

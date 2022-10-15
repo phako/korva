@@ -18,8 +18,7 @@
     along with Korva.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __KORVA_DEVICE_LISTER_H__
-#define __KORVA_DEVICE_LISTER_H__
+#pragma once
 
 #include <glib.h>
 #include <glib-object.h>
@@ -29,15 +28,7 @@
 G_BEGIN_DECLS
 
 #define KORVA_TYPE_DEVICE_LISTER        (korva_device_lister_get_type ())
-#define KORVA_DEVICE_LISTER(obj)        (G_TYPE_CHECK_INSTANCE_CAST ((obj), KORVA_TYPE_DEVICE_LISTER, KorvaDeviceLister))
-#define KORVA_IS_DEVICE_LISTER(obj)     (G_TYPE_CHECK_INSTANCE_TYPE ((obj), KORVA_TYPE_DEVICE_LISTER))
-#define KORVA_DEVICE_LISTER_GET_INTERFACE(inst) (G_TYPE_INSTANCE_GET_INTERFACE ((inst), KORVA_TYPE_DEVICE_LISTER, KorvaDeviceListerInterface))
-
-GType
-korva_device_lister_get_type (void);
-
-typedef struct _KorvaDeviceLister KorvaDeviceLister;
-typedef struct _KorvaDeviceListerInterface KorvaDeviceListerInterface;
+G_DECLARE_INTERFACE(KorvaDeviceLister, korva_device_lister, KORVA, DEVICE_LISTER, GObject)
 
 /**
  * KorvaDeviceLister:
@@ -58,7 +49,6 @@ struct _KorvaDeviceListerInterface {
     void           (*device_unavailable)(const char *uid);
 };
 
-G_END_DECLS
 
 GList *
 korva_device_lister_get_devices (KorvaDeviceLister *self);
@@ -72,4 +62,4 @@ korva_device_lister_get_device_count (KorvaDeviceLister *self);
 gboolean
 korva_device_lister_idle (KorvaDeviceLister *self);
 
-#endif /* __KORVA_DEVICE_LISTER_H__ */
+G_END_DECLS

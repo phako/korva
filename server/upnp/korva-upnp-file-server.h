@@ -18,8 +18,7 @@
     along with Korva.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _KORVA_UPN_PFILE_SERVER_H_
-#define _KORVA_UPN_PFILE_SERVER_H_
+#pragma once
 
 #include <glib-object.h>
 #include <gio/gio.h>
@@ -27,28 +26,8 @@
 G_BEGIN_DECLS
 
 #define KORVA_TYPE_UPNP_FILE_SERVER             (korva_upnp_file_server_get_type ())
-#define KORVA_UPNP_FILE_SERVER(obj)             (G_TYPE_CHECK_INSTANCE_CAST ((obj), KORVA_TYPE_UPNP_FILE_SERVER, KorvaUPnPFileServer))
-#define KORVA_UPNP_FILE_SERVER_CLASS(klass)     (G_TYPE_CHECK_CLASS_CAST ((klass), KORVA_TYPE_UPNP_FILE_SERVER, KorvaUPnPFileServerClass))
-#define KORVA_IS_UPNP_FILE_SERVER(obj)          (G_TYPE_CHECK_INSTANCE_TYPE ((obj), KORVA_TYPE_UPNP_FILE_SERVER))
-#define KORVA_IS_UPNP_FILE_SERVER_CLASS(klass)  (G_TYPE_CHECK_CLASS_TYPE ((klass), KORVA_TYPE_UPNP_FILE_SERVER))
-#define KORVA_UPNP_FILE_SERVER_GET_CLASS(obj)   (G_TYPE_INSTANCE_GET_CLASS ((obj), KORVA_TYPE_UPNP_FILE_SERVER, KorvaUPnPFileServerClass))
+G_DECLARE_FINAL_TYPE (KorvaUPnPFileServer, korva_upnp_file_server, KORVA, UPNP_FILE_SERVER, GObject)
 
-typedef struct _KorvaUPnPFileServerClass KorvaUPnPFileServerClass;
-typedef struct _KorvaUPnPFileServer KorvaUPnPFileServer;
-typedef struct _KorvaUPnPFileServerPrivate KorvaUPnPFileServerPrivate;
-
-struct _KorvaUPnPFileServerClass {
-    GObjectClass parent_class;
-};
-
-struct _KorvaUPnPFileServer {
-    GObject                     parent_instance;
-
-    KorvaUPnPFileServerPrivate *priv;
-};
-
-GType
-korva_upnp_file_server_get_type (void) G_GNUC_CONST;
 
 KorvaUPnPFileServer *
 korva_upnp_file_server_get_default (void);
@@ -81,5 +60,3 @@ korva_upnp_file_server_unhost_file_for_peer (KorvaUPnPFileServer *self,
                                              GFile               *file,
                                              const char          *peer);
 G_END_DECLS
-
-#endif /* _KORVA_UPN_PFILE_SERVER_H_ */

@@ -38,6 +38,14 @@ struct _KorvaUPnPDeviceListerPrivate {
     KorvaUPnPFileServer *server;
 };
 
+typedef struct _KorvaUPnPDeviceListerPrivate KorvaUPnPDeviceListerPrivate;
+
+struct _KorvaUPnPDeviceLister {
+    GObject                       parent;
+
+    KorvaUPnPDeviceListerPrivate *priv;
+};
+
 static void
 korva_upnp_device_lister_iface_init (gpointer, gpointer);
 
