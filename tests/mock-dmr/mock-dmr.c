@@ -419,32 +419,31 @@ mock_dmr_finalize (GObject *object)
 MockDMR *
 mock_dmr_new (MockDMRFault fault)
 {
-    GUPnPContext *context;
-    GError *error = NULL;
-    GUPnPXMLDoc *doc;
+    g_autoptr (GUPnPContext) context = NULL;
+    g_autoptr (GError) error = NULL;
+    g_autoptr (GUPnPXMLDoc) doc = NULL;
     const char *state = "STOPPED";
+    g_autoptr (GInetAddress) lo = g_inet_address_new_loopback (G_SOCKET_FAMILY_IPV4);
 
-    context = gupnp_context_new ("lo", 0, &error);
+    context = gupnp_context_new_for_address (lo, 0, GSSDP_UDA_VERSION_1_0, &error);
     g_assert (error == NULL);
 
     doc = gupnp_xml_doc_new_from_path (TEST_DATA_DIR "/mock-dmr/MediaRenderer2.xml", &error);
     g_assert (error == NULL);
 
-    if (fault == MOCK_DMR_FAULT_NO_AV_TRANSPORT ||
-        fault == MOCK_DMR_FAULT_NO_CONNECTION_MANAGER) {
+    if (fault == MOCK_DMR_FAULT_NO_AV_TRANSPORT || fault == MOCK_DMR_FAULT_NO_CONNECTION_MANAGER) {
 
         xmlXPathContextPtr ctx;
         xmlXPathObjectPtr xpo;
-        char *path, out;
+        g_autofree char *path = NULL;
+        char *out;
         int out_len;
 
         path = g_strdup_printf (XPATH_TEMPLATE,
                                 fault == MOCK_DMR_FAULT_NO_AV_TRANSPORT ? AV_TRANSPORT : CONNECTION_MANAGER);
-        ctx = xmlXPathNewContext ((xmlDocPtr)gupnp_xml_doc_get_doc (doc));
+        ctx = xmlXPathNewContext ((xmlDocPtr) gupnp_xml_doc_get_doc (doc));
         xpo = xmlXPathEvalExpression ((const xmlChar *) path, ctx);
-        if (xpo != NULL &&
-            xpo->type == XPATH_NODESET &&
-            !xmlXPathNodeSetIsEmpty (xpo->nodesetval)) {
+        if (xpo != NULL && xpo->type == XPATH_NODESET && !xmlXPathNodeSetIsEmpty (xpo->nodesetval)) {
             xmlNodePtr node;
 
             node = xmlXPathNodeSetItem (xpo->nodesetval, 0);
@@ -452,9 +451,8 @@ mock_dmr_new (MockDMRFault fault)
             xmlNodeSetContent (node, (const xmlChar *) "ThisIsInvalid");
         }
 
-        xmlDocDumpMemoryEnc ((xmlDocPtr)gupnp_xml_doc_get_doc(doc), (xmlChar **) &out, &out_len, "UTF-8");
+        xmlDocDumpMemoryEnc ((xmlDocPtr) gupnp_xml_doc_get_doc (doc), (xmlChar **) &out, &out_len, "UTF-8");
         /* TODO: Dump file and use that instead */
-        g_free (path);
     }
 
     if (fault == MOCK_DMR_FAULT_PLAY_FAIL || fault == MOCK_DMR_FAULT_STOP_FAIL) {
@@ -462,30 +460,30 @@ mock_dmr_new (MockDMRFault fault)
     }
 
     return g_initable_new (TYPE_MOCK_DMR,
-                         NULL,
-                         NULL,
-                         "resource-factory", gupnp_resource_factory_get_default (),
-                         "context", context,
-                         "description-dir", TEST_DATA_DIR "/mock-dmr",
-                         "description-path", "MediaRenderer2.xml",
-                         "fault", fault,
-                         "state", state,
-                         "description-doc", doc,
-                         NULL);
+                           NULL,
+                           NULL,
+                           "resource-factory",
+                           gupnp_resource_factory_get_default (),
+                           "context",
+                           context,
+                           "description-dir",
+                           TEST_DATA_DIR "/mock-dmr",
+                           "description-path",
+                           "MediaRenderer2.xml",
+                           "fault",
+                           fault,
+                           "state",
+                           state,
+                           "document",
+                           doc,
+                           NULL);
 }
 
 void
 mock_dmr_set_protocol_info (MockDMR *self, const char *source, const char *sink)
 {
-    if (self->priv->sink_protocol_info != NULL) {
-        g_free (self->priv->sink_protocol_info);
-        self->priv->sink_protocol_info = NULL;
-    }
-
-    if (self->priv->source_protocol_info != NULL) {
-        g_free (self->priv->source_protocol_info);
-        self->priv->source_protocol_info = NULL;
-    }
+    g_clear_pointer (&self->priv->sink_protocol_info, g_free);
+    g_clear_pointer (&self->priv->source_protocol_info, g_free);
 
     if (source != NULL) {
         self->priv->source_protocol_info = g_strdup (source);

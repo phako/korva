@@ -112,7 +112,7 @@ static void
 korva_upnp_device_get_icon (KorvaUPnPDevice *self);
 
 static void
-korva_upnp_device_on_icon_ready (SoupMessage *message, gpointer user_data);
+korva_upnp_device_on_icon_ready (GObject *source, GAsyncResult *res, gpointer user_data);
 
 static void
 korva_upnp_device_on_set_av_transport_uri (GObject *proxy, GAsyncResult *res, gpointer user_data);
@@ -599,11 +599,14 @@ korva_upnp_device_introspection_finish (KorvaUPnPDevice *self,
     g_object_unref (self->priv->result);
 }
 
+typedef struct {
+    KorvaUPnPDevice *self;
+    int state;
+} GetIconData;
+
 static void
 korva_upnp_device_get_icon (KorvaUPnPDevice *self)
 {
-    char *uri;
-
     /* icon was already in cache */
     if (self->priv->icon_uri != NULL) {
         korva_upnp_device_introspection_success (self);
@@ -611,94 +614,83 @@ korva_upnp_device_get_icon (KorvaUPnPDevice *self)
         return;
     }
 
-    /* First try with PNG (for transparency) */
-    uri = gupnp_device_info_get_icon_url (self->priv->info,
-                                          "image/png",
-                                          -1,
-                                          64,
-                                          64,
-                                          TRUE,
-                                          NULL,
-                                          NULL,
-                                          NULL,
-                                          NULL);
+    GetIconData *data = g_new0 (GetIconData, 1);
+    data->self = g_object_ref (self);
+    data->state = 0;
 
-    if (uri == NULL) {
-        uri = gupnp_device_info_get_icon_url (self->priv->info,
+    gupnp_device_info_get_icon_async (self->priv->info,
+                                      "image/png",
+                                      -1,
+                                      64,
+                                      64,
+                                      TRUE,
+                                      NULL,
+                                      korva_upnp_device_on_icon_ready,
+                                      data);
+}
+
+static void
+korva_upnp_device_on_icon_ready (GObject *source, GAsyncResult *res, gpointer user_data)
+{
+    GetIconData *data = (GetIconData *) user_data;
+    KorvaUPnPDevice *self = data->self;
+    g_autoptr (GError) error = NULL;
+    g_autoptr (GBytes) icon =
+        gupnp_device_info_get_icon_finish (GUPNP_DEVICE_INFO (source), res, NULL, NULL, NULL, NULL, &error);
+
+    if (icon == NULL) {
+        if (error != NULL) {
+            g_debug ("Failed to download icon: %s", error->message);
+        }
+
+        g_clear_error (&error);
+
+        // We were called with PNG, do a second round with JPEG
+        if (data->state == 0) {
+            data->state = 1;
+            gupnp_device_info_get_icon_async (self->priv->info,
                                               "image/jpeg",
                                               -1,
                                               64,
                                               64,
                                               TRUE,
                                               NULL,
-                                              NULL,
-                                              NULL,
-                                              NULL);
-    }
-
-    if (uri == NULL) {
-        self->priv->icon_uri = korva_icon_cache_get_default (self->priv->device_type);
-        korva_upnp_device_introspection_success (self);
-    } else {
-        SoupMessage *message;
-
-        message = soup_message_new (SOUP_METHOD_GET, uri);
-        g_signal_connect (G_OBJECT (message),
-                          "finished",
-                          G_CALLBACK (korva_upnp_device_on_icon_ready),
-                          self);
-        soup_session_queue_message (self->priv->session,
-                                    message,
-                                    NULL,
-                                    NULL);
-    }
-}
-
-static void
-korva_upnp_device_on_icon_ready (SoupMessage *message, gpointer user_data)
-{
-    KorvaUPnPDevice *self = KORVA_UPNP_DEVICE (user_data);
-    int status_code = 0;
-    char *reason = NULL;
-    GError *error = NULL;
-
-    g_object_get (message,
-                  SOUP_MESSAGE_STATUS_CODE, &status_code,
-                  SOUP_MESSAGE_REASON_PHRASE, &reason,
-                  NULL);
-
-    if (status_code == SOUP_STATUS_FOUND || status_code == SOUP_STATUS_OK) {
-        char *path;
-        GFile *file;
-
-        path = korva_icon_cache_create_path (self->priv->udn);
-        file = g_file_new_for_path (path);
-        g_free (path);
-
-        g_file_replace_contents (file,
-                                 message->response_body->data,
-                                 message->response_body->length,
-                                 NULL,
-                                 FALSE,
-                                 G_FILE_CREATE_NONE,
-                                 NULL,
-                                 NULL,
-                                 &error);
-        if (error == NULL) {
-            self->priv->icon_uri = g_file_get_uri (file);
+                                              korva_upnp_device_on_icon_ready,
+                                              data);
         } else {
-            g_debug ("Could not write icon %s: %s", path, error->message);
-            g_error_free (error);
+            g_object_unref (data->self);
+            g_free (data);
+
+            g_debug ("Could not find any icon, will use default");
+            self->priv->icon_uri = korva_icon_cache_get_default (self->priv->device_type);
+            korva_upnp_device_introspection_success (self);
         }
 
-        g_object_unref (file);
+        return;
+    }
+
+    g_autofree char *path = NULL;
+    g_autoptr (GFile) file;
+
+    path = korva_icon_cache_create_path (self->priv->udn);
+    file = g_file_new_for_path (path);
+
+    gsize size = 0;
+    gconstpointer icon_data = g_bytes_get_data (icon, &size);
+
+    g_file_replace_contents (file, icon_data, size, NULL, FALSE, G_FILE_CREATE_NONE, NULL, NULL, &error);
+    if (error == NULL) {
+        self->priv->icon_uri = g_file_get_uri (file);
     } else {
-        g_debug ("Failed to download icon: %s", reason);
+        g_debug ("Could not write icon %s: %s", path, error->message);
     }
 
     if (self->priv->icon_uri == NULL) {
         self->priv->icon_uri = korva_icon_cache_get_default (self->priv->device_type);
     }
+
+    g_object_unref (data->self);
+    g_free (data);
 
     korva_upnp_device_introspection_finish (self, NULL);
 }
@@ -1134,13 +1126,12 @@ out:
 static void
 korva_upnp_device_update_ip_address (KorvaUPnPDevice *self)
 {
-    SoupURI *location;
+    g_autoptr (GError) error = NULL;
 
     g_free (self->priv->ip_address);
 
-    location = soup_uri_new (gupnp_device_info_get_location (self->priv->info));
-    self->priv->ip_address = g_strdup (soup_uri_get_host (location));
-    soup_uri_free (location);
+    g_autoptr (GUri) uri = g_uri_parse (gupnp_device_info_get_location (self->priv->info), G_URI_FLAGS_NONE, &error);
+    self->priv->ip_address = g_strdup (g_uri_get_host (uri));
 }
 
 static void

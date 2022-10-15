@@ -66,6 +66,39 @@ typedef struct {
     GError              *result_error;
 } HostFileTestData;
 
+typedef struct {
+    GError *error;
+    GMainLoop *loop;
+    GBytes *data;
+} WaitForMessageData;
+
+#define WAIT_FOR_MESSAGE_DATA_INIT(loop) { NULL, (loop), NULL };
+
+static void
+wait_for_message_data_reset (WaitForMessageData *data)
+{
+    g_clear_pointer (&data->data, g_bytes_unref);
+    g_clear_pointer (&data->error, g_error_free);
+}
+
+G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(WaitForMessageData, wait_for_message_data_reset)
+
+static void
+on_message_ready (GObject *source, GAsyncResult *res, gpointer user_data)
+{
+    WaitForMessageData *data = user_data;
+
+    data->data = soup_session_send_and_read_finish (SOUP_SESSION (source), res, &data->error);
+    g_main_loop_quit (data->loop);
+}
+
+static void
+schedule_request_and_wait (SoupSession *session, SoupMessage *message, WaitForMessageData *data)
+{
+    soup_session_send_and_read_async (session, message, G_PRIORITY_DEFAULT, NULL, on_message_ready, data);
+    g_main_loop_run (data->loop);
+}
+
 static void
 test_host_file_setup (HostFileTestData *data, gconstpointer user_data)
 {
@@ -116,8 +149,8 @@ test_upnp_fileserver_host_file_on_host_file (GObject      *source,
 static void
 test_upnp_fileserver_host_file (HostFileTestData *data, gconstpointer user_data)
 {
-    SoupSession *session;
-    SoupMessage *message;
+    g_autoptr (SoupSession) session = NULL;
+    g_autoptr (SoupMessage) message = NULL;
     GHashTable *params;
     GVariant *value;
 
@@ -145,15 +178,15 @@ test_upnp_fileserver_host_file (HostFileTestData *data, gconstpointer user_data)
     value = g_hash_table_lookup (params, "ContentType");
     g_assert (value != NULL);
 
+    g_auto (WaitForMessageData) wfm = WAIT_FOR_MESSAGE_DATA_INIT (data->loop);
+
     /* Test that the file is reachable under the uri */
     session = soup_session_new ();
-    message = g_object_ref (soup_message_new (SOUP_METHOD_HEAD, data->result_uri));
-    soup_session_queue_message (session, message, NULL, NULL);
-    g_signal_connect_swapped (message, "finished", G_CALLBACK (g_main_loop_quit), data->loop);
+    message = soup_message_new (SOUP_METHOD_HEAD, data->result_uri);
+    schedule_request_and_wait (session, message, &wfm);
 
-    g_main_loop_run (data->loop);
-    g_assert_cmpuint (message->status_code, ==, SOUP_STATUS_OK);
-    g_object_unref (message);
+    g_assert_no_error (wfm.error);
+    g_assert_cmpuint (soup_message_get_status(message), ==, SOUP_STATUS_OK);
 
     /* Share it again for different peer and verify we get the same data */
     korva_upnp_file_server_host_file_async (data->server,
@@ -177,8 +210,6 @@ test_upnp_fileserver_host_file (HostFileTestData *data, gconstpointer user_data)
 
     korva_upnp_file_server_unhost_file_for_peer (data->server, data->in_file, "127.0.0.1");
     g_assert (korva_upnp_file_server_idle (data->server));
-
-    g_object_unref (session);
 }
 
 static void
@@ -226,8 +257,8 @@ test_upnp_fileserver_host_file_dont_override_data (HostFileTestData *data, gcons
 static void
 test_upnp_fileserver_host_file_error (HostFileTestData *data, gconstpointer user_data)
 {
-    char *uri;
-    GFile *file;
+    g_autofree char *uri = NULL;
+    g_autoptr (GFile) file = NULL;
 
     file = g_file_new_for_path ("/this/file/does/not/exist");
     uri = g_file_get_uri (file);
@@ -248,16 +279,15 @@ test_upnp_fileserver_host_file_error (HostFileTestData *data, gconstpointer user
     g_assert (data->result_error != NULL);
     g_assert_cmpint (data->result_error->code, ==, KORVA_CONTROLLER1_ERROR_FILE_NOT_FOUND);
     g_assert (data->result_params == NULL);
-
-    g_free (uri);
 }
 
 static void
 test_upnp_file_server_host_file_no_access (HostFileTestData *data, gconstpointer user_data)
 {
     int fd;
-    char *template, *uri;
-    GFile *file;
+    g_autofree char *template = NULL;
+    g_autofree char *uri = NULL;
+    g_autoptr (GFile) file = NULL;
 
     template = g_build_filename (g_get_tmp_dir (), "korva_test_upnp_XXXXXX", NULL);
 
@@ -286,9 +316,6 @@ test_upnp_file_server_host_file_no_access (HostFileTestData *data, gconstpointer
 
     close (fd);
     g_remove (template);
-
-    g_free (uri);
-    g_free (template);
 }
 
 static void
@@ -320,29 +347,41 @@ test_upnp_fileserver_host_file_timeout (HostFileTestData *data, gconstpointer us
     g_assert (korva_upnp_file_server_idle (data->server));
 }
 
+static gpointer
+blocking_request (gpointer user_data)
+{
+    HostFileTestData *data = user_data;
+    g_autoptr (GMainContext) ctx = g_main_context_new ();
+    g_main_context_push_thread_default (ctx);
+    g_autoptr (GError) error = NULL;
+
+    g_autoptr (SoupSession) session = soup_session_new ();
+    g_autoptr (SoupMessage) message = soup_message_new (SOUP_METHOD_GET, data->result_uri);
+    g_autoptr (GMainLoop) loop = g_main_loop_new (ctx, FALSE);
+
+    GInputStream *is = soup_session_send (session, message, NULL, &error);
+    g_debug ("Send has finished, sleeping...");
+    usleep ((KORVA_UPNP_FILE_SERVER_DEFAULT_TIMEOUT + 20) * G_USEC_PER_SEC);
+    g_debug ("Sleeping done, finishing thread");
+    g_assert_no_error (error);
+    g_input_stream_close (is, NULL, NULL);
+
+    g_main_context_pop_thread_default (ctx);
+
+    return NULL;
+}
 
 static void
 test_upnp_fileserver_host_file_timeout2 (HostFileTestData *data, gconstpointer user_data)
 {
-    SoupSession *session;
-    SoupMessage *message;
+    g_autoptr (SoupSession) session = NULL;
+    g_autoptr (SoupMessage) message = NULL;
 
     if (!g_test_slow ()) {
         return;
     }
 
-    session = soup_session_new ();
-    message = soup_message_new (SOUP_METHOD_HEAD, data->result_uri);
-    soup_session_queue_message (session, message, NULL, NULL);
-
-    g_signal_connect_swapped (message, "finished", G_CALLBACK (g_main_loop_quit), data->loop);
-
-    message = soup_message_new (SOUP_METHOD_GET, data->result_uri);
-    soup_session_queue_message (session, message, NULL, NULL);
-    g_signal_connect_swapped (message, "got-headers", G_CALLBACK (soup_session_pause_message), session);
-
-
-    g_main_loop_run (data->loop);
+    g_autoptr (GThread) thread = g_thread_new ("blocking request thread", blocking_request, data);
 
     g_timeout_add_seconds (KORVA_UPNP_FILE_SERVER_DEFAULT_TIMEOUT + 10,
                            quit_main_loop_source_func,
@@ -350,6 +389,8 @@ test_upnp_fileserver_host_file_timeout2 (HostFileTestData *data, gconstpointer u
     g_main_loop_run (data->loop);
 
     g_assert (!korva_upnp_file_server_idle (data->server));
+
+    g_thread_join (thread);
 }
 
 static void
@@ -374,9 +415,12 @@ test_upnp_fileserver_http_server_setup (HostFileTestData *data, gconstpointer us
 static void
 test_upnp_fileserver_http_server (HostFileTestData *data, gconstpointer user_data)
 {
-    SoupSession *session;
-    SoupMessage *message;
-    char *base_uri, *uri, *needle;
+    g_autoptr (SoupSession) session = NULL;
+    g_autoptr (SoupMessage) message = NULL;
+    g_autofree char *base_uri = NULL;
+    g_autofree char *uri = NULL;
+    char *needle = NULL;
+
     const char *empty_md5 = "d41d8cd98f00b204e9800998ecf8427e";
 
     base_uri = g_strdup (data->result_uri);
@@ -387,38 +431,32 @@ test_upnp_fileserver_http_server (HostFileTestData *data, gconstpointer user_dat
 
     /* Check invalid HTTP method */
     message = soup_message_new (SOUP_METHOD_DELETE, data->result_uri);
-    g_object_ref (message);
-    soup_session_queue_message (session, message, NULL, NULL);
-    g_signal_connect_swapped (message, "finished", G_CALLBACK (g_main_loop_quit), data->loop);
+    g_auto (WaitForMessageData) wfm = WAIT_FOR_MESSAGE_DATA_INIT (data->loop);
+    schedule_request_and_wait (session, message, &wfm);
 
-    g_main_loop_run (data->loop);
-
-    g_assert_cmpint (message->status_code, ==, SOUP_STATUS_METHOD_NOT_ALLOWED);
+    g_assert_no_error (wfm.error);
+    g_assert_cmpint (soup_message_get_status(message), ==, SOUP_STATUS_METHOD_NOT_ALLOWED);
     g_object_unref (message);
 
     /* Check URI format with invalid item format */
     uri = g_strconcat (base_uri, "should_not_work", NULL);
     message = soup_message_new (SOUP_METHOD_HEAD, uri);
-    g_object_ref (message);
-    soup_session_queue_message (session, message, NULL, NULL);
-    g_signal_connect_swapped (message, "finished", G_CALLBACK (g_main_loop_quit), data->loop);
+    wait_for_message_data_reset (&wfm);
+    schedule_request_and_wait (session, message, &wfm);
 
-    g_main_loop_run (data->loop);
-
-    g_assert_cmpint (message->status_code, ==, SOUP_STATUS_NOT_FOUND);
+    g_assert_no_error (wfm.error);
+    g_assert_cmpint (soup_message_get_status(message), ==, SOUP_STATUS_NOT_FOUND);
     g_free (uri);
     g_object_unref (message);
 
     /* Check URI format with invalid MD5 */
     uri = g_strconcat (base_uri, empty_md5, NULL);
     message = soup_message_new (SOUP_METHOD_HEAD, uri);
-    g_object_ref (message);
-    soup_session_queue_message (session, message, NULL, NULL);
-    g_signal_connect_swapped (message, "finished", G_CALLBACK (g_main_loop_quit), data->loop);
+    wait_for_message_data_reset (&wfm);
+    schedule_request_and_wait (session, message, &wfm);
 
-    g_main_loop_run (data->loop);
-
-    g_assert_cmpint (message->status_code, ==, SOUP_STATUS_NOT_FOUND);
+    g_assert_no_error (wfm.error);
+    g_assert_cmpint (soup_message_get_status(message), ==, SOUP_STATUS_NOT_FOUND);
     g_free (uri);
     g_object_unref (message);
 
@@ -435,37 +473,22 @@ test_upnp_fileserver_http_server (HostFileTestData *data, gconstpointer user_dat
     g_main_loop_run (data->loop);
     korva_upnp_file_server_unhost_file_for_peer (data->server, data->in_file, "127.0.0.1");
     message = soup_message_new (SOUP_METHOD_HEAD, uri);
-    g_object_ref (message);
-    soup_session_queue_message (session, message, NULL, NULL);
-    g_signal_connect_swapped (message, "finished", G_CALLBACK (g_main_loop_quit), data->loop);
+    wait_for_message_data_reset (&wfm);
+    schedule_request_and_wait (session, message, &wfm);
 
-    g_main_loop_run (data->loop);
-
-    g_assert_cmpint (message->status_code, ==, SOUP_STATUS_NOT_FOUND);
-    g_free (uri);
-    g_object_unref (message);
-
-    g_object_unref (session);
-    g_free (base_uri);
-}
-
-static void
-schedule_request_and_wait (SoupSession *session, SoupMessage *message, HostFileTestData *data)
-{
-    soup_session_queue_message (session, message, NULL, NULL);
-    g_signal_connect_swapped (message, "finished", G_CALLBACK (g_main_loop_quit), data->loop);
-    g_main_loop_run (data->loop);
+    g_assert_no_error (wfm.error);
+    g_assert_cmpint (soup_message_get_status(message), ==, SOUP_STATUS_NOT_FOUND);
 }
 
 static void
 test_upnp_fileserver_http_server_ranges (HostFileTestData *data, gconstpointer user_data)
 {
-    SoupSession *session;
-    SoupMessage *message;
+    g_autoptr (SoupSession) session = NULL;
+    SoupMessage *message = NULL;
     goffset size;
     GVariant *value;
     goffset start = 0, end = 0, total_length = 0, content_length;
-    GMappedFile *file;
+    g_autoptr (GMappedFile) file = NULL;
 
     file = g_mapped_file_new (TEST_DATA_DIR "/test-upnp-image.jpg", FALSE, NULL);
     g_assert (file != NULL);
@@ -476,102 +499,127 @@ test_upnp_fileserver_http_server_ranges (HostFileTestData *data, gconstpointer u
     g_assert (size > 2048);
 
     session = soup_session_new ();
+    g_auto (WaitForMessageData) wfm = WAIT_FOR_MESSAGE_DATA_INIT (data->loop);
 
     /* Check proper range request */
-    message = g_object_ref (soup_message_new (SOUP_METHOD_GET, data->result_uri));
-    soup_message_headers_set_range (message->request_headers, 0, 2047);
-    schedule_request_and_wait (session, message, data);
-    g_assert_cmpint (message->status_code, ==, SOUP_STATUS_PARTIAL_CONTENT);
+    message = soup_message_new (SOUP_METHOD_GET, data->result_uri);
+    SoupMessageHeaders *request_headers = soup_message_get_request_headers (message);
+    SoupMessageHeaders *response_headers = soup_message_get_response_headers (message);
 
-    g_assert (soup_message_headers_get_content_range (message->response_headers, &start, &end, &total_length));
-    content_length = soup_message_headers_get_content_length (message->response_headers);
+    soup_message_headers_set_range (request_headers, 0, 2047);
+    schedule_request_and_wait (session, message, &wfm);
+    g_assert_cmpint (soup_message_get_status(message), ==, SOUP_STATUS_PARTIAL_CONTENT);
+
+    g_assert_no_error (wfm.error);
+    g_assert (soup_message_headers_get_content_range (response_headers, &start, &end, &total_length));
+    content_length = soup_message_headers_get_content_length (response_headers);
     g_assert_cmpint (start, ==, 0);
     g_assert_cmpint (end, ==, 2047);
     g_assert_cmpint (total_length, ==, size);
     g_assert_cmpint (content_length, ==, 2048);
-    g_assert (memcmp (message->response_body->data, g_mapped_file_get_contents (file) + start, content_length) == 0);
+    g_assert (memcmp (g_bytes_get_data(wfm.data, NULL), g_mapped_file_get_contents (file) + start, content_length) == 0);
     g_object_unref (message);
+    wait_for_message_data_reset (&wfm);
 
     /* Request first byte */
-    message = g_object_ref (soup_message_new (SOUP_METHOD_GET, data->result_uri));
-    soup_message_headers_set_range (message->request_headers, 0, 0);
-    schedule_request_and_wait (session, message, data);
-    g_assert_cmpint (message->status_code, ==, SOUP_STATUS_PARTIAL_CONTENT);
+    message = soup_message_new (SOUP_METHOD_GET, data->result_uri);
+    request_headers = soup_message_get_request_headers (message);
+    response_headers = soup_message_get_response_headers (message);
+    soup_message_headers_set_range (request_headers, 0, 0);
+    schedule_request_and_wait (session, message, &wfm);
+    g_assert_no_error (wfm.error);
+    g_assert_cmpint (soup_message_get_status(message), ==, SOUP_STATUS_PARTIAL_CONTENT);
 
-    g_assert (soup_message_headers_get_content_range (message->response_headers, &start, &end, &total_length));
-    content_length = soup_message_headers_get_content_length (message->response_headers);
+    g_assert (soup_message_headers_get_content_range (response_headers, &start, &end, &total_length));
+    content_length = soup_message_headers_get_content_length (response_headers);
     g_assert_cmpint (start, ==, 0);
     g_assert_cmpint (end, ==, 0);
     g_assert_cmpint (total_length, ==, size);
     g_assert_cmpint (content_length, ==, 1);
-    g_assert (memcmp (message->response_body->data, g_mapped_file_get_contents (file) + start, content_length) == 0);
+    g_assert (memcmp (g_bytes_get_data(wfm.data, NULL), g_mapped_file_get_contents (file) + start, content_length) == 0);
     g_object_unref (message);
+    wait_for_message_data_reset (&wfm);
 
     /* Request last 100 bytes */
     message = g_object_ref (soup_message_new (SOUP_METHOD_GET, data->result_uri));
-    soup_message_headers_set_range (message->request_headers, -100, -1);
-    schedule_request_and_wait (session, message, data);
-    g_assert_cmpint (message->status_code, ==, SOUP_STATUS_PARTIAL_CONTENT);
+    request_headers = soup_message_get_request_headers (message);
+    response_headers = soup_message_get_response_headers (message);
+    soup_message_headers_set_range (request_headers, -100, -1);
+    schedule_request_and_wait (session, message, &wfm);
+    g_assert_no_error (wfm.error);
+    g_assert_cmpint (soup_message_get_status(message), ==, SOUP_STATUS_PARTIAL_CONTENT);
 
-    g_assert (soup_message_headers_get_content_range (message->response_headers, &start, &end, &total_length));
-    content_length = soup_message_headers_get_content_length (message->response_headers);
+    g_assert (soup_message_headers_get_content_range (response_headers, &start, &end, &total_length));
+    content_length = soup_message_headers_get_content_length (response_headers);
     g_assert_cmpint (start, ==, size - 100);
     g_assert_cmpint (end, ==, size - 1);
     g_assert_cmpint (total_length, ==, size);
     g_assert_cmpint (content_length, ==, 100);
-    g_assert (memcmp (message->response_body->data, g_mapped_file_get_contents (file) + start, content_length) == 0);
+    g_assert (memcmp (g_bytes_get_data (wfm.data, NULL), g_mapped_file_get_contents (file) + start, content_length) == 0);
     g_object_unref (message);
+    wait_for_message_data_reset (&wfm);
 
     /* Request last 100 bytes by using negative offset */
     message = g_object_ref (soup_message_new (SOUP_METHOD_GET, data->result_uri));
-    soup_message_headers_set_range (message->request_headers, size - 100, -1);
-    schedule_request_and_wait (session, message, data);
-    g_assert_cmpint (message->status_code, ==, SOUP_STATUS_PARTIAL_CONTENT);
+    request_headers = soup_message_get_request_headers (message);
+    response_headers = soup_message_get_response_headers (message);
+    soup_message_headers_set_range (request_headers, size - 100, -1);
+    schedule_request_and_wait (session, message, &wfm);
+    g_assert_no_error (wfm.error);
+    g_assert_cmpint (soup_message_get_status(message), ==, SOUP_STATUS_PARTIAL_CONTENT);
 
-    g_assert (soup_message_headers_get_content_range (message->response_headers, &start, &end, &total_length));
-    content_length = soup_message_headers_get_content_length (message->response_headers);
+    g_assert (soup_message_headers_get_content_range (response_headers, &start, &end, &total_length));
+    content_length = soup_message_headers_get_content_length (response_headers);
     g_assert_cmpint (start, ==, size - 100);
     g_assert_cmpint (end, ==, size - 1);
     g_assert_cmpint (total_length, ==, size);
     g_assert_cmpint (content_length, ==, 100);
-    g_assert (memcmp (message->response_body->data, g_mapped_file_get_contents (file) + start, content_length) == 0);
+    g_assert (memcmp (g_bytes_get_data (wfm.data, NULL), g_mapped_file_get_contents (file) + start, content_length) == 0);
     g_object_unref (message);
+    wait_for_message_data_reset (&wfm);
 
     /* Check range request beyond file end */
     message = g_object_ref (soup_message_new (SOUP_METHOD_HEAD, data->result_uri));
-    soup_message_headers_set_range (message->request_headers, 0, size + 1);
-    schedule_request_and_wait (session, message, data);
-    g_assert_cmpint (message->status_code, ==, SOUP_STATUS_REQUESTED_RANGE_NOT_SATISFIABLE);
+    request_headers = soup_message_get_request_headers (message);
+    soup_message_headers_set_range (request_headers, 0, size + 1);
+    schedule_request_and_wait (session, message, &wfm);
+    g_assert_no_error (wfm.error);
+    g_assert_cmpint (soup_message_get_status(message), ==, SOUP_STATUS_REQUESTED_RANGE_NOT_SATISFIABLE);
     g_object_unref (message);
-
-    g_mapped_file_unref (file);
-    g_object_unref (session);
 }
 
 static void
 test_upnp_fileserver_http_server_content_features (HostFileTestData *data, gconstpointer user_data)
 {
-    SoupSession *session;
+    g_autoptr (SoupSession) session = NULL;
     SoupMessage *message;
+    g_auto (WaitForMessageData) wfm = WAIT_FOR_MESSAGE_DATA_INIT (data->loop);
 
     session = soup_session_new ();
-    message = g_object_ref (soup_message_new (SOUP_METHOD_HEAD, data->result_uri));
-    soup_message_headers_append (message->request_headers, "getContentFeatures.dlna.org", "1");
-    schedule_request_and_wait (session, message, data);
-    g_assert_cmpint (message->status_code, ==, SOUP_STATUS_OK);
-    g_assert_cmpstr (soup_message_headers_get_one (message->response_headers, "contentFeatures.dlna.org"), ==, "*");
+    message = soup_message_new (SOUP_METHOD_HEAD, data->result_uri);
+    SoupMessageHeaders *request_headers = soup_message_get_request_headers (message);
+    SoupMessageHeaders *response_headers = soup_message_get_response_headers (message);
+    soup_message_headers_append (request_headers, "getContentFeatures.dlna.org", "1");
+    schedule_request_and_wait (session, message, &wfm);
+    g_assert_no_error (wfm.error);
+    g_assert_cmpint (soup_message_get_status (message), ==, SOUP_STATUS_OK);
+    g_assert_cmpstr (soup_message_headers_get_one (response_headers, "contentFeatures.dlna.org"), ==, "*");
     g_object_unref (message);
+    wait_for_message_data_reset (&wfm);
 
     g_hash_table_insert (data->in_params, g_strdup ("DLNAProfile"), g_variant_new_string ("JPEG_SM"));
 
-    message = g_object_ref (soup_message_new (SOUP_METHOD_HEAD, data->result_uri));
-    soup_message_headers_append (message->request_headers, "getContentFeatures.dlna.org", "1");
-    schedule_request_and_wait (session, message, data);
-    g_assert_cmpint (message->status_code, ==, SOUP_STATUS_OK);
-    g_assert_cmpstr (soup_message_headers_get_one (message->response_headers, "contentFeatures.dlna.org"), ==,
+    message = soup_message_new (SOUP_METHOD_HEAD, data->result_uri);
+    request_headers = soup_message_get_request_headers (message);
+    response_headers = soup_message_get_response_headers (message);
+    soup_message_headers_append (request_headers, "getContentFeatures.dlna.org", "1");
+    schedule_request_and_wait (session, message, &wfm);
+
+    g_assert_no_error (wfm.error);
+    g_assert_cmpint (soup_message_get_status(message), ==, SOUP_STATUS_OK);
+    g_assert_cmpstr (soup_message_headers_get_one (response_headers, "contentFeatures.dlna.org"), ==,
                      "http-get:*:image/jpeg:DLNA.ORG_PN=JPEG_SM;DLNA.ORG_OP=01");
     g_object_unref (message);
-    g_object_unref (session);
 }
 
 typedef struct {
@@ -698,7 +746,7 @@ test_upnp_device (UPnPDeviceData *data, gconstpointer user_data)
         g_assert (!data->init_result);
         g_assert (data->init_error != NULL);
         g_assert (data->init_error->domain == KORVA_UPNP_DEVICE_ERROR);
-        g_assert_cmpint (data->init_error->code, ==, INVALID_RESPONSE);
+        g_assert_cmpint (data->init_error->code, ==, MISSING_SERVICE);
 
         return;
     }
