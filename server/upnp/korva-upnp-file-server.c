@@ -111,7 +111,7 @@ korva_upnp_file_server_on_finished (SoupServerMessage *msg,
 
     if (data->host_data != NULL) {
         korva_upnp_host_data_remove_request (data->host_data);
-        if (korva_upnp_host_data_has_requests (data->host_data)) {
+        if (!korva_upnp_host_data_has_requests (data->host_data)) {
             korva_upnp_host_data_start_timeout (data->host_data);
         }
     }

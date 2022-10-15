@@ -584,7 +584,7 @@ korva_upnp_host_data_remove_request (KorvaUPnPHostData *self)
 gboolean
 korva_upnp_host_data_has_requests (KorvaUPnPHostData *self)
 {
-    return self->priv->request_count == 0;
+    return self->priv->request_count != 0;
 }
 
 /**
